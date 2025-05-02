@@ -1,0 +1,10 @@
+//
+// Created by rex22 on 2024/11/23.
+//
+
+#ifndef CONFIG_H_IN_H
+#define CONFIG_H_IN_H
+
+#define ASSET_PATH "@ASSET_PATH@"
+
+#endif //CONFIG_H_IN_H

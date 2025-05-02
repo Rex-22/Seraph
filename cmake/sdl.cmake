@@ -1,0 +1,8 @@
+set(SDL_STATIC TRUE)
+set(SDL_SHARED FALSE)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/SDL EXCLUDE_FROM_ALL)
+
+set(SDL3_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/vendor/SDL/include)
+
+set(SDL3_LIBRARIES SDL3::SDL3)
