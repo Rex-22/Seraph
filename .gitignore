@@ -1,0 +1,9 @@
+build*/
+embuild*/
+install/
+imgui.ini
+*.bin
+.vscode/
+
+cmake-build-*
+.idea/
