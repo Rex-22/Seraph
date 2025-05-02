@@ -6,8 +6,8 @@
 
 #include <SDL3/SDL.h>
 
-#include "imgui.h"
 #include "backends/imgui_impl_sdl3.h"
+#include "imgui.h"
 
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 
@@ -42,14 +42,6 @@ static const uint16_t cube_tri_list[] = {
     1, 5, 3, 5, 7, 3, 0, 4, 1, 4, 5, 1, 2, 3, 6, 6, 3, 7,
 };
 
-// static bgfx::ShaderHandle create_shader(
-//     const uint8_t& data, const char* name)
-// {
-//     const bgfx::ShaderHandle handle = bgfx::createEmbeddedShader();
-//     bgfx::setName(handle, name);
-//     return handle;
-// }
-
 struct context_t
 {
     SDL_Window* window = nullptr;
@@ -74,7 +66,7 @@ void main_loop(void* data)
 {
     auto context = static_cast<context_t*>(data);
 
-    SDL_Event current_event; 
+    SDL_Event current_event;
     while (SDL_PollEvent(&current_event)) {
         ImGui_ImplSDL3_ProcessEvent(&current_event);
         if (current_event.type == SDL_EVENT_QUIT) {
@@ -143,9 +135,8 @@ void main_loop(void* data)
 }
 
 const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
-    BGFX_EMBEDDED_SHADER(v_simple),
-    BGFX_EMBEDDED_SHADER(f_simple),
-    BGFX_EMBEDDED_SHADER_END()                                                                                                //
+    BGFX_EMBEDDED_SHADER(v_simple), BGFX_EMBEDDED_SHADER(f_simple),
+    BGFX_EMBEDDED_SHADER_END() //
 }};
 
 int main(int argc, char** argv)
@@ -157,7 +148,8 @@ int main(int argc, char** argv)
 
     const int width = 800;
     const int height = 600;
-    SDL_Window* window = SDL_CreateWindow("TEST WINDOW", width, height, SDL_WINDOW_RESIZABLE);
+    SDL_Window* window =
+        SDL_CreateWindow("TEST WINDOW", width, height, SDL_WINDOW_RESIZABLE);
 
     if (window == nullptr) {
         printf("Window could not be created. SDL_Error: %s\n", SDL_GetError());
@@ -168,21 +160,30 @@ int main(int argc, char** argv)
 
     bgfx::PlatformData pd{};
 #if BX_PLATFORM_WINDOWS
-    void* hwnd = SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
-    if (hwnd) {
-      pd.nwh = hwnd;
-    }
+    pd.nwh = SDL_GetPointerProperty(
+        SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER,
+        NULL);
 #elif BX_PLATFORM_OSX
-    pd.nwh = SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
+    pd.nwh = SDL_GetPointerProperty(
+        SDL_GetWindowProperties(window), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER,
+        NULL);
     pd.ndt = NULL;
 #elif BX_PLATFORM_LINUX
     if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
-        pd.ndt = SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL);
-        pd.nwh = SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_WINDOW_NUMBER, NULL);
+        pd.ndt = SDL_GetPointerProperty(
+            SDL_GetWindowProperties(window),
+            SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL);
+        pd.nwh = SDL_GetPointerProperty(
+            SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_WINDOW_NUMBER,
+            NULL);
     } else if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0) {
-        pd.ndt = SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL);
-        pd.nwh = SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL);
-    }   
+        pd.ndt = SDL_GetPointerProperty(
+            SDL_GetWindowProperties(window),
+            SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL);
+        pd.nwh = SDL_GetPointerProperty(
+            SDL_GetWindowProperties(window),
+            SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL);
+    }
 #elif BX_PLATFORM_EMSCRIPTEN
     pd.nwh = (void*)"#canvas";
 #endif // BX_PLATFORM_WINDOWS ? BX_PLATFORM_OSX ? BX_PLATFORM_LINUX ?
@@ -200,17 +201,15 @@ int main(int argc, char** argv)
         0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x6495EDFF, 1.0f, 0);
     bgfx::setViewRect(0, 0, 0, width, height);
 
+    IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui_Implbgfx_Init(255);
-#if BX_PLATFORM_WINDOWS
-    ImGui_ImplSDL3_InitForD3D(window);
-#elif BX_PLATFORM_OSX
-    ImGui_ImplSDL3_InitForMetal(window);
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_EMSCRIPTEN
-    ImGui_ImplSDL3_InitForOpenGL(window, nullptr);
-#endif // BX_PLATFORM_WINDOWS ? BX_PLATFORM_OSX ? BX_PLATFORM_LINUX ?
-       // BX_PLATFORM_EMSCRIPTEN
+    ImGui_ImplSDL3_InitForVulkan(window);
 
     bgfx::VertexLayout pos_col_vert_layout;
     pos_col_vert_layout.begin()
@@ -224,8 +223,10 @@ int main(int argc, char** argv)
         bgfx::makeRef(cube_tri_list, sizeof(cube_tri_list)));
 
     bgfx::RendererType::Enum type = bgfx::getRendererType();
-    auto vs = bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "v_simple");
-    auto fs = bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "f_simple");
+    auto vs =
+        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "v_simple");
+    auto fs =
+        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "f_simple");
 
     bgfx::ProgramHandle program = bgfx::createProgram(vs, fs, true);
     bgfx::setName(vs, "simple_vs");
