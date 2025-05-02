@@ -7,7 +7,7 @@ target_include_directories(${PROJECT} PUBLIC
         ${BGFX_INCLUDE_DIR}
         ${BX_INCLUDE_DIR}
         ${BIMG_INCLUDE_DIR}
-        ${CMAKE_BINARY_DIR}/include/generated/shaders
+        ${CMAKE_BINARY_DIR}/include
 )
 
 target_link_libraries(${PROJECT}
@@ -16,5 +16,3 @@ target_link_libraries(${PROJECT}
         ${BGFX_LIBRARIES}
         bgfx-shader
 )
-
-target_sources(${PROJECT} PRIVATE ${SERAPH_SHADERS})
