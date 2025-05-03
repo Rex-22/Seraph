@@ -22,48 +22,67 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
+#include "bx/timer.h"
 
 namespace Core
 {
 
-struct PosColorVertex
+struct PosNormalTangentTexcoordVertex
 {
-    float x;
-    float y;
-    float z;
-    uint32_t abgr;
-    int16_t u;
-    int16_t v;
+    float m_x;
+    float m_y;
+    float m_z;
+    uint32_t m_normal;
+    uint32_t m_tangent;
+    int16_t m_u;
+    int16_t m_v;
+
+    static void init()
+    {
+        ms_layout.begin()
+            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+            .add(bgfx::Attrib::Normal, 4, bgfx::AttribType::Uint8, true, true)
+            .add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Uint8, true, true)
+            .add(
+                bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Int16, true, true)
+            .end();
+    }
+
+    static bgfx::VertexLayout ms_layout;
+};
+bgfx::VertexLayout PosNormalTangentTexcoordVertex::ms_layout;
+
+static PosNormalTangentTexcoordVertex s_cubeVertices[24] = {
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0, 0},
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff, 0},
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0, 0x7fff},
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff, 0x7fff},
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0, 0},
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff, 0},
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0, 0x7fff},
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
+     0x7fff},
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0, 0},
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff, 0},
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0, 0x7fff},
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff, 0x7fff},
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0, 0},
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff, 0},
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0, 0x7fff},
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
+     0x7fff},
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0, 0},
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff, 0},
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0, 0x7fff},
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x7fff},
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0, 0},
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff, 0},
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0, 0x7fff},
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x7fff},
 };
 
-static PosColorVertex cube_vertices[] = {
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0},
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0x7fff, 0},
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff},
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0x7fff, 0x7fff},
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0},
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0x7fff, 0},
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff},
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0x7fff, 0x7fff},
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0},
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0x7fff, 0},
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff},
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0x7fff, 0x7fff},
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0},
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0x7fff, 0},
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff},
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0x7fff, 0x7fff},
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0},
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0x7fff, 0},
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff},
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0x7fff, 0x7fff},
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0},
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0x7fff, 0},
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff},
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0x7fff, 0x7fff},
-};
-
-static const uint16_t cube_tri_list[] = {
+static const uint16_t s_cubeIndices[36] = {
     0,  2,  1,  1,  2,  3,  4,  5,  6,  5,  7,  6,
 
     8,  10, 9,  9,  10, 11, 12, 13, 14, 13, 15, 14,
@@ -105,9 +124,11 @@ const Application* Application::GetInstance()
 void Application::Cleanup() const
 {
     delete m_Mesh;
-    bgfx::destroy(m_TextureUniform);
+    bgfx::destroy(m_TextureColorUniform);
     bgfx::destroy(m_TextureRgba);
-    bgfx::destroy(m_Program);
+    bgfx::destroy(m_TextureNormal);
+    bgfx::destroy(u_LightPosRadius);
+    bgfx::destroy(u_LightRgbInnerR);
 
     Graphics::Renderer::Cleanup();
     CleanupCore();
@@ -126,17 +147,18 @@ void Application::Run()
     Graphics::Renderer::Init();
     InitCore();
 
-    bgfx::VertexLayout pos_col_vert_layout;
-    pos_col_vert_layout.begin()
-        .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-        .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true, true)
-        .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Int16, true, true)
-        .end();
+    PosNormalTangentTexcoordVertex::init();
+
+    CalcTangents(
+        s_cubeVertices, BX_COUNTOF(s_cubeVertices),
+        PosNormalTangentTexcoordVertex::ms_layout, s_cubeIndices,
+        BX_COUNTOF(s_cubeIndices));
 
     m_Mesh = new Graphics::Mesh();
     m_Mesh->SetVertexData(
-        cube_vertices, sizeof(cube_vertices), pos_col_vert_layout);
-    m_Mesh->SetIndexData(cube_tri_list, sizeof(cube_tri_list));
+        s_cubeVertices, sizeof(s_cubeVertices),
+        PosNormalTangentTexcoordVertex::ms_layout);
+    m_Mesh->SetIndexData(s_cubeIndices, sizeof(s_cubeIndices));
 
     const bgfx::RendererType::Enum type = bgfx::getRendererType();
     const auto vs =
@@ -144,15 +166,23 @@ void Application::Run()
     const auto fs =
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
 
-    m_TextureUniform =
+    m_TextureColorUniform =
         bgfx::createUniform("s_texColor", bgfx::UniformType::Sampler);
+    m_TextureNormalUniform =
+        bgfx::createUniform("s_texNormal", bgfx::UniformType::Sampler);
 
     m_Program = bgfx::createProgram(vs, fs, true);
     bgfx::setName(vs, "simple_vs");
     bgfx::setName(fs, "simple_fs");
 
-    m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga");
+    u_LightPosRadius =
+        bgfx::createUniform("u_lightPosRadius", bgfx::UniformType::Vec4, 4);
+    u_LightRgbInnerR =
+        bgfx::createUniform("u_lightRgbInnerR", bgfx::UniformType::Vec4, 4);
 
+    m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga");
+    m_TextureNormal = LoadTexture("textures/fieldstone-n.tga");
+    m_TimeOffset = bx::getHPCounter();
     m_Running = true;
 
     while (m_Running) {
@@ -175,6 +205,7 @@ void Application::ImGuiEnd()
 
 void Application::Loop()
 {
+    uint32_t numLights = 4;
     SDL_Event current_event;
     while (SDL_PollEvent(&current_event)) {
         ImGui_ImplSDL3_ProcessEvent(&current_event);
@@ -204,7 +235,6 @@ void Application::Loop()
     ImGuiEnd();
 
     if (!ImGui::GetIO().WantCaptureMouse) {
-        // simple input code for orbit camera
         float mouse_x, mouse_y;
         if (const uint32_t buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
             (buttons & SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) != 0) {
@@ -216,12 +246,15 @@ void Application::Loop()
         m_PrevMouseX = mouse_x;
         m_PrevMouseY = mouse_y;
     }
+    bgfx::touch(0);
+    float time = (float)((bx::getHPCounter() - m_TimeOffset) /
+                         double(bx::getHPFrequency()));
 
     float cam_rotation[16];
     bx::mtxRotateXYZ(cam_rotation, m_CamPitch, m_CamYaw, 0.0f);
 
     float cam_translation[16];
-    bx::mtxTranslate(cam_translation, 0.0f, 0.0f, -5.0f);
+    bx::mtxTranslate(cam_translation, 0.0f, 0.0f, -10.0f);
 
     float cam_transform[16];
     bx::mtxMul(cam_transform, cam_translation, cam_rotation);
@@ -237,21 +270,66 @@ void Application::Loop()
         0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
 
     bgfx::setViewTransform(0, view, proj);
+    bgfx::setViewRect(0, 0, 0, m_Window->Width(), m_Window->Height());
+    float lightPosRadius[4][4];
+    for (uint32_t ii = 0; ii < numLights; ++ii) {
+        lightPosRadius[ii][0] =
+            bx::sin((time * (0.1f + ii * 0.17f) + ii * bx::kPiHalf * 1.37f)) *
+            3.0f;
+        lightPosRadius[ii][1] =
+            bx::cos((time * (0.2f + ii * 0.29f) + ii * bx::kPiHalf * 1.49f)) *
+            3.0f;
+        lightPosRadius[ii][2] = -2.5f;
+        lightPosRadius[ii][3] = 3.0f;
+    }
 
-    float model[16];
-    bx::mtxIdentity(model);
-    bgfx::setTransform(model);
+    bgfx::setUniform(u_LightPosRadius, lightPosRadius, numLights);
 
-    bgfx::setVertexBuffer(0, m_Mesh->VertexBuffer());
-    bgfx::setIndexBuffer(m_Mesh->IndexBuffer());
+    float lightRgbInnerR[4][4] = {
+        {1.0f, 0.7f, 0.2f, 0.8f},
+        {0.7f, 0.2f, 1.0f, 0.8f},
+        {0.2f, 1.0f, 0.7f, 0.8f},
+        {1.0f, 0.4f, 0.2f, 0.8f},
+    };
 
-    bgfx::setTexture(0, m_TextureUniform, m_TextureRgba);
+    bgfx::setUniform(u_LightRgbInnerR, lightRgbInnerR, numLights);
 
-    bgfx::setState(
-        0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
-        BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA);
+    const uint16_t instanceStride = 64;
+    uint32_t totalCubes = 10 * 10;
 
-    bgfx::submit(0, m_Program);
+    uint32_t drawnCubes =
+        bgfx::getAvailInstanceDataBuffer(totalCubes, instanceStride);
+
+    bgfx::InstanceDataBuffer idb{};
+    bgfx::allocInstanceDataBuffer(&idb, totalCubes, instanceStride);
+
+    uint8_t* data = idb.data;
+
+    for (uint32_t ii = 0; ii < drawnCubes; ++ii) {
+        uint32_t yy = ii / 10;
+        uint32_t xx = ii % 10;
+
+        float* mtx = (float*)data;
+        bx::mtxRotateXY(
+            mtx, time * 0.023f + xx * 0.21f, time * 0.03f + yy * 0.37f);
+        mtx[12] = -3.0f + float(xx) * 3.0f;
+        mtx[13] = -3.0f + float(yy) * 3.0f;
+        mtx[14] = 0.0f;
+        data += instanceStride;
+
+        bgfx::setInstanceDataBuffer(&idb);
+
+        bgfx::setVertexBuffer(0, m_Mesh->VertexBuffer());
+        bgfx::setIndexBuffer(m_Mesh->IndexBuffer());
+
+        bgfx::setTexture(0, m_TextureColorUniform, m_TextureRgba);
+        bgfx::setTexture(1, m_TextureNormalUniform, m_TextureNormal);
+        bgfx::setState(
+            0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
+            BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA);
+
+        bgfx::submit(0, m_Program);
+    }
 
     bgfx::frame();
 }

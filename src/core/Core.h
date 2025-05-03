@@ -31,5 +31,8 @@ bgfx::TextureHandle LoadTexture(
     bgfx::TextureInfo* _info = nullptr,
     bimg::Orientation::Enum* _orientation = nullptr);
 
+void CalcTangents(void* _vertices, uint16_t _numVertices, bgfx::VertexLayout _layout, const uint16_t* _indices, uint32_t _numIndices);
+
+
 void InitCore();
 void CleanupCore();
