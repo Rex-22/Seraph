@@ -26,8 +26,8 @@ public:
 private:
     bgfx::VertexLayout m_Layout;
 
-    bgfx::VertexBufferHandle m_VertexBuffer;
-    bgfx::IndexBufferHandle m_IndexBuffer;
+    bgfx::VertexBufferHandle m_VertexBuffer { bgfx::kInvalidHandle };
+    bgfx::IndexBufferHandle m_IndexBuffer { bgfx::kInvalidHandle };
 };
 
 } // namespace Graphics
