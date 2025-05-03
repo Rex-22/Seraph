@@ -28,3 +28,4 @@ configure_file(src/config.h.in src/config.h)
 
 # projects
 add_subdirectory(src)
+add_dependencies(${PROJECT} Shaders)
