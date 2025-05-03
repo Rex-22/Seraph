@@ -25,6 +25,11 @@ bgfx_compile_shaders(
 )
 
 add_custom_target(
+        Shaders ALL
+        DEPENDS ${FRAGMENT_FILES} ${VERTEX_FILES}
+)
+
+add_custom_target(
         ${PROJECT} ALL
         DEPENDS ${FRAGMENT_FILES} ${VERTEX_FILES}
 )
