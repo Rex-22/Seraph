@@ -50,7 +50,7 @@ private:
     Graphics::Mesh* m_Mesh = nullptr;
     bgfx::ProgramHandle m_Program{};
     bgfx::UniformHandle m_TextureUniform{};
-    bgfx::TextureHandle m_TextureHandle{};
+    bgfx::TextureHandle m_TextureRgba{};
 
     float m_PrevMouseX = 0;
     float m_PrevMouseY = 0;
