@@ -13,7 +13,7 @@ namespace Platform
 Window::Window(const WindowProperties& window_properties) : m_Handle(nullptr)
 {
     m_Handle = SDL_CreateWindow(
-        "TEST WINDOW", window_properties.Width, window_properties.Height,
+        window_properties.Title, window_properties.Width, window_properties.Height,
         SDL_WINDOW_RESIZABLE);
 
     if (m_Handle == nullptr) {
