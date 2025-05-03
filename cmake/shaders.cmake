@@ -1,1 +1,1 @@
-add_subdirectory(${CMAKE_SOURCE_DIR}/shader)
+add_subdirectory(${CMAKE_SOURCE_DIR}/shader EXCLUDE_FROM_ALL)
