@@ -106,7 +106,7 @@ void Application::Cleanup() const
 {
     delete m_Mesh;
     bgfx::destroy(m_TextureUniform);
-    bgfx::destroy(m_TextureHandle);
+    bgfx::destroy(m_TextureRgba);
     bgfx::destroy(m_Program);
 
     Graphics::Renderer::Cleanup();
@@ -151,7 +151,7 @@ void Application::Run()
     bgfx::setName(vs, "simple_vs");
     bgfx::setName(fs, "simple_fs");
 
-    m_TextureHandle = LoadTexture("textures/fieldstone-rgba.tga");
+    m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga");
 
     m_Running = true;
 
@@ -233,7 +233,7 @@ void Application::Loop()
     bgfx::setVertexBuffer(0, m_Mesh->VertexBuffer());
     bgfx::setIndexBuffer(m_Mesh->IndexBuffer());
 
-    bgfx::setTexture(0, m_TextureUniform,  m_TextureHandle);
+    bgfx::setTexture(0, m_TextureUniform,  m_TextureRgba);
 
     bgfx::setState(0
         | BGFX_STATE_WRITE_RGB
