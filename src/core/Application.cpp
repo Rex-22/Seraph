@@ -4,6 +4,7 @@
 
 #include "Application.h"
 
+#include "Core.h"
 #include "Log.h"
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "graphics/Mesh.h"
@@ -17,9 +18,9 @@
 #include <cstdint> // Shaders below need uint8_t
 #include <imgui_impl_sdl3.h>
 
-#define SHADER_NAME v_simple
+#define SHADER_NAME vs_simple
 #include "ShaderIncluder.h"
-#define SHADER_NAME f_simple
+#define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
 
 namespace Core
@@ -31,22 +32,47 @@ struct PosColorVertex
     float y;
     float z;
     uint32_t abgr;
+    int16_t u;
+    int16_t v;
 };
 
 static PosColorVertex cube_vertices[] = {
-    {-1.0f, 1.0f, 1.0f, 0xff000000},   {1.0f, 1.0f, 1.0f, 0xff0000ff},
-    {-1.0f, -1.0f, 1.0f, 0xff00ff00},  {1.0f, -1.0f, 1.0f, 0xff00ffff},
-    {-1.0f, 1.0f, -1.0f, 0xffff0000},  {1.0f, 1.0f, -1.0f, 0xffff00ff},
-    {-1.0f, -1.0f, -1.0f, 0xffffff00}, {1.0f, -1.0f, -1.0f, 0xffffffff},
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0},
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0x7fff, 0},
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff},
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0x7fff, 0x7fff},
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0},
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0x7fff, 0},
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff},
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0x7fff, 0x7fff},
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0},
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0x7fff, 0},
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff},
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0x7fff, 0x7fff},
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0},
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0x7fff, 0},
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff},
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0x7fff, 0x7fff},
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0},
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0x7fff, 0},
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff},
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0x7fff, 0x7fff},
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0},
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0x7fff, 0},
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff},
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0x7fff, 0x7fff},
 };
 
 static const uint16_t cube_tri_list[] = {
-    0, 1, 2, 1, 3, 2, 4, 6, 5, 5, 6, 7, 0, 2, 4, 4, 2, 6,
-    1, 5, 3, 5, 7, 3, 0, 4, 1, 4, 5, 1, 2, 3, 6, 6, 3, 7,
+    0,  2,  1,  1,  2,  3,  4,  5,  6,  5,  7,  6,
+
+    8,  10, 9,  9,  10, 11, 12, 13, 14, 13, 15, 14,
+
+    16, 18, 17, 17, 18, 19, 20, 21, 22, 21, 23, 22,
 };
 
 const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
-    BGFX_EMBEDDED_SHADER(v_simple), BGFX_EMBEDDED_SHADER(f_simple),
+    BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
     BGFX_EMBEDDED_SHADER_END() //
 }};
 
@@ -68,7 +94,7 @@ Application::Application()
 
 const Application* Application::GetInstance()
 {
-    std::lock_guard<std::mutex> lock(Application::s_Mutex);
+    std::lock_guard lock(s_Mutex);
     if (!s_Instance) {
         CORE_ERROR("Application not initialized!");
         exit(1);
@@ -79,9 +105,12 @@ const Application* Application::GetInstance()
 void Application::Cleanup() const
 {
     delete m_Mesh;
+    bgfx::destroy(m_TextureUniform);
+    bgfx::destroy(m_TextureHandle);
     bgfx::destroy(m_Program);
 
     Graphics::Renderer::Cleanup();
+    CleanupCore();
 
     delete m_Window;
     SDL_Quit();
@@ -95,11 +124,13 @@ const Platform::Window& Application::Window() const
 void Application::Run()
 {
     Graphics::Renderer::Init();
+    InitCore();
 
     bgfx::VertexLayout pos_col_vert_layout;
     pos_col_vert_layout.begin()
         .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-        .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+        .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true, true)
+        .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Int16, true, true)
         .end();
 
     m_Mesh = new Graphics::Mesh();
@@ -109,13 +140,18 @@ void Application::Run()
 
     const bgfx::RendererType::Enum type = bgfx::getRendererType();
     const auto vs =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "v_simple");
+        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_simple");
     const auto fs =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "f_simple");
+        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
+
+    m_TextureUniform =
+        bgfx::createUniform("s_texColor", bgfx::UniformType::Sampler);
 
     m_Program = bgfx::createProgram(vs, fs, true);
     bgfx::setName(vs, "simple_vs");
     bgfx::setName(fs, "simple_fs");
+
+    m_TextureHandle = LoadTexture("textures/fieldstone-rgba.tga");
 
     m_Running = true;
 
@@ -196,6 +232,16 @@ void Application::Loop()
 
     bgfx::setVertexBuffer(0, m_Mesh->VertexBuffer());
     bgfx::setIndexBuffer(m_Mesh->IndexBuffer());
+
+    bgfx::setTexture(0, m_TextureUniform,  m_TextureHandle);
+
+    bgfx::setState(0
+        | BGFX_STATE_WRITE_RGB
+        | BGFX_STATE_WRITE_A
+        | BGFX_STATE_WRITE_Z
+        | BGFX_STATE_DEPTH_TEST_LESS
+        | BGFX_STATE_MSAA
+        );
 
     bgfx::submit(0, m_Program);
 

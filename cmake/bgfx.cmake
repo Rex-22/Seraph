@@ -10,4 +10,4 @@ set(BGFX_INCLUDE_DIR ${BGFX_DIR}/include)
 set(BX_INCLUDE_DIR ${BX_DIR}/include)
 set(BIMG_INCLUDE_DIR ${BIMG_DIR}/include)
 
-set(BGFX_LIBRARIES bgfx bx)
+set(BGFX_LIBRARIES bgfx bx bimg bimg_decode bimg_encode)

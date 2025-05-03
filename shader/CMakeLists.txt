@@ -2,8 +2,8 @@ if(NOT DEFINED SHADER_DIR)
     set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 
-file(GLOB VERTEX_SHADERS "${SHADER_DIR}/v_*.sc")
-file(GLOB FRAGMENT_SHADERS "${SHADER_DIR}/f_*.sc")
+file(GLOB VERTEX_SHADERS "${SHADER_DIR}/vs_*.sc")
+file(GLOB FRAGMENT_SHADERS "${SHADER_DIR}/fs_*.sc")
 file(GLOB SERAPH_VARYING_DEF_FILE "${SHADER_DIR}/varying.def.sc")
 
 bgfx_compile_shaders(
