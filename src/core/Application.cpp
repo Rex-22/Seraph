@@ -4,9 +4,10 @@
 
 #include "Application.h"
 
-#include "graphics/Renderer.h"
 #include "Log.h"
 #include "bgfx-imgui/imgui_impl_bgfx.h"
+#include "graphics/Mesh.h"
+#include "graphics/Renderer.h"
 #include "platform/Window.h"
 
 #include <SDL3/SDL_init.h>
@@ -75,10 +76,9 @@ const Application* Application::GetInstance()
 
     return s_Instance;
 }
-void Application::Cleanup()
+void Application::Cleanup() const
 {
-    bgfx::destroy(m_VBH);
-    bgfx::destroy(m_IBH);
+    delete m_Mesh;
     bgfx::destroy(m_Program);
 
     Graphics::Renderer::Cleanup();
@@ -101,16 +101,17 @@ void Application::Run()
         .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
         .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
         .end();
-    m_VBH = bgfx::createVertexBuffer(
-        bgfx::makeRef(cube_vertices, sizeof(cube_vertices)),
-        pos_col_vert_layout);
-    m_IBH = bgfx::createIndexBuffer(
-        bgfx::makeRef(cube_tri_list, sizeof(cube_tri_list)));
 
-    bgfx::RendererType::Enum type = bgfx::getRendererType();
-    auto vs =
+    m_Mesh = new Graphics::Mesh();
+    m_Mesh
+        ->SetVertexData(
+            cube_vertices, sizeof(cube_vertices), pos_col_vert_layout)
+        .SetIndexData(cube_tri_list, sizeof(cube_tri_list));
+
+    const bgfx::RendererType::Enum type = bgfx::getRendererType();
+    const auto vs =
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "v_simple");
-    auto fs =
+    const auto fs =
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "f_simple");
 
     m_Program = bgfx::createProgram(vs, fs, true);
@@ -122,6 +123,18 @@ void Application::Run()
     while (m_Running) {
         Loop();
     }
+}
+void Application::ImGuiBegin()
+{
+    ImGui_Implbgfx_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+
+    ImGui::NewFrame();
+}
+void Application::ImGuiEnd()
+{
+    ImGui::Render();
+    ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());
 }
 
 void Application::Loop()
@@ -135,13 +148,12 @@ void Application::Loop()
         }
     }
 
-    ImGui_Implbgfx_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
+    ImGuiBegin();
 
-    ImGui::NewFrame();
-    ImGui::ShowDemoWindow(); // your drawing here
-    ImGui::Render();
-    ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());
+    ImGui::Begin("Debug");
+    ImGui::End();
+
+    ImGuiEnd();
 
     if (!ImGui::GetIO().WantCaptureMouse) {
         // simple input code for orbit camera
@@ -182,8 +194,8 @@ void Application::Loop()
     bx::mtxIdentity(model);
     bgfx::setTransform(model);
 
-    bgfx::setVertexBuffer(0, m_VBH);
-    bgfx::setIndexBuffer(m_IBH);
+    bgfx::setVertexBuffer(0, m_Mesh->VertexBuffer());
+    bgfx::setIndexBuffer(m_Mesh->IndexBuffer());
 
     bgfx::submit(0, m_Program);
 

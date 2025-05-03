@@ -7,6 +7,11 @@
 #include <bgfx/bgfx.h>
 #include <mutex>
 
+namespace Graphics
+{
+class Mesh;
+}
+
 namespace Platform
 {
 class Window;
@@ -25,12 +30,14 @@ public:
 
 public:
     static const Application* GetInstance();
-    void Cleanup();
+    void Cleanup() const;
 
     [[nodiscard]] const Platform::Window& Window() const;
     void Run();
 
 private:
+    void ImGuiBegin();
+    void ImGuiEnd();
     void Loop();
 
 private:
@@ -40,9 +47,8 @@ private:
 
     Platform::Window* m_Window{};
 
-    bgfx::VertexBufferHandle m_VBH;
-    bgfx::IndexBufferHandle m_IBH;
-    bgfx::ProgramHandle m_Program;
+    Graphics::Mesh* m_Mesh = nullptr;
+    bgfx::ProgramHandle m_Program{};
 
     int m_PrevMouseX = 0;
     int m_PrevMouseY = 0;
