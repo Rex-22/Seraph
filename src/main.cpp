@@ -19,6 +19,7 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME f_simple
 #include "ShaderIncluder.h"
+#include "bx/string.h"
 
 #include <array>
 
@@ -139,10 +140,10 @@ const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER_END() //
 }};
 
-int main(int argc, char** argv)
+int main()
 {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
-        printf("SDL could not initialize. SDL_Error: %s\n", SDL_GetError());
+        bx::printf("SDL could not initialize. SDL_Error: %s\n", SDL_GetError());
         return 1;
     }
 
@@ -152,7 +153,7 @@ int main(int argc, char** argv)
         SDL_CreateWindow("TEST WINDOW", width, height, SDL_WINDOW_RESIZABLE);
 
     if (window == nullptr) {
-        printf("Window could not be created. SDL_Error: %s\n", SDL_GetError());
+        bx::printf("Window could not be created. SDL_Error: %s\n", SDL_GetError());
         return 1;
     }
 
