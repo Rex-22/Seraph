@@ -37,17 +37,17 @@ void Renderer::Init()
 #elif BX_PLATFORM_LINUX
     if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
         pd.ndt = SDL_GetPointerProperty(
-            SDL_GetWindowProperties(window),
+            SDL_GetWindowProperties(window.Handle()),
             SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
-        pd.nwh = SDL_GetPointerProperty(
-            SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_WINDOW_NUMBER,
-            nullptr);
+        pd.nwh = reinterpret_cast<void*>(SDL_GetNumberProperty(
+            SDL_GetWindowProperties(window.Handle()),
+            SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0));
     } else if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0) {
         pd.ndt = SDL_GetPointerProperty(
-            SDL_GetWindowProperties(window),
+            SDL_GetWindowProperties(window.Handle()),
             SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
         pd.nwh = SDL_GetPointerProperty(
-            SDL_GetWindowProperties(window),
+            SDL_GetWindowProperties(window.Handle()),
             SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
     }
 #endif
