@@ -4,9 +4,9 @@
 
 #include "Renderer.h"
 
+#include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "core/Application.h"
 #include "platform/Window.h"
-#include "bgfx-imgui/imgui_impl_bgfx.h"
 
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
@@ -71,8 +71,8 @@ void Renderer::Cleanup()
 {
     ImGui_ImplSDL3_Shutdown();
     ImGui_Implbgfx_Shutdown();
-    ImGui::DestroyContext();
 
+    ImGui::DestroyContext();
     bgfx::shutdown();
 }
 
@@ -88,7 +88,15 @@ void Renderer::SetupImGui()
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui_Implbgfx_Init(255);
-    ImGui_ImplSDL3_InitForVulkan(window.Handle());
+
+#if BX_PLATFORM_WINDOWS
+    ImGui_ImplSDL3_InitForD3D(window.Handle());
+#elif BX_PLATFORM_OSX
+    ImGui_ImplSDL3_InitForMetal(window.Handle());
+#elif BX_PLATFORM_LINUX || BX_PLATFORM_EMSCRIPTEN
+    ImGui_ImplSDL3_InitForOpenGL(window.Handle(), nullptr);
+#endif // BX_PLATFORM_WINDOWS ? BX_PLATFORM_OSX ? BX_PLATFORM_LINUX ?
+    // BX_PLATFORM_EMSCRIPTEN
 }
 
 } // namespace Graphics

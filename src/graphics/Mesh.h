@@ -15,19 +15,19 @@ public:
     ~Mesh();
 
 public:
-    Mesh& SetVertexData(
+    void SetVertexData(
         const void* data, uint32_t size, const bgfx::VertexLayout& layout);
-    Mesh& SetIndexData(const uint16_t* indices, uint32_t size);
+    void SetIndexData(const uint16_t* indices, uint32_t size);
 
     bgfx::VertexLayout Layout() const { return m_Layout; };
     bgfx::VertexBufferHandle VertexBuffer() const { return m_VertexBuffer; };
-    bgfx::IndexBufferHandle IndexBuffer() const { return m_IndexBufferHandle; };
+    bgfx::IndexBufferHandle IndexBuffer() const { return m_IndexBuffer; };
 
 private:
     bgfx::VertexLayout m_Layout;
 
     bgfx::VertexBufferHandle m_VertexBuffer;
-    bgfx::IndexBufferHandle m_IndexBufferHandle;
+    bgfx::IndexBufferHandle m_IndexBuffer;
 };
 
 } // namespace Graphics
