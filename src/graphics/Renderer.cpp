@@ -12,6 +12,7 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 #include <bx/platform.h>
+#include <bx/bx.h>
 #include <imgui_impl_sdl3.h>
 
 namespace Graphics

@@ -49,6 +49,8 @@ private:
 
     Graphics::Mesh* m_Mesh = nullptr;
     bgfx::ProgramHandle m_Program{};
+    bgfx::UniformHandle m_TextureUniform{};
+    bgfx::TextureHandle m_TextureHandle{};
 
     int m_PrevMouseX = 0;
     int m_PrevMouseY = 0;
