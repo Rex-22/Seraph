@@ -103,10 +103,9 @@ void Application::Run()
         .end();
 
     m_Mesh = new Graphics::Mesh();
-    m_Mesh
-        ->SetVertexData(
-            cube_vertices, sizeof(cube_vertices), pos_col_vert_layout)
-        .SetIndexData(cube_tri_list, sizeof(cube_tri_list));
+    m_Mesh->SetVertexData(
+        cube_vertices, sizeof(cube_vertices), pos_col_vert_layout);
+    m_Mesh->SetIndexData(cube_tri_list, sizeof(cube_tri_list));
 
     const bgfx::RendererType::Enum type = bgfx::getRendererType();
     const auto vs =
@@ -123,6 +122,7 @@ void Application::Run()
     while (m_Running) {
         Loop();
     }
+    Cleanup();
 }
 void Application::ImGuiBegin()
 {
