@@ -14,5 +14,4 @@ target_link_libraries(${PROJECT}
         ${SDL3_LIBRARIES}
         ${IMGUI_LIBRARIES}
         ${BGFX_LIBRARIES}
-        bgfx-shader
 )
