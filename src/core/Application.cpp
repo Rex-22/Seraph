@@ -178,9 +178,21 @@ void Application::Loop()
     SDL_Event current_event;
     while (SDL_PollEvent(&current_event)) {
         ImGui_ImplSDL3_ProcessEvent(&current_event);
-        if (current_event.type == SDL_EVENT_QUIT) {
-            m_Running = false;
-            break;
+        switch (current_event.type) {
+            case SDL_EVENT_QUIT: {
+                m_Running = false;
+                break;
+            }
+            case SDL_EVENT_WINDOW_RESIZED: {
+                bgfx::reset(
+                    current_event.window.data1, current_event.window.data2);
+                bgfx::setViewRect(
+                    0, 0, 0, m_Window->Width(), m_Window->Height());
+                break;
+            }
+            default: {
+                break;
+            };
         }
     }
 
@@ -233,15 +245,11 @@ void Application::Loop()
     bgfx::setVertexBuffer(0, m_Mesh->VertexBuffer());
     bgfx::setIndexBuffer(m_Mesh->IndexBuffer());
 
-    bgfx::setTexture(0, m_TextureUniform,  m_TextureRgba);
+    bgfx::setTexture(0, m_TextureUniform, m_TextureRgba);
 
-    bgfx::setState(0
-        | BGFX_STATE_WRITE_RGB
-        | BGFX_STATE_WRITE_A
-        | BGFX_STATE_WRITE_Z
-        | BGFX_STATE_DEPTH_TEST_LESS
-        | BGFX_STATE_MSAA
-        );
+    bgfx::setState(
+        0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
+        BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA);
 
     bgfx::submit(0, m_Program);
 
