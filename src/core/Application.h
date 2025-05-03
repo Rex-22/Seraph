@@ -52,8 +52,8 @@ private:
     bgfx::UniformHandle m_TextureUniform{};
     bgfx::TextureHandle m_TextureHandle{};
 
-    int m_PrevMouseX = 0;
-    int m_PrevMouseY = 0;
+    float m_PrevMouseX = 0;
+    float m_PrevMouseY = 0;
     float m_CamYaw = 0;
     float m_CamPitch = 0;
     float m_RotScale = 0.01f;

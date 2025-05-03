@@ -1,5 +1,5 @@
 //
-// Created by ${ORGANIZATION_NAME} on 2025/05/03.
+// Created by ruben on 2025/05/03.
 //
 
 #include "Application.h"
@@ -194,12 +194,12 @@ void Application::Loop()
     if (!ImGui::GetIO().WantCaptureMouse) {
         // simple input code for orbit camera
         float mouse_x, mouse_y;
-        if (const int buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
+        if (const uint32_t buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
             (buttons & SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) != 0) {
-            const int delta_x = mouse_x - m_PrevMouseX;
-            const int delta_y = mouse_y - m_PrevMouseY;
-            m_CamYaw += static_cast<float>(-delta_x) * m_RotScale;
-            m_CamPitch += static_cast<float>(-delta_y) * m_RotScale;
+            const float delta_x = mouse_x - m_PrevMouseX;
+            const float delta_y = mouse_y - m_PrevMouseY;
+            m_CamYaw += -delta_x * m_RotScale;
+            m_CamPitch += -delta_y * m_RotScale;
         }
         m_PrevMouseX = mouse_x;
         m_PrevMouseY = mouse_y;
