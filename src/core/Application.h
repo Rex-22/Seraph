@@ -63,6 +63,11 @@ private:
     float m_CamPitch = 0;
     float m_RotScale = 0.01f;
     int64_t m_TimeOffset = 0;
+
+    bool m_UpPressed = false;
+    bool m_DownPressed = false;
+    bool m_LeftPressed = false;
+    bool m_RightPressed = false;
 };
 
 } // namespace Core

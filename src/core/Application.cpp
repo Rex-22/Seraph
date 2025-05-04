@@ -202,9 +202,19 @@ void Application::ImGuiEnd()
     ImGui::Render();
     ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());
 }
+float x = 0, y = 0, z = 0;
 
 void Application::Loop()
 {
+
+    int64_t now = bx::getHPCounter();
+    static int64_t last = now;
+    const int64_t frameTime = now - last;
+    last = now;
+    const auto freq = static_cast<double>(bx::getHPFrequency());
+    const auto deltaTime = float(frameTime / freq);
+    float time = (float)((now - m_TimeOffset) / freq);
+
     uint32_t numLights = 4;
     SDL_Event current_event;
     while (SDL_PollEvent(&current_event)) {
@@ -219,6 +229,36 @@ void Application::Loop()
                     current_event.window.data1, current_event.window.data2);
                 bgfx::setViewRect(
                     0, 0, 0, m_Window->Width(), m_Window->Height());
+                break;
+            }
+            case SDL_EVENT_KEY_DOWN: {
+                if (current_event.key.key == SDLK_W) {
+                    m_UpPressed = true;
+                }
+                if (current_event.key.key == SDLK_S) {
+                    m_DownPressed = true;
+                }
+                if (current_event.key.key == SDLK_A) {
+                    m_LeftPressed = true;
+                }
+                if (current_event.key.key == SDLK_D) {
+                    m_RightPressed = true;
+                }
+                break;
+            }
+            case SDL_EVENT_KEY_UP: {
+                if (current_event.key.key == SDLK_W) {
+                    m_UpPressed = false;
+                }
+                if (current_event.key.key == SDLK_S) {
+                    m_DownPressed = false;
+                }
+                if (current_event.key.key == SDLK_A) {
+                    m_LeftPressed = false;
+                }
+                if (current_event.key.key == SDLK_D) {
+                    m_RightPressed = false;
+                }
                 break;
             }
             default: {
@@ -247,14 +287,26 @@ void Application::Loop()
         m_PrevMouseY = mouse_y;
     }
     bgfx::touch(0);
-    float time = (float)((bx::getHPCounter() - m_TimeOffset) /
-                         double(bx::getHPFrequency()));
 
     float cam_rotation[16];
     bx::mtxRotateXYZ(cam_rotation, m_CamPitch, m_CamYaw, 0.0f);
 
+    float speed = 10;
     float cam_translation[16];
-    bx::mtxTranslate(cam_translation, 0.0f, 0.0f, -10.0f);
+    if (m_UpPressed) {
+        z += speed * deltaTime;
+    }
+    if (m_DownPressed) {
+        z -= speed * deltaTime;
+    }
+
+    if (m_LeftPressed) {
+        x -= speed * deltaTime;
+    }
+    if (m_RightPressed) {
+        x += speed * deltaTime;
+    }
+    bx::mtxTranslate(cam_translation, x, y, z);
 
     float cam_transform[16];
     bx::mtxMul(cam_transform, cam_translation, cam_rotation);
