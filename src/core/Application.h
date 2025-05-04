@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "graphics/Camera.h"
+
 #include <bgfx/bgfx.h>
 #include <mutex>
 
@@ -68,6 +70,8 @@ private:
     bool m_DownPressed = false;
     bool m_LeftPressed = false;
     bool m_RightPressed = false;
+
+    Graphics::Camera m_Camera;
 };
 
 } // namespace Core
