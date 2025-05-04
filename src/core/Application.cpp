@@ -309,7 +309,7 @@ void Application::Loop()
     bx::mtxTranslate(cam_translation, x, y, z);
 
     float cam_transform[16];
-    bx::mtxMul(cam_transform, cam_translation, cam_rotation);
+    bx::mtxMul(cam_transform, cam_rotation, cam_translation);
 
     float view[16];
     bx::mtxInverse(view, cam_transform);
