@@ -22,18 +22,18 @@ public:
     void Rotate(bx::Vec3 axis, float degrees);
     void SetEuler(bx::Vec3 euler);
     void SetEuler(float pitch, float yaw, float roll);
-    bx::Vec3 Euler() const;
+    [[nodiscard]] bx::Vec3 Euler() const;
 
     [[nodiscard]] bx::Vec3 Scale() const;
     void SetScale(bx::Vec3 scale);
 
-    bx::Vec3 Forward() const;
-    bx::Vec3 Right() const;
-    bx::Vec3 Up() const;
+    [[nodiscard]] bx::Vec3 Forward() const;
+    [[nodiscard]] bx::Vec3 Right() const;
+    [[nodiscard]] bx::Vec3 Up() const;
 
-    bool PositionDidChange() const;
-    bool RotationDidChange() const;
-    bool ScaleDidChange() const;
+    [[nodiscard]] bool PositionDidChange() const;
+    [[nodiscard]] bool RotationDidChange() const;
+    [[nodiscard]] bool ScaleDidChange() const;
 
 private:
     void CalculateTranslation();
