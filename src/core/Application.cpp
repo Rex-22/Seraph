@@ -171,6 +171,25 @@ const Platform::Window& Application::Window() const
     return *m_Window;
 }
 
+void Application::SetMouseCaptured(bool captured)
+{
+    if (captured == m_MouseCaptured)
+        return;
+
+    m_MouseCaptured = captured;
+
+    if (captured) {
+        // Enable relative mouse mode after focus is gained
+        SDL_SetWindowRelativeMouseMode(m_Window->Handle(), true);
+
+        // Clear any accumulated mouse movement
+        float dummy_x, dummy_y;
+        SDL_GetRelativeMouseState(&dummy_x, &dummy_y);
+    } else {
+        SDL_SetWindowRelativeMouseMode(m_Window->Handle(), false);
+    }
+}
+
 void Application::Run()
 {
     Graphics::Renderer::Init();
@@ -249,6 +268,13 @@ void Application::Loop()
     uint32_t numLights = 4;
     SDL_Event current_event;
     while (SDL_PollEvent(&current_event)) {
+#if LOG_EVENTS
+        char* buf[256];
+        SDL_GetEventDescription(&current_event, *buf, 256);
+
+        std::string eventName(*buf);
+        CORE_INFO("{}", eventName);
+#endif
         ImGui_ImplSDL3_ProcessEvent(&current_event);
         switch (current_event.type) {
             case SDL_EVENT_QUIT: {
@@ -293,6 +319,15 @@ void Application::Loop()
                 if (current_event.key.key == SDLK_D) {
                     m_RightPressed = false;
                 }
+                if (current_event.key.key == SDLK_ESCAPE && m_MouseCaptured) {
+                    SetMouseCaptured(false);
+                }
+                break;
+            }
+            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                if (current_event.button.button == SDL_BUTTON_LEFT && !ImGui::GetIO().WantCaptureMouse && !m_MouseCaptured) {
+                    SetMouseCaptured(true);
+                }
                 break;
             }
             default: {
@@ -310,16 +345,10 @@ void Application::Loop()
 
     bgfx::touch(0);
 
-    if (!ImGui::GetIO().WantCaptureMouse) {
-        float mouse_x, mouse_y;
-        if (const uint32_t buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
-            (buttons & SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) != 0) {
-            const float delta_x = mouse_x - m_PrevMouseX;
-            const float delta_y = mouse_y - m_PrevMouseY;
-            m_Camera.AddRotate(-delta_y * m_RotScale, -delta_x * m_RotScale, bx::kPiQuarter);
-        }
-        m_PrevMouseX = mouse_x;
-        m_PrevMouseY = mouse_y;
+    if (m_MouseCaptured) {
+        float delta_x, delta_y;
+        SDL_GetRelativeMouseState(&delta_x, &delta_y);
+        m_Camera.AddRotate(-delta_y * m_RotScale, -delta_x * m_RotScale, bx::kPiQuarter);
     }
     float speed = 10;
 
