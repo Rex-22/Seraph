@@ -41,6 +41,7 @@ private:
     void ImGuiBegin();
     void ImGuiEnd();
     void Loop();
+    void SetMouseCaptured(bool captured);
 
 private:
     static std::mutex s_Mutex;
@@ -61,8 +62,6 @@ private:
 
     float m_PrevMouseX = 0;
     float m_PrevMouseY = 0;
-    float m_CamYaw = 0;
-    float m_CamPitch = 0;
     float m_RotScale = 0.01f;
     int64_t m_TimeOffset = 0;
 
@@ -70,6 +69,9 @@ private:
     bool m_DownPressed = false;
     bool m_LeftPressed = false;
     bool m_RightPressed = false;
+
+    bool m_MouseCaptured = false;
+    bool m_ShouldCaptureMouse = false;
 
     Graphics::Camera m_Camera;
 };
