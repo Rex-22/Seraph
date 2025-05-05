@@ -32,7 +32,7 @@ void Renderer::Init()
         SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 #elif BX_PLATFORM_OSX
     pd.nwh = SDL_GetPointerProperty(
-        SDL_GetWindowProperties(window), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER,
+        SDL_GetWindowProperties(window.Handle()), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER,
         nullptr);
     pd.ndt = nullptr;
 #elif BX_PLATFORM_LINUX
