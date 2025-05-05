@@ -53,8 +53,8 @@ private:
     bgfx::ProgramHandle m_Program{};
     bgfx::UniformHandle m_TextureColorUniform{};
     bgfx::UniformHandle m_TextureNormalUniform{};
-    bgfx::UniformHandle u_LightPosRadius{};
-    bgfx::UniformHandle u_LightRgbInnerR{};
+    bgfx::UniformHandle m_LightPosRadius{};
+    bgfx::UniformHandle m_LightRgbInnerR{};
 
     bgfx::TextureHandle m_TextureRgba{};
     bgfx::TextureHandle m_TextureNormal{};
