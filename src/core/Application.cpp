@@ -151,11 +151,13 @@ const Application* Application::GetInstance()
 void Application::Cleanup() const
 {
     delete m_Mesh;
-    bgfx::destroy(m_TextureColorUniform);
     bgfx::destroy(m_TextureRgba);
+    bgfx::destroy(m_TextureColorUniform);
     bgfx::destroy(m_TextureNormal);
-    bgfx::destroy(u_LightPosRadius);
-    bgfx::destroy(u_LightRgbInnerR);
+    bgfx::destroy(m_TextureNormalUniform);
+    bgfx::destroy(m_LightPosRadius);
+    bgfx::destroy(m_LightRgbInnerR);
+    bgfx::destroy(m_Program);
 
     Graphics::Renderer::Cleanup();
     CleanupCore();
@@ -202,9 +204,9 @@ void Application::Run()
     bgfx::setName(vs, "simple_vs");
     bgfx::setName(fs, "simple_fs");
 
-    u_LightPosRadius =
+    m_LightPosRadius =
         bgfx::createUniform("u_lightPosRadius", bgfx::UniformType::Vec4, 4);
-    u_LightRgbInnerR =
+    m_LightRgbInnerR =
         bgfx::createUniform("u_lightRgbInnerR", bgfx::UniformType::Vec4, 4);
 
     m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga");
@@ -360,7 +362,7 @@ void Application::Loop()
         lightPosRadius[ii][3] = 3.0f;
     }
 
-    bgfx::setUniform(u_LightPosRadius, lightPosRadius, numLights);
+    bgfx::setUniform(m_LightPosRadius, lightPosRadius, numLights);
 
     constexpr float lightRgbInnerR[4][4] = {
         {1.0f, 0.7f, 0.2f, 0.8f},
@@ -369,7 +371,7 @@ void Application::Loop()
         {1.0f, 0.4f, 0.2f, 0.8f},
     };
 
-    bgfx::setUniform(u_LightRgbInnerR, lightRgbInnerR, numLights);
+    bgfx::setUniform(m_LightRgbInnerR, lightRgbInnerR, numLights);
 
     constexpr uint16_t instanceStride = 64;
     constexpr uint32_t totalCubes = 10 * 10;
