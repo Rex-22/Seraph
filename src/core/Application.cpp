@@ -15,15 +15,14 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/embedded_shader.h>
 #include <bx/math.h>
+#include <bx/timer.h>
 #include <cstdint> // Shaders below need uint8_t
 #include <imgui_impl_sdl3.h>
-#include <bx/timer.h>
 
 #define SHADER_NAME vs_simple
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
-
 
 namespace Core
 {
@@ -324,8 +323,11 @@ void Application::Loop()
                 }
                 break;
             }
-            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-                if (current_event.button.button == SDL_BUTTON_LEFT && !ImGui::GetIO().WantCaptureMouse && !m_MouseCaptured) {
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                if (current_event.button.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+                    current_event.button.button == SDL_BUTTON_LEFT &&
+                    !ImGui::GetIO().WantCaptureMouse && !m_MouseCaptured) {
                     SetMouseCaptured(true);
                 }
                 break;
