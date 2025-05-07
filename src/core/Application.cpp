@@ -92,28 +92,28 @@ static PosNormalTangentTexcoordVertex s_cubeVertices[24] = {
 
 static const uint16_t s_cubeIndices[36] = {
     // Face +Z (Front)
-    0,  1,  2,  // Triangle 1
-    2,  1,  3,  // Triangle 2
+    0, 1, 2, // Triangle 1
+    2, 1, 3, // Triangle 2
 
     // Face -Z (Back)
-    4,  5,  6,  // Triangle 3
-    6,  5,  7,  // Triangle 4
+    4, 5, 6, // Triangle 3
+    6, 5, 7, // Triangle 4
 
     // Face +Y (Top)
-    8,  9, 10,  // Triangle 5
-    10,  9, 11,  // Triangle 6
+    8, 9, 10, // Triangle 5
+    10, 9, 11, // Triangle 6
 
     // Face -Y (Bottom)
-    12, 13, 14,  // Triangle 7
-    14, 13, 15,  // Triangle 8
+    12, 13, 14, // Triangle 7
+    14, 13, 15, // Triangle 8
 
     // Face +X (Right)
-    16, 17, 18,  // Triangle 9
-    18, 17, 19,  // Triangle 10
+    16, 17, 18, // Triangle 9
+    18, 17, 19, // Triangle 10
 
     // Face -X (Left)
-    20, 21, 22,  // Triangle 11
-    22, 21, 23   // Triangle 12
+    20, 21, 22, // Triangle 11
+    22, 21, 23 // Triangle 12
 };
 
 const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
