@@ -9,6 +9,7 @@ target_include_directories(${PROJECT} PUBLIC
         ${BX_INCLUDE_DIR}
         ${BIMG_INCLUDE_DIR}
         ${SPDLOG_INCLUDE_DIR}
+        ${GLM_INCLUDE_DIR}
         ${CMAKE_BINARY_DIR}/include
 )
 
@@ -17,4 +18,5 @@ target_link_libraries(${PROJECT}
         ${IMGUI_LIBRARIES}
         ${BGFX_LIBRARIES}
         ${SPDLOG_LIBRARIES}
+        ${GLM_LIBRARIES}
 )
