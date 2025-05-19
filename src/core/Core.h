@@ -9,6 +9,16 @@
 #include <bimg/bimg.h>
 #include <bx/readerwriter.h>
 
+inline uint32_t EncodeColorRgba8(float r, float g, float b, float a)
+{
+    const float src[] = {
+        a, b, g, r
+    };
+    uint32_t dst;
+    bx::packRgba8(&dst, src);
+    return dst;
+}
+
 inline uint32_t EncodeNormalRgba8(float x, float y = 0.0f, float z = 0.0f, float w = 0.0f) {
     const float src[] = {
         x * 0.5f + 0.5f,

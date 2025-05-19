@@ -14,16 +14,15 @@
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/embedded_shader.h>
-#include <bx/math.h>
+#include <bx/timer.h>
 #include <cstdint> // Shaders below need uint8_t
 #include <imgui_impl_sdl3.h>
-#include <bx/timer.h>
 
 #define SHADER_NAME vs_simple
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
-
+#include "glm/gtc/type_ptr.hpp"
 
 namespace Core
 {
@@ -55,66 +54,90 @@ bgfx::VertexLayout PosNormalTangentTexcoordVertex::ms_layout;
 
 static PosNormalTangentTexcoordVertex s_cubeVertices[24] = {
     // Face +Z (Front)
-    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000, 0x0000}, // 0
-    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff, 0x0000}, // 1
-    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000, 0x7fff}, // 2
-    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff, 0x7fff}, // 3
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000,
+     0x0000}, // 0
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff,
+     0x0000}, // 1
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000,
+     0x7fff}, // 2
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff,
+     0x7fff}, // 3
 
     // Face -Z (Back)
-    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000, 0x0000}, // 4
-    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff, 0x0000}, // 5
-    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000, 0x7fff}, // 6
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff, 0x7fff}, // 7
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000,
+     0x0000}, // 4
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
+     0x0000}, // 5
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000,
+     0x7fff}, // 6
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
+     0x7fff}, // 7
 
     // Face +Y (Top)
-    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000, 0x0000}, // 8
-    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff, 0x0000}, // 9
-    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000, 0x7fff}, // 10
-    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 11
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000,
+     0x0000}, // 8
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff,
+     0x0000}, // 9
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000,
+     0x7fff}, // 10
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff,
+     0x7fff}, // 11
 
     // Face -Y (Bottom)
-    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000, 0x0000}, // 12
-    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff, 0x0000}, // 13
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000, 0x7fff}, // 14
-    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 15
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000,
+     0x0000}, // 12
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
+     0x0000}, // 13
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000,
+     0x7fff}, // 14
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
+     0x7fff}, // 15
 
     // Face +X (Right)
-    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000, 0x0000}, // 16
-    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x0000}, // 17
-    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000, 0x7fff}, // 18
-    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 19
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000,
+     0x0000}, // 16
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x0000}, // 17
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000,
+     0x7fff}, // 18
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x7fff}, // 19
 
     // Face -X (Left)
-    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000, 0x0000}, // 20
-    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x0000}, // 21
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000, 0x7fff}, // 22
-    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x7fff}  // 23
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000,
+     0x0000}, // 20
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x0000}, // 21
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000,
+     0x7fff}, // 22
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x7fff} // 23
 };
 
 static const uint16_t s_cubeIndices[36] = {
     // Face +Z (Front)
-    0,  1,  2,  // Triangle 1
-    2,  1,  3,  // Triangle 2
+    0, 1, 2, // Triangle 1
+    2, 1, 3, // Triangle 2
 
     // Face -Z (Back)
-    4,  5,  6,  // Triangle 3
-    6,  5,  7,  // Triangle 4
+    4, 5, 6, // Triangle 3
+    6, 5, 7, // Triangle 4
 
     // Face +Y (Top)
-    8,  9, 10,  // Triangle 5
-    10,  9, 11,  // Triangle 6
+    8, 9, 10, // Triangle 5
+    10, 9, 11, // Triangle 6
 
     // Face -Y (Bottom)
-    12, 13, 14,  // Triangle 7
-    14, 13, 15,  // Triangle 8
+    12, 13, 14, // Triangle 7
+    14, 13, 15, // Triangle 8
 
     // Face +X (Right)
-    16, 17, 18,  // Triangle 9
-    18, 17, 19,  // Triangle 10
+    16, 17, 18, // Triangle 9
+    18, 17, 19, // Triangle 10
 
     // Face -X (Left)
-    20, 21, 22,  // Triangle 11
-    22, 21, 23   // Triangle 12
+    20, 21, 22, // Triangle 11
+    22, 21, 23 // Triangle 12
 };
 
 const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
@@ -232,7 +255,9 @@ void Application::Run()
     m_TextureNormal = LoadTexture("textures/fieldstone-n.tga");
     m_TimeOffset = bx::getHPCounter();
 
-    m_Camera = Graphics::Camera(60.0f, static_cast<float>(m_Window->Width()) / static_cast<float>(m_Window->Height()));
+    m_Camera = Graphics::Camera(
+        30.0f, static_cast<float>(m_Window->Width()) /
+                   static_cast<float>(m_Window->Height()));
 
     m_Running = true;
 
@@ -253,6 +278,35 @@ void Application::ImGuiEnd()
     ImGui::Render();
     ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());
 }
+void Application::BeginStatsWindow()
+{
+    ImGui::Begin(
+        "Stats", &m_ShowStatsWindow,
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
+    ImGui::SetWindowSize(ImVec2(400, 200));
+    auto debugWindowSize = ImGui::GetWindowSize();
+    auto windowPos = ImVec2(
+        static_cast<float>(m_Window->Width()),
+        static_cast<float>(m_Window->Height()));
+    windowPos.x = windowPos.x - debugWindowSize.x - 20;
+    windowPos.y = windowPos.y - debugWindowSize.y - 20;
+    ImGui::SetWindowPos(windowPos);
+}
+void Application::EndStatsWindow()
+{
+    ImGui::End();
+}
+void Application::StatItem(const char* str, const char* text, ...)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Text(str);
+    ImGui::TableNextColumn();
+    va_list args;
+    va_start(args, text);
+    ImGui::TextV(text, args);
+    va_end(args);
+}
 
 void Application::Loop()
 {
@@ -263,7 +317,8 @@ void Application::Loop()
     const auto freq = static_cast<double>(bx::getHPFrequency());
     const auto deltaTime =
         static_cast<float>(static_cast<double>(frameTime) / freq);
-    const auto time = static_cast<float>(static_cast<double>(now - m_TimeOffset) / freq);
+    const auto time =
+        static_cast<float>(static_cast<double>(now - m_TimeOffset) / freq);
 
     uint32_t numLights = 4;
     SDL_Event current_event;
@@ -285,47 +340,40 @@ void Application::Loop()
                 bgfx::reset(
                     current_event.window.data1, current_event.window.data2);
                 bgfx::setViewRect(
-                    0, 0, 0, current_event.window.data1, current_event.window.data2);
+                    0, 0, 0, current_event.window.data1,
+                    current_event.window.data2);
                 m_Camera.SetAspectRatio(
                     static_cast<float>(current_event.window.data1) /
                     static_cast<float>(current_event.window.data2));
                 break;
             }
+            case SDL_EVENT_KEY_UP:
             case SDL_EVENT_KEY_DOWN: {
                 if (current_event.key.key == SDLK_W) {
-                    m_UpPressed = true;
+                    m_UpPressed = current_event.key.down;
                 }
                 if (current_event.key.key == SDLK_S) {
-                    m_DownPressed = true;
+                    m_DownPressed = current_event.key.down;
                 }
                 if (current_event.key.key == SDLK_A) {
-                    m_LeftPressed = true;
+                    m_LeftPressed = current_event.key.down;
                 }
                 if (current_event.key.key == SDLK_D) {
-                    m_RightPressed = true;
+                    m_RightPressed = current_event.key.down;
                 }
-                break;
-            }
-            case SDL_EVENT_KEY_UP: {
-                if (current_event.key.key == SDLK_W) {
-                    m_UpPressed = false;
-                }
-                if (current_event.key.key == SDLK_S) {
-                    m_DownPressed = false;
-                }
-                if (current_event.key.key == SDLK_A) {
-                    m_LeftPressed = false;
-                }
-                if (current_event.key.key == SDLK_D) {
-                    m_RightPressed = false;
-                }
-                if (current_event.key.key == SDLK_ESCAPE && m_MouseCaptured) {
+                if (current_event.key.key == SDLK_ESCAPE &&
+                    current_event.key.down && m_MouseCaptured) {
                     SetMouseCaptured(false);
+                }
+                if (current_event.key.key == SDLK_F3 &&
+                    current_event.key.type == SDL_EVENT_KEY_UP) {
+                    m_ShowStatsWindow = !m_ShowStatsWindow;
                 }
                 break;
             }
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-                if (current_event.button.button == SDL_BUTTON_LEFT && !ImGui::GetIO().WantCaptureMouse && !m_MouseCaptured) {
+                if (current_event.button.button == SDL_BUTTON_LEFT &&
+                    !ImGui::GetIO().WantCaptureMouse && !m_MouseCaptured) {
                     SetMouseCaptured(true);
                 }
                 break;
@@ -338,47 +386,67 @@ void Application::Loop()
 
     ImGuiBegin();
 
-    ImGui::Begin("Debug");
-    ImGui::End();
+    if (m_ShowStatsWindow) {
+        BeginStatsWindow();
+        ImGui::BeginTable("stats", 2);
+        StatItem(
+            "Frame Time", "%.2f ms", static_cast<float>(frameTime) / 1000.0f);
+        StatItem("Debug Text", "Some text");
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::Text("Clear color");
+        ImGui::TableNextColumn();
+        ImGui::ColorEdit3("", glm::value_ptr(m_ClearColor), ImGuiColorEditFlags_Float);
+        ImGui::EndTable();
+
+        EndStatsWindow();
+    }
 
     ImGuiEnd();
-
+    bgfx::setViewClear(
+        0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
+        EncodeColorRgba8(m_ClearColor.r, m_ClearColor.g, m_ClearColor.b, 1.0f),
+        1.0f, 0);
     bgfx::touch(0);
 
     if (m_MouseCaptured) {
         float delta_x, delta_y;
         SDL_GetRelativeMouseState(&delta_x, &delta_y);
-        m_Camera.AddRotate(-delta_y * m_RotScale, -delta_x * m_RotScale, bx::kPiQuarter);
+        m_Camera.AddRotate(
+            delta_y * m_RotScale, -delta_x * m_RotScale,
+            glm::quarter_pi<float>());
     }
     float speed = 10;
 
-    bx::Vec3 forward = m_Camera.Forward();
-    bx::Vec3 right = m_Camera.Right();
 
-    auto move_direction = bx::Vec3(0.0f);
+    glm::vec3 forward = m_Camera.Forward();
+    glm::vec3 right = m_Camera.Right();
+
+    auto move_direction = glm::vec3(0.0f);
     if (m_UpPressed) {
-        move_direction = bx::add(move_direction, forward);
+        move_direction = move_direction + forward;
     }
     if (m_DownPressed) {
-        move_direction = bx::sub(move_direction, forward);
+        move_direction = move_direction - forward;
     }
 
     if (m_LeftPressed) {
-        move_direction = bx::sub(move_direction, right);
+        move_direction = move_direction - right;
     }
     if (m_RightPressed) {
-        move_direction = bx::add(move_direction, right);
+        move_direction = move_direction + right;
     }
 
-    float length_sq = bx::dot(move_direction, move_direction);
+    float length_sq = glm::dot(move_direction, move_direction);
     if (length_sq > 0.0f) {
         float inv_length = 1.0f / bx::sqrt(length_sq);
-        move_direction = bx::mul(move_direction, inv_length);
+        move_direction = move_direction * inv_length;
         m_Camera.Translate(move_direction, speed * deltaTime);
     }
 
-
-    bgfx::setViewTransform(0, m_Camera.ViewMatrix(), m_Camera.ProjectionMatrix());
+    bgfx::setViewTransform(
+        0, glm::value_ptr(m_Camera.ViewMatrix()),
+        glm::value_ptr(m_Camera.ProjectionMatrix()));
     float lightPosRadius[4][4];
     for (uint32_t ii = 0; ii < numLights; ++ii) {
         lightPosRadius[ii][0] =
@@ -434,7 +502,7 @@ void Application::Loop()
         bgfx::setTexture(1, m_TextureNormalUniform, m_TextureNormal);
         bgfx::setState(
             0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
-            BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CW);
+            BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CCW);
 
         bgfx::submit(0, m_Program);
     }
