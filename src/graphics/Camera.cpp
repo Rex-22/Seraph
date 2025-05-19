@@ -4,13 +4,11 @@
 
 #include "Camera.h"
 
-#include <bgfx/bgfx.h>
-
 namespace Graphics
 {
 
 Camera::Camera(
-    const bx::Vec3 position, const float pitch, const float yaw,
+    const glm::vec3 position, const float pitch, const float yaw,
     const float fovY, const float aspect, const float near, const float far)
     : m_Pitch(pitch), m_Yaw(yaw), m_FovY(fovY), m_Aspect(aspect), m_Near(near),
       m_Far(far)
@@ -23,7 +21,7 @@ Camera::Camera(
 }
 Camera::Camera(
     const float fovY, const float aspect, const float near, const float far)
-    : Camera(bx::Vec3(0), 0, 0, fovY, aspect, near, far)
+    : Camera(glm::vec3(0), 0, 0, fovY, aspect, near, far)
 {
 }
 
@@ -36,7 +34,7 @@ void Camera::AddRotate(const float pitch, const float yaw, const float clamp)
 {
     auto euler = m_Transform.Euler();
     euler.x += pitch;
-    euler.x = bx::clamp(euler.x, -clamp, clamp);
+    euler.x = glm::clamp(euler.x, -clamp, clamp);
     euler.y += yaw;
 
     m_Transform.SetEuler(euler.x, euler.y, 0);
@@ -45,29 +43,29 @@ void Camera::AddRotate(const float pitch, const float yaw, const float clamp)
     }
 }
 
-void Camera::Translate(const bx::Vec3 direction, const float speed)
+void Camera::Translate(const glm::vec3 direction, const float speed)
 {
     // Apply speed and delta time
-    bx::Vec3 velocity = bx::mul(direction, speed);
+    glm::vec3 velocity = direction * speed;
 
-    m_Transform.SetPosition(bx::add(m_Transform.Position(), velocity));
+    m_Transform.SetPosition(m_Transform.Position() + velocity);
 
     if (m_Transform.PositionDidChange()) {
         CalculateViewMatrix();
     }
 }
 
-bx::Vec3 Camera::Forward() const
+glm::vec3 Camera::Forward() const
 {
     return m_Transform.Forward();
 }
 
-bx::Vec3 Camera::Up() const
+glm::vec3 Camera::Up() const
 {
     return m_Transform.Up();
 }
 
-bx::Vec3 Camera::Right() const
+glm::vec3 Camera::Right() const
 {
     return m_Transform.Right();
 }
@@ -81,26 +79,24 @@ void Camera::SetAspectRatio(const float aspect)
     CalculateProjectionMatrix();
 }
 
-float* Camera::ViewMatrix()
+glm::mat4 Camera::ViewMatrix()
 {
     return m_ViewMatrix;
 }
 
-float* Camera::ProjectionMatrix()
+glm::mat4 Camera::ProjectionMatrix()
 {
     return m_ProjectionMatrix;
 }
 
 void Camera::CalculateViewMatrix()
 {
-    bx::mtxInverse(m_ViewMatrix, m_Transform.Translation());
-    bx::mtxLookAt(m_ViewMatrix, m_Transform.Position(), bx::add(m_Transform.Position(), Forward()), Up());
+    m_ViewMatrix = glm::lookAt(
+        m_Transform.Position(), m_Transform.Position() + m_Transform.Forward(), m_Transform.Up());
 }
 
 void Camera::CalculateProjectionMatrix()
 {
-    bx::mtxProj(
-        m_ProjectionMatrix, m_FovY, m_Aspect, m_Near, m_Far,
-        bgfx::getCaps()->homogeneousDepth);
+    m_ProjectionMatrix = glm::perspective(m_FovY, m_Aspect, m_Near, m_Far);
 }
 } // namespace Graphics

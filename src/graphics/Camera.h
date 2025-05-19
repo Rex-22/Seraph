@@ -10,20 +10,20 @@ namespace Graphics
 
 class Camera {
 public:
-    explicit Camera(bx::Vec3 position, float pitch, float yaw, float fovY = 60.0f, float aspect = 16.0f/9.0f, float near = 0.01f, float far = 1000.0f);
+    explicit Camera(glm::vec3 position, float pitch, float yaw, float fovY = 60.0f, float aspect = 16.0f/9.0f, float near = 0.01f, float far = 1000.0f);
     explicit Camera(float fovY = 60.0f, float aspect = 16.0f/9.0f, float near = 0.01f, float far = 1000.0f);
 
     [[nodiscard]] Core::Transform Transform() const;
-    void AddRotate(float pitch, float yaw, float clamp = bx::kPiQuarter);
-    void Translate(bx::Vec3 direction, float speed);
+    void AddRotate(float pitch, float yaw, float clamp = glm::quarter_pi<float>());
+    void Translate(glm::vec3 direction, float speed);
 
-    [[nodiscard]] bx::Vec3 Forward() const;
-    [[nodiscard]] bx::Vec3 Up() const;
-    [[nodiscard]] bx::Vec3 Right() const;
+    [[nodiscard]] glm::vec3 Forward() const;
+    [[nodiscard]] glm::vec3 Up() const;
+    [[nodiscard]] glm::vec3 Right() const;
 
     void SetAspectRatio(float aspect);
-    float* ViewMatrix();
-    float* ProjectionMatrix();
+    glm::mat4 ViewMatrix();
+    glm::mat4 ProjectionMatrix();
 
 private:
     void CalculateViewMatrix();
@@ -37,8 +37,8 @@ private:
     float m_Near;
     float m_Far;
 
-    float m_ViewMatrix[16] = {};
-    float m_ProjectionMatrix[16] = {};
+    glm::mat4 m_ViewMatrix = glm::mat4(1.0f);
+    glm::mat4 m_ProjectionMatrix = glm::mat4(1.0f);
 };
 
 

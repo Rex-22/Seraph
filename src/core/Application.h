@@ -40,6 +40,9 @@ public:
 private:
     void ImGuiBegin();
     void ImGuiEnd();
+    void BeginStatsWindow();
+    void EndStatsWindow();
+    void StatItem(const char* str, const char* text, ...);
     void Loop();
     void SetMouseCaptured(bool captured);
 
@@ -72,6 +75,10 @@ private:
 
     bool m_MouseCaptured = false;
     bool m_ShouldCaptureMouse = false;
+
+    bool m_ShowStatsWindow = true;
+
+    glm::vec3 m_ClearColor {0.3, 0.3, 0.3};
 
     Graphics::Camera m_Camera;
 };
