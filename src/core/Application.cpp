@@ -17,12 +17,12 @@
 #include <bx/timer.h>
 #include <cstdint> // Shaders below need uint8_t
 #include <imgui_impl_sdl3.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #define SHADER_NAME vs_simple
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
-#include "glm/gtc/type_ptr.hpp"
 
 namespace Core
 {
@@ -54,64 +54,40 @@ bgfx::VertexLayout PosNormalTangentTexcoordVertex::ms_layout;
 
 static PosNormalTangentTexcoordVertex s_cubeVertices[24] = {
     // Face +Z (Front)
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000,
-     0x0000}, // 0
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff,
-     0x0000}, // 1
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000,
-     0x7fff}, // 2
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff,
-     0x7fff}, // 3
+    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000, 0x0000}, // 0
+    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff, 0x0000}, // 1
+    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000, 0x7fff}, // 2
+    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff, 0x7fff}, // 3
 
     // Face -Z (Back)
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000,
-     0x0000}, // 4
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
-     0x0000}, // 5
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000,
-     0x7fff}, // 6
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
-     0x7fff}, // 7
+    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000, 0x0000}, // 4
+    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff, 0x0000}, // 5
+    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000, 0x7fff}, // 6
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff, 0x7fff}, // 7
 
     // Face +Y (Top)
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000,
-     0x0000}, // 8
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff,
-     0x0000}, // 9
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000,
-     0x7fff}, // 10
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff,
-     0x7fff}, // 11
+    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000, 0x0000}, // 8
+    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff, 0x0000}, // 9
+    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000, 0x7fff}, // 10
+    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 11
 
     // Face -Y (Bottom)
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000,
-     0x0000}, // 12
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
-     0x0000}, // 13
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000,
-     0x7fff}, // 14
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
-     0x7fff}, // 15
+    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000, 0x0000}, // 12
+    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff, 0x0000}, // 13
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000, 0x7fff}, // 14
+    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 15
 
     // Face +X (Right)
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000,
-     0x0000}, // 16
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff,
-     0x0000}, // 17
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000,
-     0x7fff}, // 18
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff,
-     0x7fff}, // 19
+    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000, 0x0000}, // 16
+    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x0000}, // 17
+    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000, 0x7fff}, // 18
+    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 19
 
     // Face -X (Left)
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000,
-     0x0000}, // 20
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
-     0x0000}, // 21
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000,
-     0x7fff}, // 22
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
-     0x7fff} // 23
+    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000, 0x0000}, // 20
+    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x0000}, // 21
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000, 0x7fff}, // 22
+    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x7fff}  // 23
 };
 
 static const uint16_t s_cubeIndices[36] = {
@@ -371,8 +347,10 @@ void Application::Loop()
                 }
                 break;
             }
-            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-                if (current_event.button.button == SDL_BUTTON_LEFT &&
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                if (current_event.button.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+                    current_event.button.button == SDL_BUTTON_LEFT &&
                     !ImGui::GetIO().WantCaptureMouse && !m_MouseCaptured) {
                     SetMouseCaptured(true);
                 }
