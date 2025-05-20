@@ -8,6 +8,9 @@
 #include "Log.h"
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "graphics/Mesh.h"
+#include "graphics/material/Material.h"
+#include "graphics/material/TextureProperty.h"
+#include "graphics/material/Vector4ArrayProperty.h"
 #include "graphics/Renderer.h"
 #include "platform/Window.h"
 
@@ -16,8 +19,8 @@
 #include <bgfx/embedded_shader.h>
 #include <bx/timer.h>
 #include <cstdint> // Shaders below need uint8_t
-#include <imgui_impl_sdl3.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <imgui_impl_sdl3.h>
 
 #define SHADER_NAME vs_simple
 #include "ShaderIncluder.h"
@@ -149,13 +152,10 @@ const Application* Application::GetInstance()
 }
 void Application::Cleanup() const
 {
+    delete m_Material;
     delete m_Mesh;
     bgfx::destroy(m_TextureRgba);
-    bgfx::destroy(m_TextureColorUniform);
     bgfx::destroy(m_TextureNormal);
-    bgfx::destroy(m_TextureNormalUniform);
-    bgfx::destroy(m_LightPosRadius);
-    bgfx::destroy(m_LightRgbInnerR);
     bgfx::destroy(m_Program);
 
     Graphics::Renderer::Cleanup();
@@ -213,27 +213,30 @@ void Application::Run()
     const auto fs =
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
 
-    m_TextureColorUniform =
-        bgfx::createUniform("s_texColor", bgfx::UniformType::Sampler);
-    m_TextureNormalUniform =
-        bgfx::createUniform("s_texNormal", bgfx::UniformType::Sampler);
+    m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga");
+    m_TextureNormal = LoadTexture("textures/fieldstone-n.tga");
 
     m_Program = bgfx::createProgram(vs, fs, true);
     bgfx::setName(vs, "simple_vs");
     bgfx::setName(fs, "simple_fs");
 
-    m_LightPosRadius =
-        bgfx::createUniform("u_lightPosRadius", bgfx::UniformType::Vec4, 4);
-    m_LightRgbInnerR =
-        bgfx::createUniform("u_lightRgbInnerR", bgfx::UniformType::Vec4, 4);
+    m_Material = new Graphics::Material(m_Program);
+    m_Material->AddProperty<Graphics::TextureProperty>(
+        "s_texColor", m_TextureRgba, 0);
+    m_Material->AddProperty<Graphics::TextureProperty>(
+        "s_texNormal", m_TextureNormal, 1);
+    m_Material->AddProperty<Graphics::Vector4ArrayProperty>(
+        "u_lightPosRadius", nullptr, 0);
+    m_Material->AddProperty<Graphics::Vector4ArrayProperty>(
+        "u_lightRgbInnerR", nullptr, 0);
 
-    m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga");
-    m_TextureNormal = LoadTexture("textures/fieldstone-n.tga");
     m_TimeOffset = bx::getHPCounter();
 
     m_Camera = Graphics::Camera(
-        30.0f, static_cast<float>(m_Window->Width()) /
-                   static_cast<float>(m_Window->Height()));
+        60.0f,
+        static_cast<float>(m_Window->Width()) /
+            static_cast<float>(m_Window->Height()),
+        0.01f, 1000.0f);
 
     m_Running = true;
 
@@ -276,7 +279,7 @@ void Application::StatItem(const char* str, const char* text, ...)
 {
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImGui::Text(str);
+    ImGui::Text("%s", str);
     ImGui::TableNextColumn();
     va_list args;
     va_start(args, text);
@@ -345,6 +348,10 @@ void Application::Loop()
                     current_event.key.type == SDL_EVENT_KEY_UP) {
                     m_ShowStatsWindow = !m_ShowStatsWindow;
                 }
+                if (current_event.key.key == SDLK_F4 &&
+                    current_event.key.type == SDL_EVENT_KEY_UP) {
+                    m_Camera.LookAt(glm::vec3(0, 10, 0));
+                }
                 break;
             }
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -370,11 +377,20 @@ void Application::Loop()
         StatItem(
             "Frame Time", "%.2f ms", static_cast<float>(frameTime) / 1000.0f);
         StatItem("Debug Text", "Some text");
+        StatItem(
+            "Camera Position", "x: %.2f y: %.2f z: %.2f", m_Camera.Position().x,
+            m_Camera.Position().y, m_Camera.Position().z);
+        StatItem(
+            "Camera Rotation", "x: %.2f y: %.2f z: %.2f",
+            glm::degrees(m_Camera.EulerAngles().x),
+            glm::degrees(m_Camera.EulerAngles().y),
+            glm::degrees(m_Camera.EulerAngles().z));
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::Text("Clear color");
         ImGui::TableNextColumn();
-        ImGui::ColorEdit3("", glm::value_ptr(m_ClearColor), ImGuiColorEditFlags_Float);
+        ImGui::ColorEdit3(
+            "", glm::value_ptr(m_ClearColor), ImGuiColorEditFlags_Float);
         ImGui::EndTable();
 
         EndStatsWindow();
@@ -390,12 +406,10 @@ void Application::Loop()
     if (m_MouseCaptured) {
         float delta_x, delta_y;
         SDL_GetRelativeMouseState(&delta_x, &delta_y);
-        m_Camera.AddRotate(
-            delta_y * m_RotScale, -delta_x * m_RotScale,
-            glm::quarter_pi<float>());
+        m_Camera.RotatePitch(-delta_y * m_RotScale);
+        m_Camera.RotateYaw(-delta_x * m_RotScale);
     }
     float speed = 10;
-
 
     glm::vec3 forward = m_Camera.Forward();
     glm::vec3 right = m_Camera.Right();
@@ -419,34 +433,40 @@ void Application::Loop()
     if (length_sq > 0.0f) {
         float inv_length = 1.0f / bx::sqrt(length_sq);
         move_direction = move_direction * inv_length;
-        m_Camera.Translate(move_direction, speed * deltaTime);
+        auto pos = m_Camera.Position();
+        pos += move_direction * speed * deltaTime;
+        m_Camera.SetPosition(pos);
     }
 
     bgfx::setViewTransform(
         0, glm::value_ptr(m_Camera.ViewMatrix()),
         glm::value_ptr(m_Camera.ProjectionMatrix()));
-    float lightPosRadius[4][4];
+    glm::vec4 lightPosRadius[4];
     for (uint32_t ii = 0; ii < numLights; ++ii) {
-        lightPosRadius[ii][0] =
+        lightPosRadius[ii].x =
             bx::sin((time * (0.1f + ii * 0.17f) + ii * bx::kPiHalf * 1.37f)) *
             3.0f;
-        lightPosRadius[ii][1] =
+        lightPosRadius[ii].y =
             bx::cos((time * (0.2f + ii * 0.29f) + ii * bx::kPiHalf * 1.49f)) *
             3.0f;
-        lightPosRadius[ii][2] = -2.5f;
-        lightPosRadius[ii][3] = 3.0f;
+        lightPosRadius[ii].z = -2.5f;
+        lightPosRadius[ii].w = 3.0f;
     }
 
-    bgfx::setUniform(m_LightPosRadius, lightPosRadius, numLights);
+    dynamic_cast<Graphics::Vector4ArrayProperty*>(
+        m_Material->GetProperty("u_lightPosRadius"))
+        ->SetValues(lightPosRadius, numLights);
 
-    constexpr float lightRgbInnerR[4][4] = {
+    glm::vec4 lightRgbInnerR[4] = {
         {1.0f, 0.7f, 0.2f, 0.8f},
         {0.7f, 0.2f, 1.0f, 0.8f},
         {0.2f, 1.0f, 0.7f, 0.8f},
         {1.0f, 0.4f, 0.2f, 0.8f},
     };
 
-    bgfx::setUniform(m_LightRgbInnerR, lightRgbInnerR, numLights);
+    dynamic_cast<Graphics::Vector4ArrayProperty*>(
+        m_Material->GetProperty("u_lightRgbInnerR"))
+        ->SetValues(lightRgbInnerR, numLights);
 
     constexpr uint16_t instanceStride = 64;
     constexpr uint32_t totalCubes = 10 * 10;
@@ -476,13 +496,8 @@ void Application::Loop()
         bgfx::setVertexBuffer(0, m_Mesh->VertexBuffer());
         bgfx::setIndexBuffer(m_Mesh->IndexBuffer());
 
-        bgfx::setTexture(0, m_TextureColorUniform, m_TextureRgba);
-        bgfx::setTexture(1, m_TextureNormalUniform, m_TextureNormal);
-        bgfx::setState(
-            0 | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
+        m_Material->Apply(0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
             BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CCW);
-
-        bgfx::submit(0, m_Program);
     }
 
     bgfx::frame();

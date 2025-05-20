@@ -3,100 +3,175 @@
 //
 
 #include "Camera.h"
+#include "core/Log.h"
+#include <glm/gtx/compatibility.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace Graphics
 {
 
+Camera::Camera() : Camera(30.f, 16.0f / 9.0f, 0.01f, 1000.0f)
+{
+}
+
+Camera::Camera(float fov, float aspectRatio, float nearPlane, float farPlane)
+    : Camera(
+          glm::vec3(0.0f), glm::vec3(0.0f), fov, aspectRatio, nearPlane,
+          farPlane)
+{
+}
+
 Camera::Camera(
-    const glm::vec3 position, const float pitch, const float yaw,
-    const float fovY, const float aspect, const float near, const float far)
-    : m_Pitch(pitch), m_Yaw(yaw), m_FovY(fovY), m_Aspect(aspect), m_Near(near),
-      m_Far(far)
+    const glm::vec3& position, const glm::vec3& eulerAnglesRadians, float fov,
+    float aspectRatio, float nearPlane, float farPlane)
+    : m_Position(position), m_FOV(fov), m_AspectRatio(aspectRatio),
+      m_NearPlane(nearPlane), m_FarPlane(farPlane),
+      m_ViewMatrix(glm::mat4(1.0f)), m_PitchAngle(0.0f), m_YawAngle(0.0f),
+      m_RollAngle(0.0f)
 {
-    m_Transform.SetPosition(position);
-    m_Transform.SetEuler(m_Pitch, m_Yaw, 0);
+    // Set initial orientation (pitch, yaw, roll)
+    m_PitchAngle = glm::clamp(eulerAnglesRadians.x, m_MinPitch, m_MaxPitch);
+    m_YawAngle = eulerAnglesRadians.y;
+    m_RollAngle = eulerAnglesRadians.z;
 
-    CalculateViewMatrix();
-    CalculateProjectionMatrix();
-}
-Camera::Camera(
-    const float fovY, const float aspect, const float near, const float far)
-    : Camera(glm::vec3(0), 0, 0, fovY, aspect, near, far)
-{
-}
+    UpdateComponentQuaternions();
 
-Core::Transform Camera::Transform() const
-{
-    return m_Transform;
+    m_ProjectionMatrix = glm::perspective(
+        glm::radians(m_FOV), m_AspectRatio, m_NearPlane, m_FarPlane);
+    m_ViewDirty = true;
 }
 
-void Camera::AddRotate(const float pitch, const float yaw, const float clamp)
+void Camera::UpdateComponentQuaternions()
 {
-    auto euler = m_Transform.Euler();
-    euler.x += pitch;
-    euler.x = glm::clamp(euler.x, -clamp, clamp);
-    euler.y += yaw;
+    m_YawQuat = glm::angleAxis(m_YawAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+    m_PitchQuat = glm::angleAxis(m_PitchAngle, glm::vec3(1.0f, 0.0f, 0.0f));
+    m_RollQuat = glm::angleAxis(m_RollAngle, glm::vec3(0.0f, 0.0f, 1.0f));
+    m_ViewDirty = true;
+}
 
-    m_Transform.SetEuler(euler.x, euler.y, 0);
-    if (m_Transform.ScaleDidChange()) {
-        CalculateViewMatrix();
+void Camera::SetPosition(const glm::vec3& position)
+{
+    m_Position = position;
+    m_ViewDirty = true;
+}
+
+const glm::vec3& Camera::Position() const
+{
+    return m_Position;
+}
+
+glm::vec3 Camera::EulerAngles() const
+{
+    return {m_PitchAngle, m_YawAngle, m_RollAngle};
+}
+
+void Camera::RotateYaw(float angleRadians)
+{
+    m_YawAngle += angleRadians;
+    m_YawQuat = glm::angleAxis(m_YawAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+    m_ViewDirty = true;
+}
+
+void Camera::RotatePitch(float angleRadians)
+{
+    m_PitchAngle += angleRadians;
+    m_PitchAngle = glm::clamp(m_PitchAngle, m_MinPitch, m_MaxPitch);
+    m_PitchQuat = glm::angleAxis(m_PitchAngle, glm::vec3(1.0f, 0.0f, 0.0f));
+    m_ViewDirty = true;
+}
+
+void Camera::RotateRoll(float angleRadians)
+{
+    m_RollAngle += angleRadians;
+    m_RollQuat = glm::angleAxis(m_RollAngle, glm::vec3(0.0f, 0.0f, 1.0f));
+    m_ViewDirty = true;
+}
+
+void Camera::LookAt(const glm::vec3& target)
+{
+    glm::vec3 direction = glm::normalize(target - m_Position);
+
+    m_YawAngle = glm::atan2(direction.x, -direction.z);
+
+    m_PitchAngle = glm::asin(-direction.y);
+    m_PitchAngle = glm::clamp(m_PitchAngle, m_MinPitch, m_MaxPitch);
+    m_RollAngle = 0.0f;
+
+    UpdateComponentQuaternions();
+    m_ViewDirty = true;
+}
+
+void Camera::SetPitchLimits(float minPitchRadians, float maxPitchRadians)
+{
+    if (minPitchRadians < maxPitchRadians) {
+        m_MinPitch = minPitchRadians;
+        m_MaxPitch = maxPitchRadians;
+
+        // Re-clamp current pitch angle if it's outside new limits
+        m_PitchAngle = glm::clamp(m_PitchAngle, m_MinPitch, m_MaxPitch);
+        m_PitchQuat = glm::angleAxis(m_PitchAngle, glm::vec3(1.0f, 0.0f, 0.0f));
+        m_ViewDirty = true;
     }
 }
 
-void Camera::Translate(const glm::vec3 direction, const float speed)
+float Camera::MinPitchRadians() const
 {
-    // Apply speed and delta time
-    glm::vec3 velocity = direction * speed;
-
-    m_Transform.SetPosition(m_Transform.Position() + velocity);
-
-    if (m_Transform.PositionDidChange()) {
-        CalculateViewMatrix();
-    }
+    return m_MinPitch;
 }
 
-glm::vec3 Camera::Forward() const
+float Camera::MaxPitchRadians() const
 {
-    return m_Transform.Forward();
+    return m_MaxPitch;
 }
 
-glm::vec3 Camera::Up() const
+void Camera::SetAspectRatio(float aspectRatio)
 {
-    return m_Transform.Up();
-}
-
-glm::vec3 Camera::Right() const
-{
-    return m_Transform.Right();
-}
-
-void Camera::SetAspectRatio(const float aspect)
-{
-    if (m_Aspect == aspect) {
-        return;
-    }
-    m_Aspect = aspect;
-    CalculateProjectionMatrix();
+    m_AspectRatio = aspectRatio;
+    m_ProjectionMatrix = glm::perspective(
+        glm::radians(m_FOV), m_AspectRatio, m_NearPlane, m_FarPlane);
 }
 
 glm::mat4 Camera::ViewMatrix()
 {
+    UpdateViewMatrix();
     return m_ViewMatrix;
 }
 
-glm::mat4 Camera::ProjectionMatrix()
+glm::mat4 Camera::ProjectionMatrix() const
 {
     return m_ProjectionMatrix;
 }
 
-void Camera::CalculateViewMatrix()
+glm::vec3 Camera::Forward() const
 {
-    m_ViewMatrix = glm::lookAt(
-        m_Transform.Position(), m_Transform.Position() + m_Transform.Forward(), m_Transform.Up());
+    glm::quat orientation = m_YawQuat * m_PitchQuat * m_RollQuat;
+    return glm::normalize(orientation * glm::vec3(0.0f, 0.0f, -1.0f));
 }
 
-void Camera::CalculateProjectionMatrix()
+glm::vec3 Camera::Right() const
 {
-    m_ProjectionMatrix = glm::perspective(m_FovY, m_Aspect, m_Near, m_Far);
+    glm::quat orientation = m_YawQuat * m_PitchQuat * m_RollQuat;
+    return glm::normalize(orientation * glm::vec3(1.0f, 0.0f, 0.0f));
+}
+
+glm::vec3 Camera::Up() const
+{
+    glm::quat orientation = m_YawQuat * m_PitchQuat * m_RollQuat;
+    return glm::normalize(orientation * glm::vec3(0.0f, 1.0f, 0.0f));
+}
+
+void Camera::UpdateViewMatrix()
+{
+    if (m_ViewDirty) {
+        glm::quat orientation = m_YawQuat * m_PitchQuat * m_RollQuat;
+
+        glm::vec3 calculatedForward =
+            orientation * glm::vec3(0.0f, 0.0f, -1.0f);
+        glm::vec3 calculatedUp = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
+        m_ViewMatrix = glm::lookAt(
+            m_Position, m_Position + calculatedForward, calculatedUp);
+
+        m_ViewDirty = false;
+    }
 }
 } // namespace Graphics
