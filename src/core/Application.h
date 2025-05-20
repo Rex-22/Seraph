@@ -11,6 +11,7 @@
 
 namespace Graphics
 {
+class Material;
 class Mesh;
 }
 
@@ -55,10 +56,7 @@ private:
 
     Graphics::Mesh* m_Mesh = nullptr;
     bgfx::ProgramHandle m_Program{};
-    bgfx::UniformHandle m_TextureColorUniform{};
-    bgfx::UniformHandle m_TextureNormalUniform{};
-    bgfx::UniformHandle m_LightPosRadius{};
-    bgfx::UniformHandle m_LightRgbInnerR{};
+    Graphics::Material* m_Material;
 
     bgfx::TextureHandle m_TextureRgba{};
     bgfx::TextureHandle m_TextureNormal{};
