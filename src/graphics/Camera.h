@@ -3,43 +3,76 @@
 //
 
 #pragma once
-#include "core/Transform.h"
+
+#include <glm/glm.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 namespace Graphics
 {
-
-class Camera {
+class Camera
+{
 public:
-    explicit Camera(glm::vec3 position, float pitch, float yaw, float fovY = 60.0f, float aspect = 16.0f/9.0f, float near = 0.01f, float far = 1000.0f);
-    explicit Camera(float fovY = 60.0f, float aspect = 16.0f/9.0f, float near = 0.01f, float far = 1000.0f);
+    Camera();
+    Camera(float fov, float aspectRatio, float nearPlane, float farPlane);
+    Camera(
+        const glm::vec3& position, const glm::vec3& eulerAnglesRadians,
+        float fov, float aspectRatio, float nearPlane, float farPlane);
 
-    [[nodiscard]] Core::Transform Transform() const;
-    void AddRotate(float pitch, float yaw, float clamp = glm::quarter_pi<float>());
-    void Translate(glm::vec3 direction, float speed);
+    void SetPosition(const glm::vec3& position);
+    [[nodiscard]] const glm::vec3& Position() const;
+
+    [[nodiscard]] glm::vec3 EulerAngles() const;
+
+    void RotateYaw(float angleRadians);
+    void RotatePitch(float angleRadians);
+    void RotateRoll(float angleRadians);
+
+    void LookAt(const glm::vec3& target);
+
+    void SetPitchLimits(float minPitchRadians, float maxPitchRadians);
+    [[nodiscard]] float MinPitchRadians() const;
+    [[nodiscard]] float MaxPitchRadians() const;
+
+    void SetAspectRatio(float aspectRatio);
+
+    glm::mat4 ViewMatrix();
+    [[nodiscard]] glm::mat4 ProjectionMatrix() const;
 
     [[nodiscard]] glm::vec3 Forward() const;
-    [[nodiscard]] glm::vec3 Up() const;
     [[nodiscard]] glm::vec3 Right() const;
-
-    void SetAspectRatio(float aspect);
-    glm::mat4 ViewMatrix();
-    glm::mat4 ProjectionMatrix();
+    [[nodiscard]] glm::vec3 Up() const;
 
 private:
-    void CalculateViewMatrix();
-    void CalculateProjectionMatrix();
-private:
-    Core::Transform m_Transform;
-    float m_Pitch;
-    float m_Yaw;
-    float m_FovY;
-    float m_Aspect;
-    float m_Near;
-    float m_Far;
+    void UpdateViewMatrix();
+    void UpdateComponentQuaternions();
 
-    glm::mat4 m_ViewMatrix = glm::mat4(1.0f);
-    glm::mat4 m_ProjectionMatrix = glm::mat4(1.0f);
+private:
+    // Removed: Core::Transform m_Transform;
+    glm::vec3 m_Position;
+
+    // Orientation represented by individual angles and derived quaternions
+    float m_PitchAngle; // Radians
+    float m_YawAngle; // Radians
+    float m_RollAngle; // Radians
+
+    glm::quat m_PitchQuat{};
+    glm::quat m_YawQuat{};
+    glm::quat m_RollQuat{};
+
+    float m_FOV; // Degrees
+    float m_AspectRatio;
+    float m_NearPlane;
+    float m_FarPlane;
+
+    float m_MinPitch =
+        glm::radians(-89.0f); // Radians, slightly less than 90 to avoid gimbal
+                              // lock issues with lookAt logic
+    float m_MaxPitch = glm::radians(89.0f); // Radians
+
+    glm::mat4 m_ProjectionMatrix{};
+    glm::mat4 m_ViewMatrix;
+
+    bool m_ViewDirty = true;
 };
 
-
-}
+} // namespace Graphics

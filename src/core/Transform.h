@@ -3,55 +3,59 @@
 //
 
 #pragma once
-#include "glm/glm.hpp"
-#include "glm/gtc/quaternion.hpp"
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 namespace Core
 {
-class Transform {
+class Transform
+{
 public:
-    Transform(glm::vec3 position, glm::quat rotation, glm::vec3 scale);
     Transform();
+    explicit Transform(
+        const glm::vec3& position,
+        const glm::quat& rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        const glm::vec3& scale = glm::vec3(1.0f));
 
-    [[nodiscard]] glm::mat4 Translation() const;
+    void SetPosition(const glm::vec3& position);
+    void SetPosition(float x, float y, float z);
+    [[nodiscard]] const glm::vec3& Position() const;
 
-    [[nodiscard]] glm::vec3 Position() const;
-    void SetPosition(glm::vec3 position);
+    void SetRotation(const glm::quat& rotation);
+    [[nodiscard]] const glm::quat& Rotation() const;
 
-    [[nodiscard]] glm::quat Rotation() const;
-    void SetRotation(glm::quat rotation);
-    void Rotate(glm::vec3 axis, float degrees);
-    void SetEuler(glm::vec3 euler);
-    void SetEuler(float pitch, float yaw, float roll);
-    [[nodiscard]] glm::vec3 Euler() const;
+    void Rotate(const glm::quat& rotation);
+    void Rotate(const glm::vec3& axis, float angle);
 
-    [[nodiscard]] glm::vec3 Scale() const;
-    void SetScale(glm::vec3 scale);
+    void SetScale(const glm::vec3& scale);
+    void SetScale(float x, float y, float z);
+    void SetScale(float uniformScale);
+    [[nodiscard]] const glm::vec3& Scale() const;
 
     [[nodiscard]] glm::vec3 Forward() const;
     [[nodiscard]] glm::vec3 Right() const;
     [[nodiscard]] glm::vec3 Up() const;
 
-    [[nodiscard]] bool PositionDidChange() const;
-    [[nodiscard]] bool RotationDidChange() const;
-    [[nodiscard]] bool ScaleDidChange() const;
+    glm::mat4 TransformMatrix();
 
 private:
-    void CalculateTranslation();
+    void UpdateMatrix();
 
 private:
-    glm::vec3 m_Position;
-    glm::vec3 m_OldPosition;
-    glm::quat m_Rotation;
-    glm::quat m_OldRotation;
-    glm::vec3 m_Scale;
-    glm::vec3 m_OldScale;
+    glm::vec3 m_Position = glm::vec3(0.0f);
+    glm::vec3 m_LastPosition = glm::vec3(0.0f);
 
-    float m_Pitch = 0;
-    float m_Yaw = 0;
-    float m_Roll = 0;
+    // Rotation (quaternion)
+    glm::quat m_Rotation =
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f); // Identity quaternion
+    glm::quat m_LastRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 
-    glm::mat4 m_Translation = glm::mat4(1.0f);
+    glm::vec3 m_Scale = glm::vec3(1.0f);
+    glm::vec3 m_LastScale = glm::vec3(1.0f);
+
+    glm::mat4 m_TransformMatrix = glm::mat4(1.0f);
+    bool m_IsDirty = true;
 };
-
-}
+} // namespace Core
