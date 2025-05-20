@@ -232,8 +232,8 @@ void Application::Run()
     m_TimeOffset = bx::getHPCounter();
 
     m_Camera = Graphics::Camera(
-        30.0f, static_cast<float>(m_Window->Width()) /
-                   static_cast<float>(m_Window->Height()));
+        60.0f, static_cast<float>(m_Window->Width()) /
+                   static_cast<float>(m_Window->Height()), 0.01f, 1000.0f);
 
     m_Running = true;
 
@@ -345,6 +345,9 @@ void Application::Loop()
                     current_event.key.type == SDL_EVENT_KEY_UP) {
                     m_ShowStatsWindow = !m_ShowStatsWindow;
                 }
+                if (current_event.key.key == SDLK_F4 && current_event.key.type == SDL_EVENT_KEY_UP) {
+                    m_Camera.LookAt(glm::vec3(0, 10, 0));
+                }
                 break;
             }
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -370,6 +373,10 @@ void Application::Loop()
         StatItem(
             "Frame Time", "%.2f ms", static_cast<float>(frameTime) / 1000.0f);
         StatItem("Debug Text", "Some text");
+        StatItem(
+            "Camera Position", "x: %.2f y: %.2f z: %.2f", m_Camera.Position().x, m_Camera.Position().y, m_Camera.Position().z);
+        StatItem(
+            "Camera Rotation", "x: %.2f y: %.2f z: %.2f", glm::degrees(m_Camera.EulerAngles().x), glm::degrees(m_Camera.EulerAngles().y), glm::degrees(m_Camera.EulerAngles().z));
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::Text("Clear color");
@@ -390,12 +397,10 @@ void Application::Loop()
     if (m_MouseCaptured) {
         float delta_x, delta_y;
         SDL_GetRelativeMouseState(&delta_x, &delta_y);
-        m_Camera.AddRotate(
-            delta_y * m_RotScale, -delta_x * m_RotScale,
-            glm::quarter_pi<float>());
+        m_Camera.RotatePitch(-delta_y * m_RotScale);
+        m_Camera.RotateYaw(-delta_x * m_RotScale);
     }
     float speed = 10;
-
 
     glm::vec3 forward = m_Camera.Forward();
     glm::vec3 right = m_Camera.Right();
@@ -419,7 +424,9 @@ void Application::Loop()
     if (length_sq > 0.0f) {
         float inv_length = 1.0f / bx::sqrt(length_sq);
         move_direction = move_direction * inv_length;
-        m_Camera.Translate(move_direction, speed * deltaTime);
+        auto pos = m_Camera.Position();
+        pos += move_direction * speed * deltaTime;
+        m_Camera.SetPosition(pos);
     }
 
     bgfx::setViewTransform(
