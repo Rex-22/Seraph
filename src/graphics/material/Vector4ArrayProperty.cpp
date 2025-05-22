@@ -22,7 +22,7 @@ Vector4ArrayProperty::~Vector4ArrayProperty()
     bgfx::destroy(m_UniformHandle);
 }
 
-void Vector4ArrayProperty::Apply(bgfx::ProgramHandle program) const
+void Vector4ArrayProperty::Apply() const
 {
     if (bgfx::isValid(m_UniformHandle)) {
         bgfx::setUniform(m_UniformHandle, m_Values, m_Count);

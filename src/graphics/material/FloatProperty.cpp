@@ -21,7 +21,7 @@ FloatProperty::~FloatProperty()
     bgfx::destroy(m_UniformHandle);
 }
 
-void FloatProperty::Apply(bgfx::ProgramHandle program) const
+void FloatProperty::Apply() const
 {
     if (bgfx::isValid(m_UniformHandle)) {
         bgfx::setUniform(m_UniformHandle, &m_Value, 1);

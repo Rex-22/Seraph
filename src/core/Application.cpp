@@ -8,10 +8,10 @@
 #include "Log.h"
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "graphics/Mesh.h"
+#include "graphics/Renderer.h"
 #include "graphics/material/Material.h"
 #include "graphics/material/TextureProperty.h"
 #include "graphics/material/Vector4ArrayProperty.h"
-#include "graphics/Renderer.h"
 #include "platform/Window.h"
 
 #include <SDL3/SDL_init.h>
@@ -64,40 +64,64 @@ bgfx::VertexLayout PosNormalTangentTexcoordVertex::ms_layout;
 
 static PosNormalTangentTexcoordVertex s_cubeVertices[24] = {
     // Face +Z (Front)
-    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000, 0x0000}, // 0
-    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff, 0x0000}, // 1
-    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000, 0x7fff}, // 2
-    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff, 0x7fff}, // 3
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000,
+     0x0000}, // 0
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff,
+     0x0000}, // 1
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000,
+     0x7fff}, // 2
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff,
+     0x7fff}, // 3
 
     // Face -Z (Back)
-    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000, 0x0000}, // 4
-    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff, 0x0000}, // 5
-    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000, 0x7fff}, // 6
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff, 0x7fff}, // 7
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000,
+     0x0000}, // 4
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
+     0x0000}, // 5
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000,
+     0x7fff}, // 6
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
+     0x7fff}, // 7
 
     // Face +Y (Top)
-    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000, 0x0000}, // 8
-    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff, 0x0000}, // 9
-    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000, 0x7fff}, // 10
-    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 11
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000,
+     0x0000}, // 8
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff,
+     0x0000}, // 9
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000,
+     0x7fff}, // 10
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff,
+     0x7fff}, // 11
 
     // Face -Y (Bottom)
-    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000, 0x0000}, // 12
-    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff, 0x0000}, // 13
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000, 0x7fff}, // 14
-    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 15
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000,
+     0x0000}, // 12
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
+     0x0000}, // 13
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000,
+     0x7fff}, // 14
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
+     0x7fff}, // 15
 
     // Face +X (Right)
-    { 1.0f,  1.0f,  1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000, 0x0000}, // 16
-    { 1.0f,  1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x0000}, // 17
-    { 1.0f, -1.0f,  1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000, 0x7fff}, // 18
-    { 1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x7fff}, // 19
+    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000,
+     0x0000}, // 16
+    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x0000}, // 17
+    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000,
+     0x7fff}, // 18
+    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x7fff}, // 19
 
     // Face -X (Left)
-    {-1.0f,  1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000, 0x0000}, // 20
-    {-1.0f,  1.0f,  1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x0000}, // 21
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000, 0x7fff}, // 22
-    {-1.0f, -1.0f,  1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff, 0x7fff}  // 23
+    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000,
+     0x0000}, // 20
+    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x0000}, // 21
+    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000,
+     0x7fff}, // 22
+    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
+     0x7fff} // 23
 };
 
 static const uint16_t s_cubeIndices[36] = {
@@ -166,6 +190,7 @@ void Application::Cleanup() const
     delete m_ChunkMesh;
     delete m_Chunk;
     bgfx::destroy(m_TextureRgba);
+    bgfx::destroy(m_TextureRgba1);
     bgfx::destroy(m_TextureNormal);
     bgfx::destroy(m_Program);
 
@@ -224,7 +249,8 @@ void Application::Run()
     const auto fs =
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
 
-    m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga");
+    m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga", BGFX_TEXTURE_NONE | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT);
+    m_TextureRgba1 = LoadTexture("textures/grass_block_top.png", BGFX_TEXTURE_NONE | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT);
     m_TextureNormal = LoadTexture("textures/fieldstone-n.tga");
 
     m_Program = bgfx::createProgram(vs, fs, true);
@@ -232,10 +258,8 @@ void Application::Run()
     bgfx::setName(fs, "simple_fs");
 
     m_Material = new Material(m_Program);
-    m_Material->AddProperty<TextureProperty>(
-        "s_texColor", m_TextureRgba, 0);
-    m_Material->AddProperty<TextureProperty>(
-        "s_texNormal", m_TextureNormal, 1);
+    m_Material->AddProperty<TextureProperty>("s_texColor", m_TextureRgba, 0);
+    m_Material->AddProperty<TextureProperty>("s_texNormal", m_TextureNormal, 1);
     m_Material->AddProperty<Vector4ArrayProperty>(
         "u_lightPosRadius", nullptr, 0);
     m_Material->AddProperty<Vector4ArrayProperty>(
@@ -251,6 +275,7 @@ void Application::Run()
     bgfx::setName(chunkFs, "chunk_fs");
 
     m_ChunkMaterial = new Material(m_ChunkProgram);
+    m_ChunkMaterial->AddProperty<TextureProperty>("s_texColor", m_TextureRgba, 0);
 
     m_TimeOffset = bx::getHPCounter();
 
@@ -531,10 +556,12 @@ void Application::Loop()
     bgfx::setVertexBuffer(0, mesh->VertexBuffer());
     bgfx::setIndexBuffer(mesh->IndexBuffer());
 
-    m_ChunkMaterial->Apply(0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
-            BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CW);
+    m_ChunkMaterial->Apply(
+        0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
+               BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA |
+               BGFX_STATE_CULL_CW);
 
-    bgfx::frame();
+    bgfx::frame(false);
 }
 
 } // namespace Core

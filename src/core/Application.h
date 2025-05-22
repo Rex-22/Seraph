@@ -63,6 +63,7 @@ private:
     Graphics::Material* m_ChunkMaterial = nullptr;
 
     bgfx::TextureHandle m_TextureRgba{};
+    bgfx::TextureHandle m_TextureRgba1{};
     bgfx::TextureHandle m_TextureNormal{};
 
     World::Chunk* m_Chunk;

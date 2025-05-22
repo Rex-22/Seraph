@@ -32,7 +32,7 @@ public:
     const std::string& Name() const { return m_Name; }
     PropertyType Type() const { return m_Type; }
 
-    virtual void Apply(bgfx::ProgramHandle program) const = 0;
+    virtual void Apply() const = 0;
 
 protected:
     std::string m_Name;

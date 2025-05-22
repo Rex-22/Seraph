@@ -13,7 +13,7 @@ public:
     FloatProperty(const std::string& name, float value);
     ~FloatProperty() override;
 
-    void Apply(bgfx::ProgramHandle program) const override;
+    void Apply() const override;
 
     [[nodiscard]] float Value() const { return m_Value; }
     void SetValue(const float value) { m_Value = value; }

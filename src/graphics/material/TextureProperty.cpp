@@ -25,7 +25,7 @@ TextureProperty::~TextureProperty()
     }
 }
 
-void TextureProperty::Apply(bgfx::ProgramHandle program) const
+void TextureProperty::Apply() const
 {
     if (bgfx::isValid(m_UniformHandle) && bgfx::isValid(m_TextureHandle)) {
         bgfx::setTexture(m_SamplerUniformIndex, m_UniformHandle, m_TextureHandle);
