@@ -20,7 +20,7 @@ public:
         m_TextureHandle = handle;
     }
 
-    void Apply(bgfx::ProgramHandle program) const override;
+    void Apply() const override;
 
 private:
     bgfx::TextureHandle m_TextureHandle {};

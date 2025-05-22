@@ -23,7 +23,7 @@ Vector3Property::~Vector3Property()
     bgfx::destroy(m_UniformHandle);
 }
 
-void Vector3Property::Apply(bgfx::ProgramHandle program) const
+void Vector3Property::Apply() const
 {
     if (bgfx::isValid(m_UniformHandle)) {
         bgfx::setUniform(m_UniformHandle, glm::value_ptr(m_Value), 1);

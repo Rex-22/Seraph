@@ -14,7 +14,7 @@ public:
     Vector4Property(const std::string& name, const glm::vec4& value);
     ~Vector4Property() override;
 
-    void Apply(bgfx::ProgramHandle program) const override;
+    void Apply() const override;
 
     [[nodiscard]] const glm::vec4& Value() const { return m_Value; }
     void SetValue(const glm::vec4& value) { m_Value = value; }

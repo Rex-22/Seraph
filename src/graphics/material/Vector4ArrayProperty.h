@@ -15,7 +15,7 @@ public:
         const std::string& name, glm::vec4* value, uint16_t count);
     ~Vector4ArrayProperty() override;
 
-    void Apply(bgfx::ProgramHandle program) const override;
+    void Apply() const override;
 
     [[nodiscard]] glm::vec4* Values() const { return m_Values; }
     [[nodiscard]] uint16_t Count() const { return m_Count; }

@@ -14,7 +14,7 @@ public:
     ColorProperty(const std::string& name, const glm::vec4& color);
     ~ColorProperty() override;
 
-    void Apply(bgfx::ProgramHandle program) const override;
+    void Apply() const override;
 
     [[nodiscard]] const glm::vec4& Color() const { return m_Color; }
     void SetColor(const glm::vec4& color) { m_Color = color; }

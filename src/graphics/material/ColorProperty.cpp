@@ -22,7 +22,7 @@ ColorProperty::~ColorProperty()
     bgfx::destroy(m_UniformHandle);
 }
 
-void ColorProperty::Apply(bgfx::ProgramHandle program) const
+void ColorProperty::Apply() const
 {
     if (bgfx::isValid(m_UniformHandle)) {
         bgfx::setUniform(m_UniformHandle, glm::value_ptr(m_Color));

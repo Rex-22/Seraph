@@ -14,7 +14,7 @@ public:
     Vector3Property(const std::string& name, const glm::vec3& value);
     ~Vector3Property() override;
 
-    void Apply(bgfx::ProgramHandle program) const override;
+    void Apply() const override;
 
     const glm::vec3& Value() const { return m_Value; }
     void SetValue(const glm::vec3& value) { m_Value = value; }
