@@ -5,6 +5,8 @@
 #pragma once
 
 #include "graphics/Camera.h"
+#include "graphics/ChunkMesh.h"
+#include "world/Chunk.h"
 
 #include <bgfx/bgfx.h>
 #include <mutex>
@@ -52,14 +54,19 @@ private:
     static Application* s_Instance;
     bool m_Running = false;
 
-    Platform::Window* m_Window{};
+    Platform::Window* m_Window = nullptr;
 
     Graphics::Mesh* m_Mesh = nullptr;
-    bgfx::ProgramHandle m_Program{};
-    Graphics::Material* m_Material;
+    bgfx::ProgramHandle m_Program = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle m_ChunkProgram = BGFX_INVALID_HANDLE;
+    Graphics::Material* m_Material = nullptr;
+    Graphics::Material* m_ChunkMaterial = nullptr;
 
     bgfx::TextureHandle m_TextureRgba{};
     bgfx::TextureHandle m_TextureNormal{};
+
+    World::Chunk* m_Chunk;
+    Graphics::ChunkMesh* m_ChunkMesh;
 
     float m_PrevMouseX = 0;
     float m_PrevMouseY = 0;
