@@ -26,9 +26,16 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
+#define SHADER_NAME vs_chunk
+#include "ShaderIncluder.h"
+#define SHADER_NAME fs_chunk
+#include "ShaderIncluder.h"
 
 namespace Core
 {
+
+using namespace World;
+using namespace Graphics;
 
 struct PosNormalTangentTexcoordVertex
 {
@@ -119,8 +126,9 @@ static const uint16_t s_cubeIndices[36] = {
     22, 21, 23 // Triangle 12
 };
 
-const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
+const std::array<bgfx::EmbeddedShader, 5> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
+    BGFX_EMBEDDED_SHADER(vs_chunk), BGFX_EMBEDDED_SHADER(fs_chunk),
     BGFX_EMBEDDED_SHADER_END() //
 }};
 
@@ -153,12 +161,15 @@ const Application* Application::GetInstance()
 void Application::Cleanup() const
 {
     delete m_Material;
+    delete m_ChunkMaterial;
     delete m_Mesh;
+    delete m_ChunkMesh;
+    delete m_Chunk;
     bgfx::destroy(m_TextureRgba);
     bgfx::destroy(m_TextureNormal);
     bgfx::destroy(m_Program);
 
-    Graphics::Renderer::Cleanup();
+    Renderer::Cleanup();
     CleanupCore();
 
     delete m_Window;
@@ -191,7 +202,7 @@ void Application::SetMouseCaptured(bool captured)
 
 void Application::Run()
 {
-    Graphics::Renderer::Init();
+    Renderer::Init();
     InitCore();
 
     PosNormalTangentTexcoordVertex::init();
@@ -201,7 +212,7 @@ void Application::Run()
         PosNormalTangentTexcoordVertex::ms_layout, s_cubeIndices,
         BX_COUNTOF(s_cubeIndices));
 
-    m_Mesh = new Graphics::Mesh();
+    m_Mesh = new Mesh();
     m_Mesh->SetVertexData(
         s_cubeVertices, sizeof(s_cubeVertices),
         PosNormalTangentTexcoordVertex::ms_layout);
@@ -220,23 +231,37 @@ void Application::Run()
     bgfx::setName(vs, "simple_vs");
     bgfx::setName(fs, "simple_fs");
 
-    m_Material = new Graphics::Material(m_Program);
-    m_Material->AddProperty<Graphics::TextureProperty>(
+    m_Material = new Material(m_Program);
+    m_Material->AddProperty<TextureProperty>(
         "s_texColor", m_TextureRgba, 0);
-    m_Material->AddProperty<Graphics::TextureProperty>(
+    m_Material->AddProperty<TextureProperty>(
         "s_texNormal", m_TextureNormal, 1);
-    m_Material->AddProperty<Graphics::Vector4ArrayProperty>(
+    m_Material->AddProperty<Vector4ArrayProperty>(
         "u_lightPosRadius", nullptr, 0);
-    m_Material->AddProperty<Graphics::Vector4ArrayProperty>(
+    m_Material->AddProperty<Vector4ArrayProperty>(
         "u_lightRgbInnerR", nullptr, 0);
+
+    const auto chunkVs =
+        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_chunk");
+    const auto chunkFs =
+        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_chunk");
+
+    m_ChunkProgram = bgfx::createProgram(chunkVs, chunkFs, true);
+    bgfx::setName(chunkVs, "chunk_vs");
+    bgfx::setName(chunkFs, "chunk_fs");
+
+    m_ChunkMaterial = new Material(m_ChunkProgram);
 
     m_TimeOffset = bx::getHPCounter();
 
-    m_Camera = Graphics::Camera(
+    m_Camera = Camera(
         60.0f,
         static_cast<float>(m_Window->Width()) /
             static_cast<float>(m_Window->Height()),
         0.01f, 1000.0f);
+
+    m_Chunk = new Chunk();
+    m_ChunkMesh = ChunkMesh::Create(*m_Chunk);
 
     m_Running = true;
 
@@ -441,6 +466,7 @@ void Application::Loop()
     bgfx::setViewTransform(
         0, glm::value_ptr(m_Camera.ViewMatrix()),
         glm::value_ptr(m_Camera.ProjectionMatrix()));
+#if 0
     glm::vec4 lightPosRadius[4];
     for (uint32_t ii = 0; ii < numLights; ++ii) {
         lightPosRadius[ii].x =
@@ -453,7 +479,7 @@ void Application::Loop()
         lightPosRadius[ii].w = 3.0f;
     }
 
-    dynamic_cast<Graphics::Vector4ArrayProperty*>(
+    dynamic_cast<Vector4ArrayProperty*>(
         m_Material->GetProperty("u_lightPosRadius"))
         ->SetValues(lightPosRadius, numLights);
 
@@ -464,7 +490,7 @@ void Application::Loop()
         {1.0f, 0.4f, 0.2f, 0.8f},
     };
 
-    dynamic_cast<Graphics::Vector4ArrayProperty*>(
+    dynamic_cast<Vector4ArrayProperty*>(
         m_Material->GetProperty("u_lightRgbInnerR"))
         ->SetValues(lightRgbInnerR, numLights);
 
@@ -499,6 +525,14 @@ void Application::Loop()
         m_Material->Apply(0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
             BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CCW);
     }
+#endif
+
+    auto mesh = m_ChunkMesh->GetMesh();
+    bgfx::setVertexBuffer(0, mesh->VertexBuffer());
+    bgfx::setIndexBuffer(mesh->IndexBuffer());
+
+    m_ChunkMaterial->Apply(0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
+            BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CW);
 
     bgfx::frame();
 }
