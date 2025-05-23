@@ -4,24 +4,28 @@
 
 #include "Chunk.h"
 
+#include "Blocks.h"
+
 namespace World
 {
 
 Chunk::Chunk()
 {
-    m_Blocks.fill(DIRT_BLOCK);
-}
-void Chunk::SetBlock(const BlockPos pos, const BlockId id)
-{
-    m_Blocks[IndexFromBlockPos(pos)] = id;
+    m_Blocks.fill(Blocks::DirtBlock->Id());
 }
 
-BlockId Chunk::BlockAt(const BlockPos pos) const
+void Chunk::SetBlock(const BlockPos pos, const Block* block)
+{
+    m_Blocks[IndexFromBlockPos(pos)] = block->Id();
+}
+
+const Block* Chunk::BlockAt(const BlockPos pos) const
 {
     if (pos.X >= ChunkSize || pos.Y >= ChunkSize || pos.Z >= ChunkSize) {
-        return INVALID_BLOCK;
+        return nullptr;
     }
-    return m_Blocks[IndexFromBlockPos(pos)];
+    const auto blockId = m_Blocks[IndexFromBlockPos(pos)];
+    return Blocks::GetById(blockId);
 }
 
 } // namespace World

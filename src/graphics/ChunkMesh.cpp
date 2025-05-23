@@ -46,10 +46,7 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
     m_IndexCount = 0;
     for (uint32_t i = 0; i < ChunkVolume; ++i) {
         const auto blockPos = BlockPosFromIndex(i);
-        if (const BlockId currentBlockId = chunk.BlockAt(blockPos);
-            currentBlockId == AIR_BLOCK || currentBlockId == INVALID_BLOCK) {
-            continue;
-        }
+        const Block* b = chunk.BlockAt(blockPos);
 
         auto bnx = chunk.BlockAt(
             {static_cast<uint16_t>(blockPos.X - 1), blockPos.Y, blockPos.Z});
@@ -64,43 +61,31 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
         auto bpz = chunk.BlockAt(
             {blockPos.X, blockPos.Y, static_cast<uint16_t>(blockPos.Z + 1)});
 
-        uint8_t opaqueBitmask = ADJACENT_BITMASK_NONE;
+        uint16_t opaqueBitmask = ADJACENT_BITMASK_NONE;
 
-        opaqueBitmask |= (bnx != INVALID_BLOCK && bnx != AIR_BLOCK)
-                             ? ADJACENT_BITMASK_NEG_X
-                             : 0;
-        opaqueBitmask |= (bpx != INVALID_BLOCK && bpx != AIR_BLOCK)
-                             ? ADJACENT_BITMASK_POS_X
-                             : 0;
-        opaqueBitmask |= (bny != INVALID_BLOCK && bny != AIR_BLOCK)
-                             ? ADJACENT_BITMASK_NEG_Y
-                             : 0;
-        opaqueBitmask |= (bpy != INVALID_BLOCK && bpy != AIR_BLOCK)
-                             ? ADJACENT_BITMASK_POS_Y
-                             : 0;
-        opaqueBitmask |= (bnz != INVALID_BLOCK && bnz != AIR_BLOCK)
-                             ? ADJACENT_BITMASK_NEG_Z
-                             : 0;
-        opaqueBitmask |= (bpz != INVALID_BLOCK && bpz != AIR_BLOCK)
-                             ? ADJACENT_BITMASK_POS_Z
-                             : 0;
+        opaqueBitmask |= bnx != nullptr && (bnx->IsOpaque() || (bnx->CullsSelf() && b==bnx)) ? ADJACENT_BITMASK_NEG_X : 0;
+        opaqueBitmask |= bpx != nullptr && (bpx->IsOpaque() || (bpx->CullsSelf() && b==bpx)) ? ADJACENT_BITMASK_POS_X : 0;
+        opaqueBitmask |= bny != nullptr && (bny->IsOpaque() || (bny->CullsSelf() && b==bny)) ? ADJACENT_BITMASK_NEG_Y : 0;
+        opaqueBitmask |= bpy != nullptr && (bpy->IsOpaque() || (bpy->CullsSelf() && b==bpy)) ? ADJACENT_BITMASK_POS_Y : 0;
+        opaqueBitmask |= bnz != nullptr && (bnz->IsOpaque() || (bnz->CullsSelf() && b==bnz)) ? ADJACENT_BITMASK_NEG_Z : 0;
+        opaqueBitmask |= bpz != nullptr && (bpz->IsOpaque() || (bpz->CullsSelf() && b==bpz)) ? ADJACENT_BITMASK_POS_Z : 0;
 
-        if (!(opaqueBitmask & ADJACENT_BITMASK_NEG_X)) {
+        if ((opaqueBitmask & ADJACENT_BITMASK_NEG_X) == 0) {
             AddFace(LEFT_FACE, blockPos, 0);
         }
-        if (!(opaqueBitmask & ADJACENT_BITMASK_POS_X)) {
+        if ((opaqueBitmask & ADJACENT_BITMASK_POS_X) == 0) {
             AddFace(RIGHT_FACE, blockPos, 0);
         }
-        if (!(opaqueBitmask & ADJACENT_BITMASK_NEG_Y)) {
+        if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Y) == 0) {
             AddFace(BOTTOM_FACE, blockPos, 0);
         }
-        if (!(opaqueBitmask & ADJACENT_BITMASK_POS_Y)) {
+        if ((opaqueBitmask & ADJACENT_BITMASK_POS_Y) == 0) {
             AddFace(TOP_FACE, blockPos, 0);
         }
-        if (!(opaqueBitmask & ADJACENT_BITMASK_NEG_Z)) {
+        if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Z) == 0) {
             AddFace(BACK_FACE, blockPos, 0);
         }
-        if (!(opaqueBitmask & ADJACENT_BITMASK_POS_Z)) {
+        if ((opaqueBitmask & ADJACENT_BITMASK_POS_Z) == 0) {
             AddFace(FRONT_FACE, blockPos, 0);
         }
     }

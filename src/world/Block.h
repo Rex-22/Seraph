@@ -9,18 +9,25 @@ namespace World
 
 typedef uint16_t BlockId;
 
-constexpr BlockId INVALID_BLOCK = 0;
-constexpr BlockId AIR_BLOCK = 1;
-constexpr BlockId DIRT_BLOCK = 2;
-
 struct BlockPos
 {
     uint16_t X, Y, Z;
 };
 
 class Block {
+public:
+    explicit Block(BlockId id);
+
+    [[nodiscard]] BlockId Id() const { return m_Id; }
+    [[nodiscard]] bool IsOpaque() const { return m_IsOpaque; }
+    [[nodiscard]] bool CullsSelf() const { return m_CullsSelf; }
+
+    Block* SetIsOpaque(bool isOpaque);
+    Block* SetCullsSelf(bool cullsSelf);
 private:
     BlockId m_Id = 0;
+    bool m_IsOpaque = false;
+    bool m_CullsSelf = true;
 };
 
 }

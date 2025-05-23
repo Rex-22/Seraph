@@ -19,21 +19,17 @@ struct ChunkMeshFace
     int8_t Vertices[12];
 };
 
+constexpr uint16_t ADJACENT_BITMASK_NONE = 0; // 000000
+constexpr uint16_t ADJACENT_BITMASK_NEG_X = 1 << 0; // 1  (000001) - Left
+constexpr uint16_t ADJACENT_BITMASK_POS_X = 1 << 1; // 2  (000010) - Right
+constexpr uint16_t ADJACENT_BITMASK_NEG_Y = 1 << 2; // 4  (000100) - Bottom
+constexpr uint16_t ADJACENT_BITMASK_POS_Y = 1 << 3; // 8  (001000) - Top
+constexpr uint16_t ADJACENT_BITMASK_NEG_Z = 1 << 4; // 16 (010000) - Back
+constexpr uint16_t ADJACENT_BITMASK_POS_Z = 1 << 5; // 32 (100000) - Front
 
-enum AdjacentBitmask : uint8_t
-{
-    ADJACENT_BITMASK_NONE = 0, // 000000
-    ADJACENT_BITMASK_NEG_X = 1 << 0, // 1  (000001) - Left
-    ADJACENT_BITMASK_POS_X = 1 << 1, // 2  (000010) - Right
-    ADJACENT_BITMASK_NEG_Y = 1 << 2, // 4  (000100) - Bottom
-    ADJACENT_BITMASK_POS_Y = 1 << 3, // 8  (001000) - Top
-    ADJACENT_BITMASK_NEG_Z = 1 << 4, // 16 (010000) - Back
-    ADJACENT_BITMASK_POS_Z = 1 << 5, // 32 (100000) - Front
-
-    ALL_ADJACENT_BITMASKS = ADJACENT_BITMASK_NEG_X | ADJACENT_BITMASK_POS_X |
-                            ADJACENT_BITMASK_NEG_Y | ADJACENT_BITMASK_POS_Y |
-                            ADJACENT_BITMASK_NEG_Z | ADJACENT_BITMASK_POS_Z
-};
+constexpr uint16_t ALL_ADJACENT_BITMASKS =
+    ADJACENT_BITMASK_NEG_X | ADJACENT_BITMASK_POS_X | ADJACENT_BITMASK_NEG_Y |
+    ADJACENT_BITMASK_POS_Y | ADJACENT_BITMASK_NEG_Z | ADJACENT_BITMASK_POS_Z;
 
 class ChunkMesh
 {
@@ -67,7 +63,8 @@ public:
 
 private:
     void GenerateMeshData(const World::Chunk& chunk);
-    void AddFace(ChunkMeshFace face, World::BlockPos blockPos, float textureIndex);
+    void AddFace(
+        ChunkMeshFace face, World::BlockPos blockPos, float textureIndex);
     void UpdateMesh();
 
 private:
