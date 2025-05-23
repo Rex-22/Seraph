@@ -37,8 +37,8 @@ public:
         return m_Blocks;
     }
 
-    void SetBlock(BlockPos pos, BlockId id);
-    [[nodiscard]] BlockId BlockAt(BlockPos pos) const;
+    void SetBlock(BlockPos pos, const Block* block);
+    [[nodiscard]] const Block* BlockAt(BlockPos pos) const;
 
 private:
     std::array<BlockId, ChunkVolume> m_Blocks{};
