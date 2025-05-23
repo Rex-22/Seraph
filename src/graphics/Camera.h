@@ -70,7 +70,7 @@ private:
     float m_MaxPitch = glm::radians(89.0f); // Radians
 
     glm::mat4 m_ProjectionMatrix{};
-    glm::mat4 m_ViewMatrix;
+    glm::mat4 m_ViewMatrix{};
 
     bool m_ViewDirty = true;
 };

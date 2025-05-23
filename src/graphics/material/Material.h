@@ -6,6 +6,7 @@
 #include "MaterialProperty.h"
 #include "bgfx/bgfx.h"
 
+#include <memory>
 #include <unordered_map>
 
 namespace Graphics
@@ -24,7 +25,6 @@ public:
     // Enable move operations
     Material(Material&& other) noexcept;
     Material& operator=(Material&& other) noexcept;
-
 
     template<typename T, typename NameType, typename... Args>
     void AddProperty(NameType&& name, Args&&... args)

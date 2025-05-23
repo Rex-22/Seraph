@@ -44,7 +44,7 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
     m_Vertices.clear();
     m_Indices.clear();
     m_IndexCount = 0;
-    for (int i = 0; i < ChunkVolume; ++i) {
+    for (uint32_t i = 0; i < ChunkVolume; ++i) {
         const auto blockPos = BlockPosFromIndex(i);
         if (const BlockId currentBlockId = chunk.BlockAt(blockPos);
             currentBlockId == AIR_BLOCK || currentBlockId == INVALID_BLOCK) {
@@ -106,15 +106,12 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
     }
 }
 
-constexpr glm::vec2 Uvs[4]= {
-    {0.0f, 0.0f},
-    {1.0f, 0.0f},
-    {1.0f, 1.0f},
-    {0.0f, 1.0f}
-};
+constexpr glm::vec2 Uvs[4] = {
+    {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}};
 void ChunkMesh::AddFace(
     const ChunkMeshFace face, const BlockPos blockPos, const float textureIndex)
 {
+    (void)textureIndex;
     uint16_t index = 0;
     for (uint8_t i = 0; i < 4; ++i) {
         uint8_t x = face.Vertices[index++] + blockPos.X;

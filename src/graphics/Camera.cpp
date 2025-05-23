@@ -3,9 +3,8 @@
 //
 
 #include "Camera.h"
-#include "core/Log.h"
-#include <glm/gtx/compatibility.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/compatibility.hpp>
 
 namespace Graphics
 {
@@ -24,10 +23,10 @@ Camera::Camera(float fov, float aspectRatio, float nearPlane, float farPlane)
 Camera::Camera(
     const glm::vec3& position, const glm::vec3& eulerAnglesRadians, float fov,
     float aspectRatio, float nearPlane, float farPlane)
-    : m_Position(position), m_FOV(fov), m_AspectRatio(aspectRatio),
+    : m_Position(position), m_PitchAngle(0.0f), m_YawAngle(0.0f),
+      m_RollAngle(0.0f), m_FOV(fov), m_AspectRatio(aspectRatio),
       m_NearPlane(nearPlane), m_FarPlane(farPlane),
-      m_ViewMatrix(glm::mat4(1.0f)), m_PitchAngle(0.0f), m_YawAngle(0.0f),
-      m_RollAngle(0.0f)
+      m_ViewMatrix(glm::mat4(1.0f))
 {
     // Set initial orientation (pitch, yaw, roll)
     m_PitchAngle = glm::clamp(eulerAnglesRadians.x, m_MinPitch, m_MaxPitch);
