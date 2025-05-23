@@ -8,6 +8,7 @@
 #include <bgfx/bgfx.h>
 #include <bimg/bimg.h>
 #include <bx/readerwriter.h>
+#include <string>
 
 inline uint32_t EncodeColorRgba8(float r, float g, float b, float a)
 {
@@ -35,6 +36,7 @@ bx::FileReaderI* GetFileReader();
 
 bx::AllocatorI* GetAllocator();
 
+bgfx::TextureHandle LoadTextureNew(const std::string& path, int* x, int* y, uint64_t flags);
 bgfx::TextureHandle LoadTexture(
     const bx::FilePath& _filePath,
     uint64_t _flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE, uint8_t _skip = 0,

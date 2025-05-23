@@ -8,6 +8,10 @@
 
 #include <vector>
 
+namespace Core
+{
+class Application;
+}
 namespace World
 {
 struct Blocks
@@ -23,6 +27,8 @@ public:
     Blocks& operator=(const Blocks& other) = delete;
     Blocks& operator=(Blocks&& other) noexcept = delete;
 
+    static void RegisterBlocks(const Core::Application* app);
+    static void CleanUp();
     static const std::vector<Block*>& AllBlocks();
     static const Block* GetById(BlockId id);
 private:

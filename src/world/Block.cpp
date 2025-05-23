@@ -11,6 +11,32 @@ Block::Block(const BlockId id) : m_Id(id)
 {
 }
 
+BlockId Block::Id() const
+{
+    return m_Id;
+}
+
+bool Block::IsOpaque() const
+{
+    return m_IsOpaque;
+}
+
+bool Block::CullsSelf() const
+{
+    return m_CullsSelf;
+}
+
+glm::vec2 Block::TextureRegion() const
+{
+    return m_TextureRegion;
+}
+
+Block* Block::SetTextureRegion(glm::vec2 textureRegion)
+{
+    m_TextureRegion = textureRegion;
+    return this;
+}
+
 Block* Block::SetIsOpaque(bool isOpaque)
 {
     m_IsOpaque = isOpaque;

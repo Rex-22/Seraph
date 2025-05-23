@@ -10,7 +10,7 @@
 namespace World
 {
 
-constexpr uint32_t ChunkSize = 32;
+constexpr uint32_t ChunkSize = 1;
 constexpr uint32_t ChunkVolume = ChunkSize * ChunkSize * ChunkSize;
 
 inline uint32_t IndexFromBlockPos(const BlockPos pos)
