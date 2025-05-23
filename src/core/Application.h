@@ -13,6 +13,10 @@
 
 namespace Graphics
 {
+class TextureAtlas;
+}
+namespace Graphics
+{
 class Material;
 class Mesh;
 }
@@ -40,6 +44,8 @@ public:
     [[nodiscard]] const Platform::Window& Window() const;
     void Run();
 
+    Graphics::TextureAtlas* TextureAtlas() const;
+
 private:
     void ImGuiBegin();
     void ImGuiEnd();
@@ -54,6 +60,8 @@ private:
     static Application* s_Instance;
     bool m_Running = false;
 
+    Graphics::TextureAtlas* m_Atlas = nullptr;
+
     Platform::Window* m_Window = nullptr;
 
     Graphics::Mesh* m_Mesh = nullptr;
@@ -63,7 +71,6 @@ private:
     Graphics::Material* m_ChunkMaterial = nullptr;
 
     bgfx::TextureHandle m_TextureRgba{};
-    bgfx::TextureHandle m_TextureRgba1{};
     bgfx::TextureHandle m_TextureNormal{};
 
     World::Chunk* m_Chunk;

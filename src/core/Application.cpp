@@ -30,6 +30,8 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_chunk
 #include "ShaderIncluder.h"
+#include "graphics/TextureAtlas.h"
+#include "world/Blocks.h"
 
 namespace Core
 {
@@ -184,13 +186,15 @@ const Application* Application::GetInstance()
 }
 void Application::Cleanup() const
 {
+    Blocks::CleanUp();
+    delete m_Atlas;
+
     delete m_Material;
     delete m_ChunkMaterial;
     delete m_Mesh;
     delete m_ChunkMesh;
     delete m_Chunk;
     bgfx::destroy(m_TextureRgba);
-    bgfx::destroy(m_TextureRgba1);
     bgfx::destroy(m_TextureNormal);
     bgfx::destroy(m_Program);
 
@@ -230,6 +234,8 @@ void Application::Run()
     Renderer::Init();
     InitCore();
 
+    m_Atlas = TextureAtlas::Create("textures/block_sheet.png", 16);
+    Blocks::RegisterBlocks(this);
     PosNormalTangentTexcoordVertex::init();
 
     CalcTangents(
@@ -249,8 +255,9 @@ void Application::Run()
     const auto fs =
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
 
-    m_TextureRgba = LoadTexture("textures/fieldstone-rgba.tga", BGFX_TEXTURE_NONE | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT);
-    m_TextureRgba1 = LoadTexture("textures/grass_block_top.png", BGFX_TEXTURE_NONE | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT);
+    m_TextureRgba = LoadTexture(
+        "textures/fieldstone-rgba.tga",
+        BGFX_TEXTURE_NONE | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT);
     m_TextureNormal = LoadTexture("textures/fieldstone-n.tga");
 
     m_Program = bgfx::createProgram(vs, fs, true);
@@ -275,7 +282,8 @@ void Application::Run()
     bgfx::setName(chunkFs, "chunk_fs");
 
     m_ChunkMaterial = new Material(m_ChunkProgram);
-    m_ChunkMaterial->AddProperty<TextureProperty>("s_texColor", m_TextureRgba, 0);
+    m_ChunkMaterial->AddProperty<TextureProperty>(
+        "s_texColor", m_Atlas->TextureHandle(), 0);
 
     m_TimeOffset = bx::getHPCounter();
 
@@ -295,6 +303,12 @@ void Application::Run()
     }
     Cleanup();
 }
+
+Graphics::TextureAtlas* Application::TextureAtlas() const
+{
+    return m_Atlas;
+}
+
 void Application::ImGuiBegin()
 {
     ImGui_Implbgfx_NewFrame();

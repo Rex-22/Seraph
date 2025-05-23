@@ -70,33 +70,40 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
         opaqueBitmask |= bnz != nullptr && (bnz->IsOpaque() || (bnz->CullsSelf() && b==bnz)) ? ADJACENT_BITMASK_NEG_Z : 0;
         opaqueBitmask |= bpz != nullptr && (bpz->IsOpaque() || (bpz->CullsSelf() && b==bpz)) ? ADJACENT_BITMASK_POS_Z : 0;
 
+        const auto uv_unit = glm::vec2(1.0f) / glm::vec2(16.0f);
+        const auto uv_offset = b->TextureRegion();
+        auto uv = glm::vec2(uv_offset.x, 16 - uv_offset.y - 1) * uv_unit;
+
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_X) == 0) {
-            AddFace(LEFT_FACE, blockPos, 0);
+            AddFace(LEFT_FACE, blockPos, uv, uv_unit);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_X) == 0) {
-            AddFace(RIGHT_FACE, blockPos, 0);
+            AddFace(RIGHT_FACE, blockPos, uv, uv_unit);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Y) == 0) {
-            AddFace(BOTTOM_FACE, blockPos, 0);
+            AddFace(BOTTOM_FACE, blockPos, uv, uv_unit);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_Y) == 0) {
-            AddFace(TOP_FACE, blockPos, 0);
+            AddFace(TOP_FACE, blockPos, uv, uv_unit);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Z) == 0) {
-            AddFace(BACK_FACE, blockPos, 0);
+            AddFace(BACK_FACE, blockPos, uv, uv_unit);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_Z) == 0) {
-            AddFace(FRONT_FACE, blockPos, 0);
+            AddFace(FRONT_FACE, blockPos, uv, uv_unit);
         }
     }
 }
 
 constexpr glm::vec2 Uvs[4] = {
-    {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}};
-void ChunkMesh::AddFace(
-    const ChunkMeshFace face, const BlockPos blockPos, const float textureIndex)
+    glm::vec2(0, 0),
+   glm::vec2(1, 0),
+   glm::vec2(1, 1),
+   glm::vec2(0, 1),
+};
+
+void ChunkMesh::AddFace(const ChunkMeshFace face, const BlockPos blockPos, glm::vec2 uv_offset, glm::vec2 uv_size)
 {
-    (void)textureIndex;
     uint16_t index = 0;
     for (uint8_t i = 0; i < 4; ++i) {
         uint8_t x = face.Vertices[index++] + blockPos.X;
@@ -105,7 +112,7 @@ void ChunkMesh::AddFace(
 
         ChunkVertex vertex = {
             .Position = {x, y, z},
-            .UV = Uvs[i],
+            .UV = (Uvs[i] + uv_offset) * uv_size,
         };
 
         m_Vertices.emplace_back(vertex);
