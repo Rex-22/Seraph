@@ -79,32 +79,53 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
         opaqueBitmask |= bnz != nullptr && (bnz->IsOpaque() || (bnz->CullsSelf() && b==bnz)) ? ADJACENT_BITMASK_NEG_Z : 0;
         opaqueBitmask |= bpz != nullptr && (bpz->IsOpaque() || (bpz->CullsSelf() && b==bpz)) ? ADJACENT_BITMASK_POS_Z : 0;
 
-        const auto uv_unit = glm::vec2(1.0f) / glm::vec2(16.0f);
-        const auto uv_offset = b->TextureRegion();
-        auto uv = glm::vec2(uv_offset.x, 16 - uv_offset.y - 1) * uv_unit;
-
-        glm::vec2 textureRegion = b->TextureRegion(); // Assuming (0,0) is currently hardcoded
-        glm::vec2 uvOffset;
-        uvOffset.x = textureRegion.x * uvSize.x;
-        uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
-
 
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_X) == 0) {
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Left); // Assuming (0,0) is currently hardcoded
+            glm::vec2 uvOffset;
+            uvOffset.x = textureRegion.x * uvSize.x;
+            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
+
             AddFace(LEFT_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_X) == 0) {
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Right); // Assuming (0,0) is currently hardcoded
+            glm::vec2 uvOffset;
+            uvOffset.x = textureRegion.x * uvSize.x;
+            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
+
             AddFace(RIGHT_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Y) == 0) {
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Bottom); // Assuming (0,0) is currently hardcoded
+            glm::vec2 uvOffset;
+            uvOffset.x = textureRegion.x * uvSize.x;
+            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
+
             AddFace(BOTTOM_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_Y) == 0) {
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Top); // Assuming (0,0) is currently hardcoded
+            glm::vec2 uvOffset;
+            uvOffset.x = textureRegion.x * uvSize.x;
+            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
+
             AddFace(TOP_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Z) == 0) {
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Back); // Assuming (0,0) is currently hardcoded
+            glm::vec2 uvOffset;
+            uvOffset.x = textureRegion.x * uvSize.x;
+            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
+
             AddFace(BACK_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_Z) == 0) {
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Front); // Assuming (0,0) is currently hardcoded
+            glm::vec2 uvOffset;
+            uvOffset.x = textureRegion.x * uvSize.x;
+            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
+
             AddFace(FRONT_FACE, blockPos, uvOffset, uvSize);
         }
     }

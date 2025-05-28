@@ -5,13 +5,20 @@
 #include "Chunk.h"
 
 #include "Blocks.h"
+#include "GrassBlock.h"
 
 namespace World
 {
 
 Chunk::Chunk()
 {
-    m_Blocks.fill(Blocks::DirtBlock->Id());
+    m_Blocks.fill(Blocks::Dirt->Id());
+
+    for (uint16_t i = 0; i < ChunkSize*ChunkSize; ++i) {
+        uint16_t x = i % ChunkSize;
+        uint16_t z = i / ChunkSize;
+        SetBlock({x, ChunkSize-1, z}, Blocks::Grass);
+    }
 }
 
 void Chunk::SetBlock(const BlockPos pos, const Block* block)
