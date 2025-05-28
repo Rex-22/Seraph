@@ -6,8 +6,13 @@
 #define BLOCKS_H
 #include "Block.h"
 
+#include <memory>
 #include <vector>
 
+namespace World
+{
+class GrassBlock;
+}
 namespace Core
 {
 class Application;
@@ -16,8 +21,9 @@ namespace World
 {
 struct Blocks
 {
-    static const Block* AirBlock;
-    static const Block* DirtBlock;
+    static const Block* Air;
+    static const Block* Dirt;
+    static const GrassBlock* Grass;
 
 public:
     Blocks() = delete;
@@ -29,13 +35,15 @@ public:
 
     static void RegisterBlocks(const Core::Application* app);
     static void CleanUp();
-    static const std::vector<Block*>& AllBlocks();
+    static const std::vector<std::unique_ptr<Block>>& AllBlocks();
     static const Block* GetById(BlockId id);
 private:
-    static Block* RegisterBlock();
+    template <typename T, typename... Args>
+    static T* RegisterBlock(Args&&... args);
+
 private:
     static BlockId m_NextId;
-    static std::vector<Block*> m_Blocks;
+    static     std::vector<std::unique_ptr<Block>> m_Blocks;
 
 }; // namespace Blocks
 } // namespace World

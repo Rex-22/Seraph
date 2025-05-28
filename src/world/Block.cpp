@@ -26,8 +26,9 @@ bool Block::CullsSelf() const
     return m_CullsSelf;
 }
 
-glm::vec2 Block::TextureRegion() const
+glm::vec2 Block::TextureRegion(Direction side) const
 {
+    (void)side;
     return m_TextureRegion;
 }
 
