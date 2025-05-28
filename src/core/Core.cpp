@@ -171,32 +171,6 @@ bx::AllocatorI* GetAllocator()
 
     return g_allocator;
 }
-bgfx::TextureHandle LoadTextureNew(
-    const std::string& path, int* x, int* y, const uint64_t flags)
-{
-    auto fullPath = ASSET_PATH + path;
-    // load image with stb_image
-    glm::ivec2 size;
-    if (x && y) {
-        size = glm::ivec2(*x, *y);
-    }
-
-    int channels;
-    stbi_set_flip_vertically_on_load(true);
-    uint8_t* data = stbi_load(fullPath.c_str(), &size.x, &size.y, &channels, 0);
-
-    auto res = bgfx::createTexture2D(
-        size.x, size.y, false, 1, bgfx::TextureFormat::RGBA8,
-        flags,
-        bgfx::copy(data, size.x * size.y * channels));
-
-    if (!bgfx::isValid(res)) {
-        CORE_ERROR("Failed to load texture: {}", fullPath);
-    }
-
-    std::free(data);
-    return res;
-}
 
 void InitCore()
 {
