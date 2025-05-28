@@ -63,7 +63,7 @@ public:
 
 private:
     void GenerateMeshData(const World::Chunk& chunk);
-    void AddFace(ChunkMeshFace face, World::BlockPos blockPos, glm::vec2 uv_size, glm::vec2 uv_offset);
+    void AddFace(ChunkMeshFace face, World::BlockPos blockPos, glm::vec2 uvOffset, glm::vec2 uvSize);
     void UpdateMesh();
 
 private:

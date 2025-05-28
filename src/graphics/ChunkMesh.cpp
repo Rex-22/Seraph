@@ -44,6 +44,15 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
     m_Vertices.clear();
     m_Indices.clear();
     m_IndexCount = 0;
+
+    constexpr float atlasSize = 32.0f;
+    constexpr float textureSize = 16.0f;
+
+    const float numSubTextureWidth = atlasSize/textureSize;  // Atlas is 2 sub-textures wide (32px / 16px)
+    const float numSubTextureHeight = atlasSize/textureSize; // Atlas is 2 sub-textures high (32px / 16px)
+
+    glm::vec2 uvSize = glm::vec2(1.0f / numSubTextureWidth, 1.0f / numSubTextureHeight); // Should be (0.5, 0.5)
+
     for (uint32_t i = 0; i < ChunkVolume; ++i) {
         const auto blockPos = BlockPosFromIndex(i);
         const Block* b = chunk.BlockAt(blockPos);
@@ -74,23 +83,29 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
         const auto uv_offset = b->TextureRegion();
         auto uv = glm::vec2(uv_offset.x, 16 - uv_offset.y - 1) * uv_unit;
 
+        glm::vec2 textureRegion = b->TextureRegion(); // Assuming (0,0) is currently hardcoded
+        glm::vec2 uvOffset;
+        uvOffset.x = textureRegion.x * uvSize.x;
+        uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
+
+
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_X) == 0) {
-            AddFace(LEFT_FACE, blockPos, uv, uv_unit);
+            AddFace(LEFT_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_X) == 0) {
-            AddFace(RIGHT_FACE, blockPos, uv, uv_unit);
+            AddFace(RIGHT_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Y) == 0) {
-            AddFace(BOTTOM_FACE, blockPos, uv, uv_unit);
+            AddFace(BOTTOM_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_Y) == 0) {
-            AddFace(TOP_FACE, blockPos, uv, uv_unit);
+            AddFace(TOP_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Z) == 0) {
-            AddFace(BACK_FACE, blockPos, uv, uv_unit);
+            AddFace(BACK_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_Z) == 0) {
-            AddFace(FRONT_FACE, blockPos, uv, uv_unit);
+            AddFace(FRONT_FACE, blockPos, uvOffset, uvSize);
         }
     }
 }
@@ -102,7 +117,7 @@ constexpr glm::vec2 Uvs[4] = {
    glm::vec2(0, 1),
 };
 
-void ChunkMesh::AddFace(const ChunkMeshFace face, const BlockPos blockPos, glm::vec2 uv_offset, glm::vec2 uv_size)
+void ChunkMesh::AddFace(const ChunkMeshFace face, const BlockPos blockPos, glm::vec2 uvOffset, glm::vec2 uvSize)
 {
     uint16_t index = 0;
     for (uint8_t i = 0; i < 4; ++i) {
@@ -112,7 +127,7 @@ void ChunkMesh::AddFace(const ChunkMeshFace face, const BlockPos blockPos, glm::
 
         ChunkVertex vertex = {
             .Position = {x, y, z},
-            .UV = (Uvs[i] + uv_offset) * uv_size,
+            .UV = uvOffset + Uvs[i] * uvSize,
         };
 
         m_Vertices.emplace_back(vertex);
