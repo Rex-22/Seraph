@@ -42,13 +42,10 @@ public:
     virtual ~Block() = default;
 
     [[nodiscard]] BlockId Id() const;
-
-    // Legacy methods (for backwards compatibility)
     [[nodiscard]] bool IsOpaque() const;
     [[nodiscard]] bool CullsSelf() const;
-    [[nodiscard]] virtual glm::vec2 TextureRegion(Direction side) const;
 
-    // New visual properties
+    // Visual properties
     [[nodiscard]] TransparencyType GetTransparencyType() const;
     [[nodiscard]] int GetLightEmission() const;
     [[nodiscard]] bool HasAmbientOcclusion() const;
@@ -57,7 +54,6 @@ public:
     // Setters (builder pattern)
     Block* SetIsOpaque(bool isOpaque);
     Block* SetCullsSelf(bool cullsSelf);
-    Block* SetTextureRegion(glm::vec2 textureRegion);
     Block* SetTransparencyType(TransparencyType type);
     Block* SetLightEmission(int level);
     Block* SetAmbientOcclusion(bool enabled);
@@ -67,12 +63,9 @@ private:
     BlockId m_Id = 0;
     std::string m_Name = "";
 
-    // Legacy properties
+    // Properties
     bool m_IsOpaque = true;
     bool m_CullsSelf = true;
-    glm::vec2 m_TextureRegion;
-
-    // New visual properties
     TransparencyType m_TransparencyType = TransparencyType::Opaque;
     int m_LightEmission = 0;  // 0-15 (Minecraft-style)
     bool m_AmbientOcclusion = true;

@@ -111,6 +111,17 @@ private:
         const std::string& propertyString,
         std::unordered_map<std::string, std::string>& outProperties);
 
+    /**
+     * Apply blockstate rotations (x, y) to a baked model.
+     * Creates a new rotated copy of the model.
+     * @param source Source baked model
+     * @param variant Variant with rotation values
+     * @return New rotated baked model
+     */
+    Resources::BakedModel* ApplyBlockstateRotation(
+        const Resources::BakedModel* source,
+        const BlockStateVariant& variant);
+
 private:
     /// Block model loader
     BlockModelLoader* m_ModelLoader;

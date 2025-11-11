@@ -43,7 +43,7 @@ Graphics::TextureAtlas* TextureManager::GetAtlas(const std::string& atlasName)
     return it != m_Atlases.end() ? it->second.get() : nullptr;
 }
 
-TextureInfo TextureManager::GetTextureInfo(const std::string& resourceName)
+TextureInfo TextureManager::GetTextureInfo(const std::string& resourceName) const
 {
     auto it = m_TextureRegistry.find(resourceName);
     if (it != m_TextureRegistry.end()) {

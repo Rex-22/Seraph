@@ -14,7 +14,6 @@
 
 namespace World
 {
-class GrassBlock;
 class BlockState;
 }
 namespace Core
@@ -25,11 +24,6 @@ namespace World
 {
 struct Blocks
 {
-    // Legacy block pointers (for backwards compatibility)
-    static const Block* Air;
-    static const Block* Dirt;
-    static const Block* Grass;
-
     // Default block states (primary interface going forward)
     static BlockState* AirState;
     static BlockState* DirtState;

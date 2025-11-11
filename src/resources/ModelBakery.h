@@ -18,6 +18,7 @@ class TextureAtlas;
 
 namespace Resources
 {
+class TextureManager;
 
 /**
  * Compiles BlockModels into BakedModels for efficient rendering.
@@ -28,6 +29,14 @@ class ModelBakery
 public:
     ModelBakery() = default;
     ~ModelBakery() = default;
+
+    /**
+     * Set the TextureManager for texture UV lookups.
+     * Must be called before baking models.
+     */
+    void SetTextureManager(const TextureManager* textureManager) {
+        m_TextureManager = textureManager;
+    }
 
     /**
      * Bake a block model into a renderable format.
@@ -85,7 +94,7 @@ private:
     /**
      * Get the normal vector for a face direction.
      */
-    glm::vec3 GetFaceNormal(const std::string& direction);
+    glm::vec3 GetFaceNormal(const std::string& direction) const;
 
     /**
      * Resolve texture path to atlas UV coordinates.
@@ -112,6 +121,9 @@ private:
     /// Key: cache key (model hash)
     /// Value: unique pointer to baked model
     std::unordered_map<std::string, std::unique_ptr<BakedModel>> m_BakedModelCache;
+
+    /// TextureManager for looking up texture positions in atlas
+    const TextureManager* m_TextureManager = nullptr;
 };
 
 } // namespace Resources

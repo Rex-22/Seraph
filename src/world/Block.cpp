@@ -26,18 +26,6 @@ bool Block::CullsSelf() const
     return m_CullsSelf;
 }
 
-glm::vec2 Block::TextureRegion(Direction side) const
-{
-    (void)side;
-    return m_TextureRegion;
-}
-
-Block* Block::SetTextureRegion(glm::vec2 textureRegion)
-{
-    m_TextureRegion = textureRegion;
-    return this;
-}
-
 Block* Block::SetIsOpaque(bool isOpaque)
 {
     m_IsOpaque = isOpaque;

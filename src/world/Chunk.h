@@ -41,10 +41,6 @@ public:
     void SetBlockState(BlockPos pos, BlockStateId stateId);
     [[nodiscard]] BlockStateId BlockStateIdAt(BlockPos pos) const;
 
-    // Legacy compatibility methods (will be removed in Phase 11)
-    void SetBlock(BlockPos pos, const Block* block);
-    [[nodiscard]] const Block* BlockAt(BlockPos pos) const;
-
 private:
     std::array<BlockStateId, ChunkVolume> m_BlockStates{};
 };
