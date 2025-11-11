@@ -4,6 +4,8 @@
 
 #include "ChunkMesh.h"
 
+#include "TextureAtlas.h"
+#include "core/Application.h"
 #include "world/Chunk.h"
 
 namespace Graphics
@@ -45,11 +47,12 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
     m_Indices.clear();
     m_IndexCount = 0;
 
-    constexpr float atlasSize = 32.0f;
-    constexpr float textureSize = 16.0f;
+    uint32_t atlasWidth = Core::Application::GetInstance()->TextureAtlas()->Width();
+    uint32_t atlasHeight = Core::Application::GetInstance()->TextureAtlas()->Height();
+    uint32_t textureSize = Core::Application::GetInstance()->TextureAtlas()->SpriteSize();
 
-    const float numSubTextureWidth = atlasSize/textureSize;
-    const float numSubTextureHeight = atlasSize/textureSize;
+    const float numSubTextureWidth = static_cast<float>(atlasWidth) / static_cast<float>(textureSize);
+    const float numSubTextureHeight = static_cast<float>(atlasHeight) / static_cast<float>(textureSize);
 
     glm::vec2 uvSize = glm::vec2(1.0f / numSubTextureWidth, 1.0f / numSubTextureHeight);
 

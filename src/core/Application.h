@@ -64,14 +64,8 @@ private:
 
     Platform::Window* m_Window = nullptr;
 
-    Graphics::Mesh* m_Mesh = nullptr;
-    bgfx::ProgramHandle m_Program = BGFX_INVALID_HANDLE;
     bgfx::ProgramHandle m_ChunkProgram = BGFX_INVALID_HANDLE;
-    Graphics::Material* m_Material = nullptr;
     Graphics::Material* m_ChunkMaterial = nullptr;
-
-    bgfx::TextureHandle m_TextureRgba{};
-    bgfx::TextureHandle m_TextureNormal{};
 
     World::Chunk* m_Chunk = nullptr;
     Graphics::ChunkMesh* m_ChunkMesh = nullptr;
