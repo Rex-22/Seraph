@@ -6,6 +6,11 @@
 
 #include "TextureAtlas.h"
 #include "core/Application.h"
+#include "core/Log.h"
+#include "resources/BakedModel.h"
+#include "resources/BlockStateLoader.h"
+#include "world/BlockState.h"
+#include "world/Blocks.h"
 #include "world/Chunk.h"
 
 namespace Graphics
@@ -56,80 +61,64 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
 
     glm::vec2 uvSize = glm::vec2(1.0f / numSubTextureWidth, 1.0f / numSubTextureHeight);
 
+    // Use new BakedModel system!
+    CORE_INFO("ChunkMesh: Using JSON block model system");
+
     for (uint32_t i = 0; i < ChunkVolume; ++i) {
         const auto blockPos = BlockPosFromIndex(i);
-        const Block* b = chunk.BlockAt(blockPos);
 
-        auto bnx = chunk.BlockAt(
+        // Get BlockState from chunk
+        BlockStateId stateId = chunk.BlockStateIdAt(blockPos);
+        BlockState* state = Blocks::GetStateById(stateId);
+        if (!state) {
+            continue; // Skip if state not found
+        }
+
+        // Get BakedModel from state
+        Resources::BakedModel* bakedModel = state->GetBakedModel();
+        if (!bakedModel || bakedModel->IsEmpty()) {
+            continue; // Skip if no model (e.g., air)
+        }
+
+        // Get adjacent blocks for culling
+        auto adjacentStateNX = chunk.BlockStateIdAt(
             {static_cast<uint16_t>(blockPos.X - 1), blockPos.Y, blockPos.Z});
-        auto bpx = chunk.BlockAt(
+        auto adjacentStatePX = chunk.BlockStateIdAt(
             {static_cast<uint16_t>(blockPos.X + 1), blockPos.Y, blockPos.Z});
-        auto bny = chunk.BlockAt(
+        auto adjacentStateNY = chunk.BlockStateIdAt(
             {blockPos.X, static_cast<uint16_t>(blockPos.Y - 1), blockPos.Z});
-        auto bpy = chunk.BlockAt(
+        auto adjacentStatePY = chunk.BlockStateIdAt(
             {blockPos.X, static_cast<uint16_t>(blockPos.Y + 1), blockPos.Z});
-        auto bnz = chunk.BlockAt(
+        auto adjacentStateNZ = chunk.BlockStateIdAt(
             {blockPos.X, blockPos.Y, static_cast<uint16_t>(blockPos.Z - 1)});
-        auto bpz = chunk.BlockAt(
+        auto adjacentStatePZ = chunk.BlockStateIdAt(
             {blockPos.X, blockPos.Y, static_cast<uint16_t>(blockPos.Z + 1)});
 
-        uint16_t opaqueBitmask = ADJACENT_BITMASK_NONE;
+        // Render all quads from the baked model
+        for (const auto& quad : bakedModel->GetQuads()) {
+            // Check if face should be culled
+            bool shouldCull = false;
+            if (!quad.cullface.empty()) {
+                // Get adjacent block in cullface direction
+                BlockStateId adjacentStateId = 0;
+                if (quad.cullface == "west") adjacentStateId = adjacentStateNX;
+                else if (quad.cullface == "east") adjacentStateId = adjacentStatePX;
+                else if (quad.cullface == "down") adjacentStateId = adjacentStateNY;
+                else if (quad.cullface == "up") adjacentStateId = adjacentStatePY;
+                else if (quad.cullface == "north") adjacentStateId = adjacentStateNZ;
+                else if (quad.cullface == "south") adjacentStateId = adjacentStatePZ;
 
-        opaqueBitmask |= bnx != nullptr && (bnx->IsOpaque() || (bnx->CullsSelf() && b==bnx)) ? ADJACENT_BITMASK_NEG_X : 0;
-        opaqueBitmask |= bpx != nullptr && (bpx->IsOpaque() || (bpx->CullsSelf() && b==bpx)) ? ADJACENT_BITMASK_POS_X : 0;
-        opaqueBitmask |= bny != nullptr && (bny->IsOpaque() || (bny->CullsSelf() && b==bny)) ? ADJACENT_BITMASK_NEG_Y : 0;
-        opaqueBitmask |= bpy != nullptr && (bpy->IsOpaque() || (bpy->CullsSelf() && b==bpy)) ? ADJACENT_BITMASK_POS_Y : 0;
-        opaqueBitmask |= bnz != nullptr && (bnz->IsOpaque() || (bnz->CullsSelf() && b==bnz)) ? ADJACENT_BITMASK_NEG_Z : 0;
-        opaqueBitmask |= bpz != nullptr && (bpz->IsOpaque() || (bpz->CullsSelf() && b==bpz)) ? ADJACENT_BITMASK_POS_Z : 0;
+                BlockState* adjacentState = Blocks::GetStateById(adjacentStateId);
+                if (adjacentState) {
+                    const Block* adjacentBlock = adjacentState->GetBlock();
+                    // Cull if adjacent block is opaque
+                    shouldCull = adjacentBlock && adjacentBlock->IsOpaque();
+                }
+            }
 
-
-        if ((opaqueBitmask & ADJACENT_BITMASK_NEG_X) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Left);
-            glm::vec2 uvOffset;
-            uvOffset.x = textureRegion.x * uvSize.x;
-            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
-
-            AddFace(LEFT_FACE, blockPos, uvOffset, uvSize);
-        }
-        if ((opaqueBitmask & ADJACENT_BITMASK_POS_X) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Right);
-            glm::vec2 uvOffset;
-            uvOffset.x = textureRegion.x * uvSize.x;
-            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
-
-            AddFace(RIGHT_FACE, blockPos, uvOffset, uvSize);
-        }
-        if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Y) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Bottom);
-            glm::vec2 uvOffset;
-            uvOffset.x = textureRegion.x * uvSize.x;
-            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
-
-            AddFace(BOTTOM_FACE, blockPos, uvOffset, uvSize);
-        }
-        if ((opaqueBitmask & ADJACENT_BITMASK_POS_Y) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Top);
-            glm::vec2 uvOffset;
-            uvOffset.x = textureRegion.x * uvSize.x;
-            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
-
-            AddFace(TOP_FACE, blockPos, uvOffset, uvSize);
-        }
-        if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Z) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Back);
-            glm::vec2 uvOffset;
-            uvOffset.x = textureRegion.x * uvSize.x;
-            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
-
-            AddFace(BACK_FACE, blockPos, uvOffset, uvSize);
-        }
-        if ((opaqueBitmask & ADJACENT_BITMASK_POS_Z) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Front);
-            glm::vec2 uvOffset;
-            uvOffset.x = textureRegion.x * uvSize.x;
-            uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
-
-            AddFace(FRONT_FACE, blockPos, uvOffset, uvSize);
+            if (!shouldCull) {
+                AddBakedQuad(quad, blockPos);
+            }
         }
     }
 }
@@ -152,10 +141,38 @@ void ChunkMesh::AddFace(const ChunkMeshFace face, const BlockPos blockPos, glm::
         ChunkVertex vertex = {
             .Position = {x, y, z},
             .UV = uvOffset + Uvs[i] * uvSize,
+            .AO = 1.0f,  // Fully lit (AO calculation will be added later)
         };
 
         m_Vertices.emplace_back(vertex);
     }
+    m_Indices.push_back(m_IndexCount + 0);
+    m_Indices.push_back(m_IndexCount + 1);
+    m_Indices.push_back(m_IndexCount + 2);
+    m_Indices.push_back(m_IndexCount + 2);
+    m_Indices.push_back(m_IndexCount + 3);
+    m_Indices.push_back(m_IndexCount + 0);
+
+    m_IndexCount += 4;
+}
+
+void ChunkMesh::AddBakedQuad(const Resources::BakedQuad& quad, const BlockPos blockPos)
+{
+    // Transform quad vertices from model space [0-1] to chunk space
+    // quad.vertices are in model space (0-1), need to add block position
+    glm::vec3 blockPosVec(blockPos.X, blockPos.Y, blockPos.Z);
+
+    for (int i = 0; i < 4; ++i) {
+        ChunkVertex vertex = {
+            .Position = quad.vertices[i] + blockPosVec,
+            .UV = quad.uvs[i],
+            .AO = quad.aoWeights[i],  // Use pre-calculated AO from baked model
+        };
+
+        m_Vertices.emplace_back(vertex);
+    }
+
+    // Add indices for two triangles (quad = 2 triangles)
     m_Indices.push_back(m_IndexCount + 0);
     m_Indices.push_back(m_IndexCount + 1);
     m_Indices.push_back(m_IndexCount + 2);
