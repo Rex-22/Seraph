@@ -75,7 +75,7 @@ public:
      * @param resourceName Resource name (e.g., "block/dirt")
      * @return Texture information
      */
-    TextureInfo GetTextureInfo(const std::string& resourceName);
+    TextureInfo GetTextureInfo(const std::string& resourceName) const;
 
     /**
      * Check if a texture exists.

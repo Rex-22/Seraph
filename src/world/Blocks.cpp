@@ -6,7 +6,6 @@
 
 #include "core/Application.h"
 #include "core/Log.h"
-#include "graphics/TextureAtlas.h"
 #include "resources/BlockStateLoader.h"
 
 namespace World
@@ -16,11 +15,6 @@ BlockId Blocks::m_NextId = 0;
 std::vector<std::unique_ptr<Block>> Blocks::m_Blocks;
 std::unordered_map<std::string, Block*> Blocks::m_BlocksByName;
 std::vector<BlockState*> Blocks::m_BlockStates;
-
-// Legacy block pointers
-const Block* Blocks::Air = nullptr;
-const Block* Blocks::Dirt = nullptr;
-const Block* Blocks::Grass = nullptr;
 
 // Default block states
 BlockState* Blocks::AirState = nullptr;
@@ -46,38 +40,37 @@ void Blocks::RegisterBlocks(const Core::Application* app)
     }
 
     // Register Air
-    Air = RegisterBlock<Block>()
+    auto air = RegisterBlock<Block>()
         ->SetName("air")
         ->SetIsOpaque(false)
         ->SetTransparencyType(TransparencyType::Opaque)
         ->SetAmbientOcclusion(false);
 
-    auto airStates = stateLoader->LoadBlockState("air", const_cast<Block*>(Air));
+    auto airStates = stateLoader->LoadBlockState("air", air);
     if (!airStates.empty()) {
         AirState = airStates[0];
         RegisterBlockState(AirState);
     }
 
     // Register Dirt
-    Dirt = RegisterBlock<Block>()
+    auto dirt = RegisterBlock<Block>()
         ->SetName("dirt")
         ->SetIsOpaque(true)
-        ->SetTransparencyType(TransparencyType::Opaque)
-        ->SetTextureRegion(glm::vec2(0, 1));
+        ->SetTransparencyType(TransparencyType::Opaque);
 
-    auto dirtStates = stateLoader->LoadBlockState("dirt", const_cast<Block*>(Dirt));
+    auto dirtStates = stateLoader->LoadBlockState("dirt", dirt);
     if (!dirtStates.empty()) {
         DirtState = dirtStates[0];
         RegisterBlockState(DirtState);
     }
 
     // Register Grass (use GrassBlock for backwards compatibility)
-    Grass = RegisterBlock<Block>()
+    auto grass = RegisterBlock<Block>()
         ->SetName("grass_block")
         ->SetIsOpaque(true)
         ->SetTransparencyType(TransparencyType::Opaque);
 
-    auto grassStates = stateLoader->LoadBlockState("grass_block", const_cast<Block*>(Grass));
+    auto grassStates = stateLoader->LoadBlockState("grass_block", grass);
     if (!grassStates.empty()) {
         GrassState = grassStates[0];
         RegisterBlockState(GrassState);

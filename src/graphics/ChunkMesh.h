@@ -19,23 +19,6 @@ struct BakedQuad;
 namespace Graphics
 {
 
-struct ChunkMeshFace
-{
-    int8_t Vertices[12];
-};
-
-constexpr uint16_t ADJACENT_BITMASK_NONE = 0; // 000000
-constexpr uint16_t ADJACENT_BITMASK_NEG_X = 1 << 0; // 1  (000001) - Left
-constexpr uint16_t ADJACENT_BITMASK_POS_X = 1 << 1; // 2  (000010) - Right
-constexpr uint16_t ADJACENT_BITMASK_NEG_Y = 1 << 2; // 4  (000100) - Bottom
-constexpr uint16_t ADJACENT_BITMASK_POS_Y = 1 << 3; // 8  (001000) - Top
-constexpr uint16_t ADJACENT_BITMASK_NEG_Z = 1 << 4; // 16 (010000) - Back
-constexpr uint16_t ADJACENT_BITMASK_POS_Z = 1 << 5; // 32 (100000) - Front
-
-constexpr uint16_t ALL_ADJACENT_BITMASKS =
-    ADJACENT_BITMASK_NEG_X | ADJACENT_BITMASK_POS_X | ADJACENT_BITMASK_NEG_Y |
-    ADJACENT_BITMASK_POS_Y | ADJACENT_BITMASK_NEG_Z | ADJACENT_BITMASK_POS_Z;
-
 class ChunkMesh
 {
 public:
@@ -71,18 +54,36 @@ public:
 
 private:
     void GenerateMeshData(const World::Chunk& chunk);
-    void AddFace(ChunkMeshFace face, World::BlockPos blockPos, glm::vec2 uvOffset, glm::vec2 uvSize);
-    void AddBakedQuad(const Resources::BakedQuad& quad, World::BlockPos blockPos);
+    void AddBakedQuad(const Resources::BakedQuad& quad, World::BlockPos blockPos, const World::Chunk& chunk);
     void UpdateMesh();
+
+    // Ambient occlusion calculation
+    float CalculateVertexAO(
+        const World::Chunk& chunk,
+        const World::BlockPos& blockPos,
+        const glm::vec3& normal,
+        const glm::vec3& vertexOffset);
+
+    bool IsBlockOpaqueAt(const World::Chunk& chunk, const World::BlockPos& pos) const;
 
 private:
     Mesh* m_Mesh = nullptr;
+    Mesh* m_TransparentMesh = nullptr;
 
-    std::vector<ChunkVertex> m_Vertices;
-    std::vector<uint16_t> m_Indices;
-    uint16_t m_IndexCount = 0;
+    // Opaque geometry (rendered first with Z-write)
+    std::vector<ChunkVertex> m_OpaqueVertices;
+    std::vector<uint16_t> m_OpaqueIndices;
+    uint16_t m_OpaqueIndexCount = 0;
+
+    // Transparent geometry (rendered second with blending)
+    std::vector<ChunkVertex> m_TransparentVertices;
+    std::vector<uint16_t> m_TransparentIndices;
+    uint16_t m_TransparentIndexCount = 0;
 
     bool m_Dirty = true;
+
+public:
+    const Mesh* GetTransparentMesh();
 
 private:
 };

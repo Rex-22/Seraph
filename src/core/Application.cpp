@@ -140,6 +140,7 @@ void Application::Run()
 
     m_BlockModelLoader = new Resources::BlockModelLoader();
     m_ModelBakery = new Resources::ModelBakery();
+    m_ModelBakery->SetTextureManager(m_TextureManager);  // Enable texture UV lookups
 
     m_BlockStateLoader = new Resources::BlockStateLoader(
         m_BlockModelLoader,
@@ -383,14 +384,31 @@ void Application::Loop()
         0, glm::value_ptr(m_Camera.ViewMatrix()),
         glm::value_ptr(m_Camera.ProjectionMatrix()));
 
-    auto mesh = m_ChunkMesh->GetMesh();
-    bgfx::setVertexBuffer(0, mesh->VertexBuffer());
-    bgfx::setIndexBuffer(mesh->IndexBuffer());
+    // Pass 1: Render opaque geometry with Z-write
+    auto opaqueMesh = m_ChunkMesh->GetMesh();
+    if (opaqueMesh && opaqueMesh->VertexBuffer().idx != bgfx::kInvalidHandle) {
+        bgfx::setVertexBuffer(0, opaqueMesh->VertexBuffer());
+        bgfx::setIndexBuffer(opaqueMesh->IndexBuffer());
 
-    m_ChunkMaterial->Apply(
-        0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
-               BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA |
-               BGFX_STATE_CULL_CW);
+        m_ChunkMaterial->Apply(
+            0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
+                   BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA |
+                   BGFX_STATE_CULL_CW);
+    }
+
+    // Pass 2: Render transparent geometry with blending (no Z-write)
+    auto transparentMesh = m_ChunkMesh->GetTransparentMesh();
+    if (transparentMesh && transparentMesh->VertexBuffer().idx != bgfx::kInvalidHandle) {
+        bgfx::setVertexBuffer(0, transparentMesh->VertexBuffer());
+        bgfx::setIndexBuffer(transparentMesh->IndexBuffer());
+
+        m_ChunkMaterial->Apply(
+            0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+                   BGFX_STATE_DEPTH_TEST_LESS |
+                   BGFX_STATE_BLEND_ALPHA |  // Enable alpha blending
+                   BGFX_STATE_MSAA |
+                   BGFX_STATE_CULL_CW);
+    }
 
     bgfx::frame(false);
 }

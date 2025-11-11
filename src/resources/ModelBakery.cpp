@@ -4,6 +4,7 @@
 
 #include "ModelBakery.h"
 
+#include "TextureManager.h"
 #include "core/Log.h"
 #include "graphics/TextureAtlas.h"
 
@@ -167,16 +168,16 @@ void ModelBakery::GetFaceVertices(
     // Define vertices for each face direction (counter-clockwise winding)
     // Coordinates in model space (0-16)
 
-    if (direction == "down") { // -Y
-        outVertices[0] = glm::vec3(from.x, from.y, to.z);   // 0: front-left
-        outVertices[1] = glm::vec3(to.x, from.y, to.z);     // 1: front-right
-        outVertices[2] = glm::vec3(to.x, from.y, from.z);   // 2: back-right
-        outVertices[3] = glm::vec3(from.x, from.y, from.z); // 3: back-left
-    } else if (direction == "up") { // +Y
-        outVertices[0] = glm::vec3(from.x, to.y, from.z);   // 0: back-left
-        outVertices[1] = glm::vec3(to.x, to.y, from.z);     // 1: back-right
-        outVertices[2] = glm::vec3(to.x, to.y, to.z);       // 2: front-right
-        outVertices[3] = glm::vec3(from.x, to.y, to.z);     // 3: front-left
+    if (direction == "down") { // -Y (viewed from below, looking up)
+        outVertices[0] = glm::vec3(from.x, from.y, from.z); // 0: back-left
+        outVertices[1] = glm::vec3(to.x, from.y, from.z);   // 1: back-right
+        outVertices[2] = glm::vec3(to.x, from.y, to.z);     // 2: front-right
+        outVertices[3] = glm::vec3(from.x, from.y, to.z);   // 3: front-left
+    } else if (direction == "up") { // +Y (viewed from above, looking down)
+        outVertices[0] = glm::vec3(from.x, to.y, to.z);     // 0: front-left
+        outVertices[1] = glm::vec3(to.x, to.y, to.z);       // 1: front-right
+        outVertices[2] = glm::vec3(to.x, to.y, from.z);     // 2: back-right
+        outVertices[3] = glm::vec3(from.x, to.y, from.z);   // 3: back-left
     } else if (direction == "north") { // -Z
         outVertices[0] = glm::vec3(to.x, from.y, from.z);   // 0: bottom-right
         outVertices[1] = glm::vec3(from.x, from.y, from.z); // 1: bottom-left
@@ -200,7 +201,7 @@ void ModelBakery::GetFaceVertices(
     }
 }
 
-glm::vec3 ModelBakery::GetFaceNormal(const std::string& direction)
+glm::vec3 ModelBakery::GetFaceNormal(const std::string& direction) const
 {
     if (direction == "down")
         return glm::vec3(0, -1, 0);
@@ -234,10 +235,12 @@ void ModelBakery::ResolveTextureUVs(
 
     // Calculate texture grid coordinates from elementUV
     // elementUV is in texture space [0-16], convert to normalized [0-1]
+    // Note: Minecraft UVs have origin at top-left, OpenGL has origin at bottom-left
+    // So we flip the V coordinates
     float u0 = elementUV.x / 16.0f;
-    float v0 = elementUV.y / 16.0f;
+    float v0 = 1.0f - (elementUV.y / 16.0f);  // Flip V
     float u1 = elementUV.z / 16.0f;
-    float v1 = elementUV.w / 16.0f;
+    float v1 = 1.0f - (elementUV.w / 16.0f);  // Flip V
 
     // Get atlas dimensions
     float atlasWidth = static_cast<float>(textureAtlas->Width());
@@ -252,13 +255,22 @@ void ModelBakery::ResolveTextureUVs(
     float uvSpriteWidth = 1.0f / numSpritesWidth;
     float uvSpriteHeight = 1.0f / numSpritesHeight;
 
-    // TODO: Use TextureManager to look up actual texture position in atlas
-    // For now, use basic mapping (works with current hardcoded atlas)
-    // This will be enhanced when TextureManager is fully integrated
+    // Look up texture position in atlas using TextureManager
     float baseU = 0.0f;
     float baseV = 0.0f;
 
-    // Map element UVs to atlas UVs (full texture)
+    if (m_TextureManager && m_TextureManager->HasTexture(texturePath)) {
+        TextureInfo texInfo = m_TextureManager->GetTextureInfo(texturePath);
+        baseU = texInfo.uvOffset.x;
+        baseV = texInfo.uvOffset.y;
+
+        CORE_INFO("Resolved texture '{}' to UV offset ({}, {})", texturePath, baseU, baseV);
+    } else {
+        CORE_WARN("Texture '{}' not found in atlas, using (0,0)", texturePath);
+    }
+
+    // Map element UVs [0-1] to atlas UVs using texture's position
+    // Element UV is normalized [0-1] within the sprite
     outUVs[0] = glm::vec2(baseU + u0 * uvSpriteWidth, baseV + v0 * uvSpriteHeight);
     outUVs[1] = glm::vec2(baseU + u1 * uvSpriteWidth, baseV + v0 * uvSpriteHeight);
     outUVs[2] = glm::vec2(baseU + u1 * uvSpriteWidth, baseV + v1 * uvSpriteHeight);

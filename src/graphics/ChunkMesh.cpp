@@ -18,18 +18,12 @@ namespace Graphics
 
 using namespace World;
 
-constexpr ChunkMeshFace FRONT_FACE = {1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1};
-constexpr ChunkMeshFace LEFT_FACE = {0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1};
-constexpr ChunkMeshFace BACK_FACE = {0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0};
-constexpr ChunkMeshFace RIGHT_FACE = {1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0};
-constexpr ChunkMeshFace TOP_FACE = {1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1};
-constexpr ChunkMeshFace BOTTOM_FACE = {0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1};
-
 bgfx::VertexLayout ChunkMesh::ChunkVertex::Layout;
 
 ChunkMesh::~ChunkMesh()
 {
     delete m_Mesh;
+    delete m_TransparentMesh;
 }
 
 ChunkMesh* ChunkMesh::Create(const Chunk& chunk)
@@ -48,9 +42,12 @@ const Mesh* ChunkMesh::GetMesh()
 void ChunkMesh::GenerateMeshData(const Chunk& chunk)
 {
     m_Dirty = true;
-    m_Vertices.clear();
-    m_Indices.clear();
-    m_IndexCount = 0;
+    m_OpaqueVertices.clear();
+    m_OpaqueIndices.clear();
+    m_OpaqueIndexCount = 0;
+    m_TransparentVertices.clear();
+    m_TransparentIndices.clear();
+    m_TransparentIndexCount = 0;
 
     uint32_t atlasWidth = Core::Application::GetInstance()->TextureAtlas()->Width();
     uint32_t atlasHeight = Core::Application::GetInstance()->TextureAtlas()->Height();
@@ -117,70 +114,151 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
             }
 
             if (!shouldCull) {
-                AddBakedQuad(quad, blockPos);
+                AddBakedQuad(quad, blockPos, chunk);
             }
         }
     }
 }
 
-constexpr glm::vec2 Uvs[4] = {
-    glm::vec2(0, 0),
-   glm::vec2(1, 0),
-   glm::vec2(1, 1),
-   glm::vec2(0, 1),
-};
-
-void ChunkMesh::AddFace(const ChunkMeshFace face, const BlockPos blockPos, glm::vec2 uvOffset, glm::vec2 uvSize)
+bool ChunkMesh::IsBlockOpaqueAt(const Chunk& chunk, const BlockPos& pos) const
 {
-    uint16_t index = 0;
-    for (uint8_t i = 0; i < 4; ++i) {
-        uint8_t x = face.Vertices[index++] + blockPos.X;
-        uint8_t y = face.Vertices[index++] + blockPos.Y;
-        uint8_t z = face.Vertices[index++] + blockPos.Z;
-
-        ChunkVertex vertex = {
-            .Position = {x, y, z},
-            .UV = uvOffset + Uvs[i] * uvSize,
-            .AO = 1.0f,  // Fully lit (AO calculation will be added later)
-        };
-
-        m_Vertices.emplace_back(vertex);
+    BlockStateId stateId = chunk.BlockStateIdAt(pos);
+    BlockState* state = Blocks::GetStateById(stateId);
+    if (!state) {
+        return false;  // Air or invalid
     }
-    m_Indices.push_back(m_IndexCount + 0);
-    m_Indices.push_back(m_IndexCount + 1);
-    m_Indices.push_back(m_IndexCount + 2);
-    m_Indices.push_back(m_IndexCount + 2);
-    m_Indices.push_back(m_IndexCount + 3);
-    m_Indices.push_back(m_IndexCount + 0);
 
-    m_IndexCount += 4;
+    const Block* block = state->GetBlock();
+    return block && block->IsOpaque();
 }
 
-void ChunkMesh::AddBakedQuad(const Resources::BakedQuad& quad, const BlockPos blockPos)
+float ChunkMesh::CalculateVertexAO(
+    const Chunk& chunk, const BlockPos& blockPos,
+    const glm::vec3& normal, const glm::vec3& vertexOffset)
 {
+    // Minecraft-style AO: Check 3 adjacent blocks per vertex
+    // The blocks are checked OUTSIDE the current face, not inside the block
+
+    // First, offset to the face position (add normal direction)
+    int baseX = static_cast<int>(blockPos.X);
+    int baseY = static_cast<int>(blockPos.Y);
+    int baseZ = static_cast<int>(blockPos.Z);
+
+    // Offset by face normal (check blocks on the other side of the face)
+    int normalOffsetX = normal.x > 0.5f ? 1 : (normal.x < -0.5f ? -1 : 0);
+    int normalOffsetY = normal.y > 0.5f ? 1 : (normal.y < -0.5f ? -1 : 0);
+    int normalOffsetZ = normal.z > 0.5f ? 1 : (normal.z < -0.5f ? -1 : 0);
+
+    baseX += normalOffsetX;
+    baseY += normalOffsetY;
+    baseZ += normalOffsetZ;
+
+    // Determine perpendicular offsets based on vertex position
+    int perpX = 0, perpY = 0, perpZ = 0;
+
+    if (std::abs(normal.y) > 0.5f) {
+        // Top or bottom face - check X and Z perpendicular
+        perpX = (vertexOffset.x > 0.5f) ? 1 : -1;
+        perpZ = (vertexOffset.z > 0.5f) ? 1 : -1;
+    } else if (std::abs(normal.x) > 0.5f) {
+        // Left or right face - check Y and Z perpendicular
+        perpY = (vertexOffset.y > 0.5f) ? 1 : -1;
+        perpZ = (vertexOffset.z > 0.5f) ? 1 : -1;
+    } else {
+        // Front or back face - check X and Y perpendicular
+        perpX = (vertexOffset.x > 0.5f) ? 1 : -1;
+        perpY = (vertexOffset.y > 0.5f) ? 1 : -1;
+    }
+
+    // Calculate the 3 neighbor positions (on the outside of the face)
+    BlockPos side1 = {
+        static_cast<uint16_t>(baseX + (std::abs(normal.y) > 0.5f ? perpX : (std::abs(normal.x) > 0.5f ? 0 : perpX))),
+        static_cast<uint16_t>(baseY + (std::abs(normal.x) > 0.5f ? perpY : (std::abs(normal.z) > 0.5f ? perpY : 0))),
+        static_cast<uint16_t>(baseZ + (std::abs(normal.z) > 0.5f ? 0 : perpZ))
+    };
+
+    BlockPos side2 = {
+        static_cast<uint16_t>(baseX + (std::abs(normal.y) > 0.5f ? 0 : (std::abs(normal.z) > 0.5f ? perpX : 0))),
+        static_cast<uint16_t>(baseY + (std::abs(normal.x) > 0.5f ? 0 : (std::abs(normal.z) > 0.5f ? perpY : 0))),
+        static_cast<uint16_t>(baseZ + (std::abs(normal.y) > 0.5f ? perpZ : (std::abs(normal.x) > 0.5f ? perpZ : 0)))
+    };
+
+    BlockPos corner = {
+        static_cast<uint16_t>(baseX + (std::abs(normal.x) > 0.5f ? 0 : perpX)),
+        static_cast<uint16_t>(baseY + (std::abs(normal.y) > 0.5f ? 0 : perpY)),
+        static_cast<uint16_t>(baseZ + (std::abs(normal.z) > 0.5f ? 0 : perpZ))
+    };
+
+    // Check if blocks are opaque
+    bool side1Opaque = IsBlockOpaqueAt(chunk, side1);
+    bool side2Opaque = IsBlockOpaqueAt(chunk, side2);
+    bool cornerOpaque = IsBlockOpaqueAt(chunk, corner);
+
+    // Minecraft AO formula
+    if (side1Opaque && side2Opaque) {
+        return 0.0f;  // Maximum occlusion (both sides blocked)
+    }
+
+    int occludedCount = (side1Opaque ? 1 : 0) + (side2Opaque ? 1 : 0) + (cornerOpaque ? 1 : 0);
+    return (3.0f - static_cast<float>(occludedCount)) / 3.0f;
+    // Returns: 1.0 (no occlusion), 0.66 (one block), 0.33 (two blocks), 0.0 (three blocks)
+}
+
+void ChunkMesh::AddBakedQuad(const Resources::BakedQuad& quad, const BlockPos blockPos, const Chunk& chunk)
+{
+    // Determine if block is transparent
+    BlockStateId stateId = chunk.BlockStateIdAt(blockPos);
+    BlockState* state = Blocks::GetStateById(stateId);
+    bool isTransparent = false;
+
+    if (state) {
+        const Block* block = state->GetBlock();
+        isTransparent = block && block->GetTransparencyType() != TransparencyType::Opaque;
+    }
+
     // Transform quad vertices from model space [0-1] to chunk space
-    // quad.vertices are in model space (0-1), need to add block position
     glm::vec3 blockPosVec(blockPos.X, blockPos.Y, blockPos.Z);
 
+    // Choose which vertex/index lists to use
+    auto& vertices = isTransparent ? m_TransparentVertices : m_OpaqueVertices;
+    auto& indices = isTransparent ? m_TransparentIndices : m_OpaqueIndices;
+    uint16_t& indexCount = isTransparent ? m_TransparentIndexCount : m_OpaqueIndexCount;
+
     for (int i = 0; i < 4; ++i) {
+        // Calculate dynamic per-vertex AO
+        float aoValue = 1.0f;  // Default: fully lit
+
+        if (state) {
+            const Block* block = state->GetBlock();
+            Resources::BakedModel* model = state->GetBakedModel();
+
+            if (block && model &&
+                block->HasAmbientOcclusion() &&
+                model->IsAmbientOcclusion() &&
+                quad.shade) {
+                // Calculate dynamic AO based on adjacent blocks
+                aoValue = CalculateVertexAO(chunk, blockPos, quad.normal, quad.vertices[i]);
+            }
+        }
+
         ChunkVertex vertex = {
             .Position = quad.vertices[i] + blockPosVec,
             .UV = quad.uvs[i],
-            .AO = quad.aoWeights[i],  // Use pre-calculated AO from baked model
+            .AO = aoValue,  // Dynamic AO calculation!
         };
 
-        m_Vertices.emplace_back(vertex);
+        vertices.emplace_back(vertex);
     }
 
     // Add indices for two triangles (quad = 2 triangles)
-    m_Indices.push_back(m_IndexCount + 0);
-    m_Indices.push_back(m_IndexCount + 1);
-    m_Indices.push_back(m_IndexCount + 2);
-    m_Indices.push_back(m_IndexCount + 2);
-    m_Indices.push_back(m_IndexCount + 3);
-    m_Indices.push_back(m_IndexCount + 0);
+    indices.push_back(indexCount + 0);
+    indices.push_back(indexCount + 1);
+    indices.push_back(indexCount + 2);
+    indices.push_back(indexCount + 2);
+    indices.push_back(indexCount + 3);
+    indices.push_back(indexCount + 0);
 
-    m_IndexCount += 4;
+    indexCount += 4;
 }
 
 void ChunkMesh::UpdateMesh()
@@ -189,10 +267,35 @@ void ChunkMesh::UpdateMesh()
         return;
     }
     ChunkVertex::Setup();
+
+    // Build opaque mesh
+    delete m_Mesh;
     m_Mesh = new Mesh();
-    uint32_t dataSize = m_Vertices.size() * sizeof(ChunkVertex);
-    m_Mesh->SetVertexData(m_Vertices.data(), dataSize, ChunkVertex::Layout);
-    m_Mesh->SetIndexData(m_Indices.data(), m_Indices.size() * sizeof(uint16_t));
+    if (!m_OpaqueVertices.empty()) {
+        uint32_t dataSize = m_OpaqueVertices.size() * sizeof(ChunkVertex);
+        m_Mesh->SetVertexData(m_OpaqueVertices.data(), dataSize, ChunkVertex::Layout);
+        m_Mesh->SetIndexData(m_OpaqueIndices.data(), m_OpaqueIndices.size() * sizeof(uint16_t));
+    }
+
+    // Build transparent mesh
+    delete m_TransparentMesh;
+    m_TransparentMesh = new Mesh();
+    if (!m_TransparentVertices.empty()) {
+        uint32_t dataSize = m_TransparentVertices.size() * sizeof(ChunkVertex);
+        m_TransparentMesh->SetVertexData(m_TransparentVertices.data(), dataSize, ChunkVertex::Layout);
+        m_TransparentMesh->SetIndexData(m_TransparentIndices.data(), m_TransparentIndices.size() * sizeof(uint16_t));
+    }
+
     m_Dirty = false;
+
+    CORE_INFO("ChunkMesh: Built {} opaque vertices, {} transparent vertices",
+        m_OpaqueVertices.size(), m_TransparentVertices.size());
 }
+
+const Mesh* ChunkMesh::GetTransparentMesh()
+{
+    UpdateMesh();
+    return m_TransparentMesh;
+}
+
 } // namespace Graphics

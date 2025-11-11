@@ -4,6 +4,7 @@
 
 #include "BlockStateLoader.h"
 
+#include "BakedModel.h"
 #include "BlockModelLoader.h"
 #include "ModelBakery.h"
 #include "core/Log.h"
@@ -11,6 +12,7 @@
 #include "world/BlockState.h"
 
 #include <fstream>
+#include <glm/gtc/matrix_transform.hpp>
 #include <nlohmann/json.hpp>
 #include <sstream>
 
@@ -56,12 +58,36 @@ std::vector<World::BlockState*> BlockStateLoader::LoadBlockState(
     std::vector<std::unique_ptr<World::BlockState>> states;
 
     for (const auto& [propertyString, variantList] : variants) {
-        // For now, use the first variant (TODO: implement random selection with weights)
-        if (!variantList.empty()) {
-            const BlockStateVariant& variant = variantList[0];
+        if (variantList.empty()) {
+            continue;
+        }
+
+        // Select variant based on weights (Minecraft-style)
+        const BlockStateVariant* selectedVariant = nullptr;
+
+        if (variantList.size() == 1) {
+            // Single variant - use it directly
+            selectedVariant = &variantList[0];
+        } else {
+            // Multiple variants - weighted random selection
+            // Calculate total weight
+            int totalWeight = 0;
+            for (const auto& v : variantList) {
+                totalWeight += v.weight;
+            }
+
+            // For now, use deterministic selection (first variant)
+            // TODO: Implement per-block-position random selection using coordinates as seed
+            selectedVariant = &variantList[0];
+
+            CORE_INFO("Blockstate has {} variants (total weight: {}), using first",
+                variantList.size(), totalWeight);
+        }
+
+        if (selectedVariant) {
             auto state =
                 std::unique_ptr<World::BlockState>(CreateBlockState(
-                    block, m_NextStateId++, propertyString, variant));
+                    block, m_NextStateId++, propertyString, *selectedVariant));
             if (state) {
                 states.push_back(std::move(state));
             }
@@ -177,12 +203,72 @@ World::BlockState* BlockStateLoader::CreateBlockState(
         return nullptr;
     }
 
-    // TODO: Apply rotations (x, y) to baked model if needed
-    // For now, we just use the baked model as-is
+    // Apply blockstate rotations if specified
+    if (variant.rotationX != 0 || variant.rotationY != 0) {
+        BakedModel* rotatedModel = ApplyBlockstateRotation(bakedModel, variant);
+        if (rotatedModel) {
+            bakedModel = rotatedModel;
+        }
+    }
 
     state->SetBakedModel(bakedModel);
 
     return state;
+}
+
+Resources::BakedModel* BlockStateLoader::ApplyBlockstateRotation(
+    const Resources::BakedModel* source, const BlockStateVariant& variant)
+{
+    // Create a rotated copy of the baked model
+    auto* rotated = new Resources::BakedModel();
+    rotated->SetAmbientOcclusion(source->IsAmbientOcclusion());
+    rotated->SetHasTransparency(source->HasTransparency());
+
+    // Calculate rotation matrices
+    glm::mat4 rotMatrix(1.0f);
+
+    // Apply Y rotation first (around vertical axis)
+    if (variant.rotationY != 0) {
+        float angleY = glm::radians(static_cast<float>(variant.rotationY));
+        rotMatrix = glm::rotate(rotMatrix, angleY, glm::vec3(0, 1, 0));
+    }
+
+    // Apply X rotation (around horizontal axis)
+    if (variant.rotationX != 0) {
+        float angleX = glm::radians(static_cast<float>(variant.rotationX));
+        rotMatrix = glm::rotate(rotMatrix, angleX, glm::vec3(1, 0, 0));
+    }
+
+    // Rotate each quad
+    for (const auto& quad : source->GetQuads()) {
+        Resources::BakedQuad rotatedQuad = quad;
+
+        // Rotate vertices around block center (0.5, 0.5, 0.5)
+        glm::vec3 center(0.5f, 0.5f, 0.5f);
+        for (int i = 0; i < 4; ++i) {
+            glm::vec3 vertex = quad.vertices[i] - center;
+            glm::vec4 rotatedVertex = rotMatrix * glm::vec4(vertex, 1.0f);
+            rotatedQuad.vertices[i] = glm::vec3(rotatedVertex) + center;
+        }
+
+        // Rotate normal
+        glm::vec4 rotatedNormal = rotMatrix * glm::vec4(quad.normal, 0.0f);
+        rotatedQuad.normal = glm::normalize(glm::vec3(rotatedNormal));
+
+        // Update cullface direction after rotation
+        // TODO: Implement cullface rotation mapping if needed
+        // For now, keep original cullface (may cause incorrect culling on rotated blocks)
+
+        // Handle UVLock: don't rotate UVs if uvlock is true
+        if (!variant.uvlock) {
+            // UVs stay as-is (default Minecraft behavior)
+        }
+        // Note: UV lock implementation would counter-rotate UVs to keep them upright
+
+        rotated->AddQuad(rotatedQuad);
+    }
+
+    return rotated;
 }
 
 void BlockStateLoader::ParsePropertyString(
