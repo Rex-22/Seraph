@@ -44,7 +44,7 @@ public:
     [[nodiscard]] const Platform::Window& Window() const;
     void Run();
 
-    Graphics::TextureAtlas* TextureAtlas() const;
+    [[nodiscard]] Graphics::TextureAtlas* TextureAtlas() const;
 
 private:
     void ImGuiBegin();
@@ -73,8 +73,8 @@ private:
     bgfx::TextureHandle m_TextureRgba{};
     bgfx::TextureHandle m_TextureNormal{};
 
-    World::Chunk* m_Chunk;
-    Graphics::ChunkMesh* m_ChunkMesh;
+    World::Chunk* m_Chunk = nullptr;
+    Graphics::ChunkMesh* m_ChunkMesh = nullptr;
 
     float m_PrevMouseX = 0;
     float m_PrevMouseY = 0;

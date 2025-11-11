@@ -84,7 +84,7 @@ bgfx::TextureHandle LoadTexture(
     if (data != nullptr) {
 
         if (bimg::ImageContainer* imageContainer =
-                bimg::imageParse(GetAllocator(), data, size);
+                bimg::imageParse(GetAllocator(), data, size, bimg::TextureFormat::RGBA8);
             imageContainer != nullptr) {
             if (_orientation != nullptr) {
                 *_orientation = imageContainer->m_orientation;
