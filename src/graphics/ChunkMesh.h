@@ -11,6 +11,11 @@ namespace World
 class Chunk;
 }
 
+namespace Resources
+{
+struct BakedQuad;
+}
+
 namespace Graphics
 {
 
@@ -38,6 +43,8 @@ public:
     {
         glm::vec3 Position;
         glm::vec2 UV;
+        float AO;  // Ambient occlusion weight [0-1]
+
         static void Setup()
         {
             static bool HasSetup = false;
@@ -48,6 +55,7 @@ public:
             Layout.begin()
                 .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
                 .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+                .add(bgfx::Attrib::TexCoord1, 1, bgfx::AttribType::Float)  // AO
                 .end();
             HasSetup = true;
         }
@@ -64,6 +72,7 @@ public:
 private:
     void GenerateMeshData(const World::Chunk& chunk);
     void AddFace(ChunkMeshFace face, World::BlockPos blockPos, glm::vec2 uvOffset, glm::vec2 uvSize);
+    void AddBakedQuad(const Resources::BakedQuad& quad, World::BlockPos blockPos);
     void UpdateMesh();
 
 private:

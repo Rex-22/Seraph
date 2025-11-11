@@ -10,6 +10,7 @@ target_include_directories(${PROJECT} PUBLIC
         ${BIMG_INCLUDE_DIR}
         ${SPDLOG_INCLUDE_DIR}
         ${GLM_INCLUDE_DIR}
+        ${JSON_INCLUDE_DIR}
         ${CMAKE_BINARY_DIR}/include
 )
 
@@ -19,4 +20,5 @@ target_link_libraries(${PROJECT}
         ${BGFX_LIBRARIES}
         ${SPDLOG_LIBRARIES}
         ${GLM_LIBRARIES}
+        ${JSON_LIBRARIES}
 )

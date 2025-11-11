@@ -15,6 +15,11 @@
 #include "platform/Window.h"
 #include "graphics/TextureAtlas.h"
 #include "world/Blocks.h"
+#include "resources/TextureManager.h"
+#include "resources/BlockModelLoader.h"
+#include "resources/ModelBakery.h"
+#include "resources/BlockStateLoader.h"
+#include "world/BlockState.h"
 
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
@@ -74,6 +79,14 @@ const Application* Application::GetInstance()
 void Application::Cleanup() const
 {
     Blocks::CleanUp();
+
+    // Cleanup new JSON-driven system
+    delete m_BlockStateLoader;
+    delete m_ModelBakery;
+    delete m_BlockModelLoader;
+    delete m_TextureManager;
+
+    // Cleanup legacy atlas
     delete m_Atlas;
 
     delete m_ChunkMaterial;
@@ -116,7 +129,27 @@ void Application::Run()
     Renderer::Init();
     InitCore();
 
+    // Legacy texture atlas (for backwards compatibility during transition)
     m_Atlas = TextureAtlas::Create("textures/block_sheet.png", 16);
+
+    // Initialize new JSON-driven block model system
+    CORE_INFO("Initializing JSON block model system...");
+
+    m_TextureManager = new Resources::TextureManager();
+    m_TextureManager->LoadResourcePack(ASSET_PATH);
+
+    m_BlockModelLoader = new Resources::BlockModelLoader();
+    m_ModelBakery = new Resources::ModelBakery();
+
+    m_BlockStateLoader = new Resources::BlockStateLoader(
+        m_BlockModelLoader,
+        m_ModelBakery,
+        m_TextureManager->GetAtlas("blocks")
+    );
+
+    CORE_INFO("JSON block model system initialized successfully");
+
+    // TODO: Replace this with JSON-driven block loading
     Blocks::RegisterBlocks(this);
 
     const bgfx::RendererType::Enum type = bgfx::getRendererType();
@@ -156,6 +189,11 @@ void Application::Run()
 Graphics::TextureAtlas* Application::TextureAtlas() const
 {
     return m_Atlas;
+}
+
+Resources::BlockStateLoader* Application::GetBlockStateLoader() const
+{
+    return m_BlockStateLoader;
 }
 
 void Application::ImGuiBegin()

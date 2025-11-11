@@ -50,4 +50,48 @@ Block* Block::SetCullsSelf(bool cullsSelf)
     return this;
 }
 
+TransparencyType Block::GetTransparencyType() const
+{
+    return m_TransparencyType;
+}
+
+int Block::GetLightEmission() const
+{
+    return m_LightEmission;
+}
+
+bool Block::HasAmbientOcclusion() const
+{
+    return m_AmbientOcclusion;
+}
+
+const std::string& Block::GetName() const
+{
+    return m_Name;
+}
+
+Block* Block::SetTransparencyType(TransparencyType type)
+{
+    m_TransparencyType = type;
+    return this;
+}
+
+Block* Block::SetLightEmission(int level)
+{
+    m_LightEmission = level;
+    return this;
+}
+
+Block* Block::SetAmbientOcclusion(bool enabled)
+{
+    m_AmbientOcclusion = enabled;
+    return this;
+}
+
+Block* Block::SetName(const std::string& name)
+{
+    m_Name = name;
+    return this;
+}
+
 } // namespace World

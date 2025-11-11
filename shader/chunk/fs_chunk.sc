@@ -1,4 +1,4 @@
-$input v_texcoord0
+$input v_texcoord0, v_ao
 
 #include "../common.sh"
 
@@ -8,5 +8,8 @@ void main()
 {
     vec4 texelColor = texture2D(s_texColor, v_texcoord0);
 
-	gl_FragColor = texelColor;
+    // Apply ambient occlusion
+    vec3 finalColor = texelColor.rgb * v_ao;
+
+    gl_FragColor = vec4(finalColor, texelColor.a);
 }

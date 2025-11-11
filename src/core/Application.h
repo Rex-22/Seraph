@@ -26,6 +26,14 @@ namespace Platform
 class Window;
 }
 
+namespace Resources
+{
+class TextureManager;
+class BlockModelLoader;
+class ModelBakery;
+class BlockStateLoader;
+}
+
 namespace Core
 {
 
@@ -45,6 +53,7 @@ public:
     void Run();
 
     [[nodiscard]] Graphics::TextureAtlas* TextureAtlas() const;
+    Resources::BlockStateLoader* GetBlockStateLoader() const;
 
 private:
     void ImGuiBegin();
@@ -60,7 +69,14 @@ private:
     static Application* s_Instance;
     bool m_Running = false;
 
+    // Legacy texture atlas (kept for compatibility)
     Graphics::TextureAtlas* m_Atlas = nullptr;
+
+    // New JSON-driven block model system
+    Resources::TextureManager* m_TextureManager = nullptr;
+    Resources::BlockModelLoader* m_BlockModelLoader = nullptr;
+    Resources::ModelBakery* m_ModelBakery = nullptr;
+    Resources::BlockStateLoader* m_BlockStateLoader = nullptr;
 
     Platform::Window* m_Window = nullptr;
 
