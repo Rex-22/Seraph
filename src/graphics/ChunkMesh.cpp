@@ -48,10 +48,10 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
     constexpr float atlasSize = 32.0f;
     constexpr float textureSize = 16.0f;
 
-    const float numSubTextureWidth = atlasSize/textureSize;  // Atlas is 2 sub-textures wide (32px / 16px)
-    const float numSubTextureHeight = atlasSize/textureSize; // Atlas is 2 sub-textures high (32px / 16px)
+    const float numSubTextureWidth = atlasSize/textureSize;
+    const float numSubTextureHeight = atlasSize/textureSize;
 
-    glm::vec2 uvSize = glm::vec2(1.0f / numSubTextureWidth, 1.0f / numSubTextureHeight); // Should be (0.5, 0.5)
+    glm::vec2 uvSize = glm::vec2(1.0f / numSubTextureWidth, 1.0f / numSubTextureHeight);
 
     for (uint32_t i = 0; i < ChunkVolume; ++i) {
         const auto blockPos = BlockPosFromIndex(i);
@@ -81,7 +81,7 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
 
 
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_X) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Left); // Assuming (0,0) is currently hardcoded
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Left);
             glm::vec2 uvOffset;
             uvOffset.x = textureRegion.x * uvSize.x;
             uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
@@ -89,7 +89,7 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
             AddFace(LEFT_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_X) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Right); // Assuming (0,0) is currently hardcoded
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Right);
             glm::vec2 uvOffset;
             uvOffset.x = textureRegion.x * uvSize.x;
             uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
@@ -97,7 +97,7 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
             AddFace(RIGHT_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Y) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Bottom); // Assuming (0,0) is currently hardcoded
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Bottom);
             glm::vec2 uvOffset;
             uvOffset.x = textureRegion.x * uvSize.x;
             uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
@@ -105,7 +105,7 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
             AddFace(BOTTOM_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_Y) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Top); // Assuming (0,0) is currently hardcoded
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Top);
             glm::vec2 uvOffset;
             uvOffset.x = textureRegion.x * uvSize.x;
             uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
@@ -113,7 +113,7 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
             AddFace(TOP_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_NEG_Z) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Back); // Assuming (0,0) is currently hardcoded
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Back);
             glm::vec2 uvOffset;
             uvOffset.x = textureRegion.x * uvSize.x;
             uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;
@@ -121,7 +121,7 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
             AddFace(BACK_FACE, blockPos, uvOffset, uvSize);
         }
         if ((opaqueBitmask & ADJACENT_BITMASK_POS_Z) == 0) {
-            glm::vec2 textureRegion = b->TextureRegion(Direction::Front); // Assuming (0,0) is currently hardcoded
+            glm::vec2 textureRegion = b->TextureRegion(Direction::Front);
             glm::vec2 uvOffset;
             uvOffset.x = textureRegion.x * uvSize.x;
             uvOffset.y = (numSubTextureHeight - 1.0f - textureRegion.y) * uvSize.y;

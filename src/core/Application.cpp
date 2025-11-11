@@ -39,119 +39,6 @@ namespace Core
 using namespace World;
 using namespace Graphics;
 
-struct PosNormalTangentTexcoordVertex
-{
-    float X;
-    float Y;
-    float Z;
-    uint32_t Normal;
-    uint32_t Tangent;
-    int16_t U;
-    int16_t V;
-
-    static void init()
-    {
-        ms_layout.begin()
-            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::Normal, 4, bgfx::AttribType::Uint8, true, true)
-            .add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Uint8, true, true)
-            .add(
-                bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Int16, true, true)
-            .end();
-    }
-
-    static bgfx::VertexLayout ms_layout;
-};
-bgfx::VertexLayout PosNormalTangentTexcoordVertex::ms_layout;
-
-static PosNormalTangentTexcoordVertex s_cubeVertices[24] = {
-    // Face +Z (Front)
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000,
-     0x0000}, // 0
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff,
-     0x0000}, // 1
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x0000,
-     0x7fff}, // 2
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, 0.0f, 1.0f), 0, 0x7fff,
-     0x7fff}, // 3
-
-    // Face -Z (Back)
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000,
-     0x0000}, // 4
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
-     0x0000}, // 5
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x0000,
-     0x7fff}, // 6
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, 0.0f, -1.0f), 0, 0x7fff,
-     0x7fff}, // 7
-
-    // Face +Y (Top)
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000,
-     0x0000}, // 8
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff,
-     0x0000}, // 9
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x0000,
-     0x7fff}, // 10
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(0.0f, 1.0f, 0.0f), 0, 0x7fff,
-     0x7fff}, // 11
-
-    // Face -Y (Bottom)
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000,
-     0x0000}, // 12
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
-     0x0000}, // 13
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x0000,
-     0x7fff}, // 14
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(0.0f, -1.0f, 0.0f), 0, 0x7fff,
-     0x7fff}, // 15
-
-    // Face +X (Right)
-    {1.0f, 1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000,
-     0x0000}, // 16
-    {1.0f, 1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff,
-     0x0000}, // 17
-    {1.0f, -1.0f, 1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x0000,
-     0x7fff}, // 18
-    {1.0f, -1.0f, -1.0f, EncodeNormalRgba8(1.0f, 0.0f, 0.0f), 0, 0x7fff,
-     0x7fff}, // 19
-
-    // Face -X (Left)
-    {-1.0f, 1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000,
-     0x0000}, // 20
-    {-1.0f, 1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
-     0x0000}, // 21
-    {-1.0f, -1.0f, -1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x0000,
-     0x7fff}, // 22
-    {-1.0f, -1.0f, 1.0f, EncodeNormalRgba8(-1.0f, 0.0f, 0.0f), 0, 0x7fff,
-     0x7fff} // 23
-};
-
-static const uint16_t s_cubeIndices[36] = {
-    // Face +Z (Front)
-    0, 1, 2, // Triangle 1
-    2, 1, 3, // Triangle 2
-
-    // Face -Z (Back)
-    4, 5, 6, // Triangle 3
-    6, 5, 7, // Triangle 4
-
-    // Face +Y (Top)
-    8, 9, 10, // Triangle 5
-    10, 9, 11, // Triangle 6
-
-    // Face -Y (Bottom)
-    12, 13, 14, // Triangle 7
-    14, 13, 15, // Triangle 8
-
-    // Face +X (Right)
-    16, 17, 18, // Triangle 9
-    18, 17, 19, // Triangle 10
-
-    // Face -X (Left)
-    20, 21, 22, // Triangle 11
-    22, 21, 23 // Triangle 12
-};
-
 const std::array<bgfx::EmbeddedShader, 5> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
     BGFX_EMBEDDED_SHADER(vs_chunk), BGFX_EMBEDDED_SHADER(fs_chunk),
@@ -236,33 +123,8 @@ void Application::Run()
 
     m_Atlas = TextureAtlas::Create("textures/block_sheet.png", 16);
     Blocks::RegisterBlocks(this);
-    PosNormalTangentTexcoordVertex::init();
-
-    CalcTangents(
-        s_cubeVertices, BX_COUNTOF(s_cubeVertices),
-        PosNormalTangentTexcoordVertex::ms_layout, s_cubeIndices,
-        BX_COUNTOF(s_cubeIndices));
-
-    m_Mesh = new Mesh();
-    m_Mesh->SetVertexData(
-        s_cubeVertices, sizeof(s_cubeVertices),
-        PosNormalTangentTexcoordVertex::ms_layout);
-    m_Mesh->SetIndexData(s_cubeIndices, sizeof(s_cubeIndices));
 
     const bgfx::RendererType::Enum type = bgfx::getRendererType();
-    const auto vs =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_simple");
-    const auto fs =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
-
-    m_TextureRgba = LoadTexture(
-        "textures/fieldstone-rgba.tga",
-        BGFX_TEXTURE_NONE | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT);
-    m_TextureNormal = LoadTexture("textures/fieldstone-n.tga");
-
-    m_Program = bgfx::createProgram(vs, fs, true);
-    bgfx::setName(vs, "simple_vs");
-    bgfx::setName(fs, "simple_fs");
 
     m_Material = new Material(m_Program);
     m_Material->AddProperty<TextureProperty>("s_texColor", m_TextureRgba, 0);
@@ -360,19 +222,9 @@ void Application::Loop()
     const auto freq = static_cast<double>(bx::getHPFrequency());
     const auto deltaTime =
         static_cast<float>(static_cast<double>(frameTime) / freq);
-    const auto time =
-        static_cast<float>(static_cast<double>(now - m_TimeOffset) / freq);
 
-    uint32_t numLights = 4;
     SDL_Event current_event;
     while (SDL_PollEvent(&current_event)) {
-#if LOG_EVENTS
-        char* buf[256];
-        SDL_GetEventDescription(&current_event, *buf, 256);
-
-        std::string eventName(*buf);
-        CORE_INFO("{}", eventName);
-#endif
         ImGui_ImplSDL3_ProcessEvent(&current_event);
         switch (current_event.type) {
             case SDL_EVENT_QUIT: {
@@ -505,66 +357,6 @@ void Application::Loop()
     bgfx::setViewTransform(
         0, glm::value_ptr(m_Camera.ViewMatrix()),
         glm::value_ptr(m_Camera.ProjectionMatrix()));
-#if 0
-    glm::vec4 lightPosRadius[4];
-    for (uint32_t ii = 0; ii < numLights; ++ii) {
-        lightPosRadius[ii].x =
-            bx::sin((time * (0.1f + ii * 0.17f) + ii * bx::kPiHalf * 1.37f)) *
-            3.0f;
-        lightPosRadius[ii].y =
-            bx::cos((time * (0.2f + ii * 0.29f) + ii * bx::kPiHalf * 1.49f)) *
-            3.0f;
-        lightPosRadius[ii].z = -2.5f;
-        lightPosRadius[ii].w = 3.0f;
-    }
-
-    dynamic_cast<Vector4ArrayProperty*>(
-        m_Material->GetProperty("u_lightPosRadius"))
-        ->SetValues(lightPosRadius, numLights);
-
-    glm::vec4 lightRgbInnerR[4] = {
-        {1.0f, 0.7f, 0.2f, 0.8f},
-        {0.7f, 0.2f, 1.0f, 0.8f},
-        {0.2f, 1.0f, 0.7f, 0.8f},
-        {1.0f, 0.4f, 0.2f, 0.8f},
-    };
-
-    dynamic_cast<Vector4ArrayProperty*>(
-        m_Material->GetProperty("u_lightRgbInnerR"))
-        ->SetValues(lightRgbInnerR, numLights);
-
-    constexpr uint16_t instanceStride = 64;
-    constexpr uint32_t totalCubes = 10 * 10;
-
-    const uint32_t drawnCubes =
-        bgfx::getAvailInstanceDataBuffer(totalCubes, instanceStride);
-
-    bgfx::InstanceDataBuffer idb{};
-    bgfx::allocInstanceDataBuffer(&idb, totalCubes, instanceStride);
-
-    uint8_t* data = idb.data;
-
-    for (uint32_t ii = 0; ii < drawnCubes; ++ii) {
-        uint32_t yy = ii / 10;
-        uint32_t xx = ii % 10;
-
-        auto* mtx = reinterpret_cast<float*>(data);
-        bx::mtxRotateXY(
-            mtx, time * 0.023f + xx * 0.21f, time * 0.03f + yy * 0.37f);
-        mtx[12] = -3.0f + static_cast<float>(xx) * 3.0f;
-        mtx[13] = -3.0f + static_cast<float>(yy) * 3.0f;
-        mtx[14] = 0.0f;
-        data += instanceStride;
-
-        bgfx::setInstanceDataBuffer(&idb);
-
-        bgfx::setVertexBuffer(0, m_Mesh->VertexBuffer());
-        bgfx::setIndexBuffer(m_Mesh->IndexBuffer());
-
-        m_Material->Apply(0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
-            BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA | BGFX_STATE_CULL_CCW);
-    }
-#endif
 
     auto mesh = m_ChunkMesh->GetMesh();
     bgfx::setVertexBuffer(0, mesh->VertexBuffer());
