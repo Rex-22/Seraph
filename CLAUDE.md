@@ -68,17 +68,47 @@ The application entry point is `src/main.cpp`, which creates and runs a `Core::A
 - **src/core/** - Core application infrastructure (Application, Log)
 - **src/platform/** - Platform abstraction (Window)
 - **src/graphics/** - Rendering components (Camera, Mesh, Material system, ChunkMesh, TextureAtlas)
-- **src/world/** - Voxel world logic (Block, Chunk, block types)
+- **src/world/** - Voxel world logic (Block, BlockState, Chunk)
+- **src/resources/** - Resource loading and management (BlockModelLoader, ModelBakery, TextureManager, BlockStateLoader)
 - **src/bgfx-imgui/** - bgfx backend for Dear ImGui
 - **shader/** - Shader files (.sc files) compiled by bgfx's shaderc
-- **assets/** - Textures and other runtime assets
+- **assets/** - JSON models, blockstates, textures, and resource pack metadata
 
 ### Key Systems
 
+#### JSON Block Model System (Minecraft-Compatible)
+**NEW**: Seraph uses a complete JSON-driven block model and texture system matching Minecraft's format.
+
+**Pipeline**:
+```
+JSON Files → BlockStateLoader → BlockModelLoader → ModelBakery → BakedModel → Chunk → Rendering
+```
+
+**Core Components**:
+- **BlockState** (src/world/BlockState.h) - Links Block to BakedModel, stores properties and stateId
+- **BlockModelLoader** (src/resources/) - Parses JSON models with parent inheritance and texture variable resolution
+- **ModelBakery** (src/resources/) - Compiles BlockModel to BakedModel with quads, UVs, normals, and AO weights
+- **BlockStateLoader** (src/resources/) - Parses blockstate JSON and creates BlockState objects
+- **TextureManager** (src/resources/) - Manages texture atlases and provides texture lookup by resource name
+
+**Storage**:
+- Chunks store `BlockStateId` (uint16_t) for efficient storage - Minecraft-compatible
+- BlockState registry provides O(1) lookup: `Blocks::GetStateById(stateId)`
+- Block registry provides name lookup: `Blocks::GetByName("dirt")`
+
+**JSON Format**:
+- **Blockstates**: `assets/blockstates/<name>.json` - Maps state properties to models
+- **Models**: `assets/models/block/<name>.json` - Defines geometry with cuboid elements
+- **Textures**: `assets/textures/block/<name>.png` - Individual texture files
+- **Pack metadata**: `assets/pack.mcmeta` - Resource pack information
+
+For detailed JSON format reference, see `.agent/JSON_SPEC.md`
+
 #### Voxel World System
-- **Chunk**: 32x32x32 block grid stored as flat array using `IndexFromBlockPos()`/`BlockPosFromIndex()` helpers
-- **Block**: Base class with BlockId, opacity, culling, and texture region properties. Supports per-face texture regions via `TextureRegion(Direction)` virtual method
-- **ChunkMesh**: Generates optimized mesh from Chunk data with greedy meshing and face culling using adjacent block bitmasks (ADJACENT_BITMASK_* constants)
+- **Chunk**: 32x32x32 block grid stored as `std::array<BlockStateId, ChunkVolume>` (flat array)
+- **Block**: Base class with visual properties (TransparencyType, light emission, AO flag, name)
+- **BlockState**: State with properties, links to BakedModel for rendering
+- **ChunkMesh**: Generates mesh from BakedModel quads with face culling and AO support
 
 #### Material System
 The material system (src/graphics/material/) provides a flexible property-based approach:
@@ -122,4 +152,82 @@ Code is organized into namespaces matching directory structure:
 - bgfx handles are managed carefully - use BGFX_INVALID_HANDLE for initialization
 
 ### Logging
-spdlog is available via `src/core/Log.h` for logging throughout the application.
+Use the CORE_INFO, CORE_WARN, CORE_ERROR macros for logging throughout the application (defined in src/core/Log.h).
+
+## Adding New Blocks
+
+To add a new block to the system:
+
+### 1. Create Blockstate JSON
+Create `assets/blockstates/<block_name>.json`:
+```json
+{
+  "variants": {
+    "": { "model": "block/<block_name>" }
+  }
+}
+```
+
+### 2. Create Model JSON
+Create `assets/models/block/<block_name>.json`:
+```json
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "block/<texture_name>"
+  }
+}
+```
+
+Or for multi-textured blocks:
+```json
+{
+  "parent": "block/cube_bottom_top",
+  "textures": {
+    "bottom": "block/<bottom_texture>",
+    "top": "block/<top_texture>",
+    "side": "block/<side_texture>"
+  }
+}
+```
+
+### 3. Add Texture
+Place texture file in `assets/textures/block/<texture_name>.png` (16x16 recommended)
+
+### 4. Register in Code
+In `src/world/Blocks.cpp` → `RegisterBlocks()`:
+```cpp
+// Create block
+auto* myBlock = RegisterBlock<Block>()
+    ->SetName("my_block")
+    ->SetIsOpaque(true)
+    ->SetTransparencyType(TransparencyType::Opaque);
+
+// Load blockstate and bake model
+auto states = stateLoader->LoadBlockState("my_block", myBlock);
+if (!states.empty()) {
+    MyBlockState = states[0];
+    RegisterBlockState(MyBlockState);
+}
+```
+
+### 5. Add Static Pointer (Optional)
+In `src/world/Blocks.h`:
+```cpp
+static BlockState* MyBlockState;
+```
+
+The block is now available for use in chunks via `Blocks::MyBlockState->GetStateId()`
+
+## JSON Model Documentation
+
+For comprehensive JSON format documentation, see:
+- **`.agent/JSON_SPEC.md`** - Complete Minecraft JSON format specification
+- **`.agent/ARCHITECTURE.md`** - System architecture and design
+- **`.agent/QUICK_REFERENCE.md`** - Quick lookup guide
+
+Example models available in `assets/models/block/`:
+- `cube.json` - Base cube with 6 different face textures
+- `cube_all.json` - Cube with same texture on all sides
+- `cube_bottom_top.json` - Cube with different top/bottom textures
+- `dirt.json`, `stone.json`, `grass_block.json`, `glass.json` - Block examples
