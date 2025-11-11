@@ -13,12 +13,14 @@
 #include "graphics/material/TextureProperty.h"
 #include "graphics/material/Vector4ArrayProperty.h"
 #include "platform/Window.h"
+#include "graphics/TextureAtlas.h"
+#include "world/Blocks.h"
 
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/embedded_shader.h>
 #include <bx/timer.h>
-#include <cstdint> // Shaders below need uint8_t
+#include <cstdint>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui_impl_sdl3.h>
 
@@ -30,8 +32,6 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_chunk
 #include "ShaderIncluder.h"
-#include "graphics/TextureAtlas.h"
-#include "world/Blocks.h"
 
 namespace Core
 {
@@ -76,14 +76,9 @@ void Application::Cleanup() const
     Blocks::CleanUp();
     delete m_Atlas;
 
-    delete m_Material;
     delete m_ChunkMaterial;
-    delete m_Mesh;
     delete m_ChunkMesh;
     delete m_Chunk;
-    bgfx::destroy(m_TextureRgba);
-    bgfx::destroy(m_TextureNormal);
-    bgfx::destroy(m_Program);
 
     Renderer::Cleanup();
     CleanupCore();
@@ -125,14 +120,6 @@ void Application::Run()
     Blocks::RegisterBlocks(this);
 
     const bgfx::RendererType::Enum type = bgfx::getRendererType();
-
-    m_Material = new Material(m_Program);
-    m_Material->AddProperty<TextureProperty>("s_texColor", m_TextureRgba, 0);
-    m_Material->AddProperty<TextureProperty>("s_texNormal", m_TextureNormal, 1);
-    m_Material->AddProperty<Vector4ArrayProperty>(
-        "u_lightPosRadius", nullptr, 0);
-    m_Material->AddProperty<Vector4ArrayProperty>(
-        "u_lightRgbInnerR", nullptr, 0);
 
     const auto chunkVs =
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_chunk");
