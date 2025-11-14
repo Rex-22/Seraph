@@ -243,32 +243,26 @@ void ModelBakery::ResolveTextureUVs(
     float u1 = elementUV.z / 16.0f;
     float v1 = 1.0f - (elementUV.w / 16.0f);  // Flip V
 
-    // Get atlas dimensions
-    float atlasWidth = static_cast<float>(textureAtlas->Width());
-    float atlasHeight = static_cast<float>(textureAtlas->Height());
-    float spriteSize = static_cast<float>(textureAtlas->SpriteSize());
-
-    // Calculate number of sprites in atlas
-    float numSpritesWidth = atlasWidth / spriteSize;
-    float numSpritesHeight = atlasHeight / spriteSize;
-
-    // Calculate size of one sprite in UV space
-    float uvSpriteWidth = 1.0f / numSpritesWidth;
-    float uvSpriteHeight = 1.0f / numSpritesHeight;
-
     // Look up texture position in atlas using TextureManager
     float baseU = 0.0f;
     float baseV = 0.0f;
+    float uvSpriteWidth = 1.0f;
+    float uvSpriteHeight = 1.0f;
 
     if (m_TextureManager && m_TextureManager->HasTexture(texturePath)) {
         TextureInfo texInfo = m_TextureManager->GetTextureInfo(texturePath);
         baseU = texInfo.uvOffset.x;
         baseV = texInfo.uvOffset.y;
 
+        // Use the UV size from TextureInfo (already calculated correctly by TextureAtlasBuilder)
+        uvSpriteWidth = texInfo.uvSize.x;
+        uvSpriteHeight = texInfo.uvSize.y;
+
         // Only log each texture once to avoid spam
         static std::unordered_set<std::string> loggedTextures;
         if (loggedTextures.find(texturePath) == loggedTextures.end()) {
-            CORE_INFO("Resolved texture '{}' to UV offset ({}, {})", texturePath, baseU, baseV);
+            CORE_INFO("Resolved texture '{}' to UV offset ({}, {}) size ({}, {})",
+                texturePath, baseU, baseV, uvSpriteWidth, uvSpriteHeight);
             loggedTextures.insert(texturePath);
         }
     } else {

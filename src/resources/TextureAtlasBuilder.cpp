@@ -7,9 +7,12 @@
 #include "core/Log.h"
 #include "graphics/TextureAtlas.h"
 #include "ext/stb_image.h"
+#include "ext/stb_image_write.h"
 
 #include <cmath>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 
 namespace Resources
 {
@@ -109,6 +112,48 @@ Graphics::TextureAtlas* TextureAtlasBuilder::BuildAtlas(int spriteSize, int padd
                 }
             }
         }
+    }
+
+    // DEBUG: Save atlas to file for inspection
+    std::string debugPath = "debug_atlas.png";
+    std::string debugInfoPath = "debug_atlas_info.txt";
+
+    if (stbi_write_png(debugPath.c_str(), atlasWidth, atlasHeight, 4, atlasData, atlasWidth * 4)) {
+        CORE_INFO("=== DEBUG: Saved atlas to {} ===", debugPath);
+    } else {
+        CORE_ERROR("Failed to save debug atlas");
+    }
+
+    // DEBUG: Write detailed texture positions to file
+    std::ofstream debugFile(debugInfoPath);
+    if (debugFile.is_open()) {
+        int gridWidth = static_cast<int>(std::ceil(std::sqrt(m_Textures.size())));
+        int gridHeight = static_cast<int>(std::ceil(static_cast<double>(m_Textures.size()) / gridWidth));
+
+        debugFile << "=== ATLAS DEBUG INFO ===\n";
+        debugFile << "Atlas dimensions: " << atlasWidth << "x" << atlasHeight << " pixels\n";
+        debugFile << "Logical grid: " << gridWidth << "x" << gridHeight << "\n";
+        debugFile << "Sprite size: " << spriteSize << ", Padding: " << padding << "\n";
+        debugFile << "Total textures: " << m_Positions.size() << "\n\n";
+        debugFile << "Texture positions:\n";
+
+        for (const auto& [resourceName, position] : m_Positions) {
+            int pixelX = position.gridCoords.x * (spriteSize + padding);
+            int pixelY = position.gridCoords.y * (spriteSize + padding);
+
+            debugFile << "  '" << resourceName << "'\n";
+            debugFile << "    Grid: (" << position.gridCoords.x << ", " << position.gridCoords.y << ")\n";
+            debugFile << "    Pixel: (" << pixelX << ", " << pixelY << ")\n";
+            debugFile << "    UV Offset: (" << position.uvOffset.x << ", " << position.uvOffset.y << ")\n";
+            debugFile << "    UV Size: (" << position.uvSize.x << ", " << position.uvSize.y << ")\n\n";
+        }
+
+        debugFile << "=== END ATLAS DEBUG ===\n";
+        debugFile.close();
+
+        CORE_INFO("=== DEBUG: Saved atlas info to {} ===", debugInfoPath);
+    } else {
+        CORE_ERROR("Failed to save debug atlas info file");
     }
 
     // Create TextureAtlas from the generated data
@@ -223,15 +268,20 @@ void TextureAtlasBuilder::PackTextures(int atlasWidth, int atlasHeight, int spri
         AtlasPosition position;
         position.gridCoords = glm::ivec2(x, y);
 
-        // Calculate UV coordinates based on LOGICAL grid, not atlas dimensions
-        float numSpritesWidth = static_cast<float>(gridWidth);
-        float numSpritesHeight = static_cast<float>(gridHeight);
+        // Calculate UV coordinates based on ACTUAL atlas dimensions
+        float atlasWidthFloat = static_cast<float>(atlasWidth);
+        float atlasHeightFloat = static_cast<float>(atlasHeight);
+        float spriteSizeFloat = static_cast<float>(spriteSize + padding);
 
-        position.uvSize = glm::vec2(1.0f / numSpritesWidth, 1.0f / numSpritesHeight);
+        // Calculate actual UV size for one sprite in atlas space
+        position.uvSize = glm::vec2(
+            spriteSizeFloat / atlasWidthFloat,
+            spriteSizeFloat / atlasHeightFloat
+        );
 
-        // Y-flipped for OpenGL
-        position.uvOffset.x = x * position.uvSize.x;
-        position.uvOffset.y = (numSpritesHeight - 1.0f - y) * position.uvSize.y;
+        // Calculate UV offset (Y-flipped for OpenGL)
+        position.uvOffset.x = (x * spriteSizeFloat) / atlasWidthFloat;
+        position.uvOffset.y = ((gridHeight - 1.0f - y) * spriteSizeFloat) / atlasHeightFloat;
 
         m_Positions[resourceName] = position;
 
