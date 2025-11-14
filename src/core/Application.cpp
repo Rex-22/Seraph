@@ -84,10 +84,9 @@ void Application::Cleanup() const
     delete m_BlockStateLoader;
     delete m_ModelBakery;
     delete m_BlockModelLoader;
-    delete m_TextureManager;
+    delete m_TextureManager; // This will also delete the atlas
 
-    // Cleanup legacy atlas
-    delete m_Atlas;
+    // m_Atlas is now owned by TextureManager, so don't delete it here
 
     delete m_ChunkMaterial;
     delete m_ChunkMesh;
@@ -129,9 +128,6 @@ void Application::Run()
     Renderer::Init();
     InitCore();
 
-    // Legacy texture atlas (for backwards compatibility during transition)
-    m_Atlas = TextureAtlas::Create("textures/block_sheet.png", 16);
-
     // Initialize new JSON-driven block model system
     CORE_INFO("Initializing JSON block model system...");
 
@@ -150,6 +146,16 @@ void Application::Run()
 
     CORE_INFO("JSON block model system initialized successfully");
 
+    // Get the blocks atlas from TextureManager
+    Graphics::TextureAtlas* blocksAtlas = m_TextureManager->GetAtlas("blocks");
+    if (!blocksAtlas) {
+        CORE_ERROR("Failed to get blocks atlas from TextureManager!");
+        exit(1);
+    }
+
+    // Legacy texture atlas (for backwards compatibility - points to new atlas)
+    m_Atlas = blocksAtlas;
+
     // TODO: Replace this with JSON-driven block loading
     Blocks::RegisterBlocks(this);
 
@@ -166,7 +172,7 @@ void Application::Run()
 
     m_ChunkMaterial = new Material(m_ChunkProgram);
     m_ChunkMaterial->AddProperty<TextureProperty>(
-        "s_texColor", m_Atlas->TextureHandle(), 0);
+        "s_texColor", blocksAtlas->TextureHandle(), 0);
 
     m_TimeOffset = bx::getHPCounter();
 

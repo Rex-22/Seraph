@@ -10,6 +10,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
+#include <unordered_set>
 
 namespace Resources
 {
@@ -264,9 +265,15 @@ void ModelBakery::ResolveTextureUVs(
         baseU = texInfo.uvOffset.x;
         baseV = texInfo.uvOffset.y;
 
-        CORE_INFO("Resolved texture '{}' to UV offset ({}, {})", texturePath, baseU, baseV);
+        // Only log each texture once to avoid spam
+        static std::unordered_set<std::string> loggedTextures;
+        if (loggedTextures.find(texturePath) == loggedTextures.end()) {
+            CORE_INFO("Resolved texture '{}' to UV offset ({}, {})", texturePath, baseU, baseV);
+            loggedTextures.insert(texturePath);
+        }
     } else {
-        CORE_WARN("Texture '{}' not found in atlas, using (0,0)", texturePath);
+        CORE_ERROR("Texture '{}' NOT FOUND in atlas! Using fallback (0,0) - will render BLACK", texturePath);
+        // Default to (0,0) which might be black - this indicates a problem
     }
 
     // Map element UVs [0-1] to atlas UVs using texture's position
