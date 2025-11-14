@@ -251,12 +251,6 @@ void BlockModelLoader::ResolveParent(BlockModel& model)
 
 void BlockModelLoader::ResolveTextures(BlockModel& model)
 {
-    CORE_INFO("=== Resolving textures ===");
-    CORE_INFO("Available texture variables:");
-    for (const auto& [key, value] : model.GetTextures()) {
-        CORE_INFO("  {} = {}", key, value);
-    }
-
     std::unordered_map<std::string, bool> visited;
 
     // Resolve all texture variables
@@ -268,7 +262,6 @@ void BlockModelLoader::ResolveTextures(BlockModel& model)
         std::string resolved = ResolveTextureVariable(value, model, visited);
         if (!resolved.empty()) {
             resolvedTextures[key] = resolved;
-            CORE_INFO("  Resolved texture variable: {} = {} -> {}", key, value, resolved);
         } else {
             resolvedTextures[key] = value; // Keep original if can't resolve
         }
@@ -280,7 +273,6 @@ void BlockModelLoader::ResolveTextures(BlockModel& model)
     }
 
     // Resolve texture references in elements
-    CORE_INFO("Resolving element face textures...");
     for (auto& element : model.GetElements()) {
         for (auto& [direction, face] : element.faces) {
             if (face.texture.empty()) {
@@ -292,13 +284,11 @@ void BlockModelLoader::ResolveTextures(BlockModel& model)
             std::string resolved = ResolveTextureVariable(face.texture, model, visited);
             if (!resolved.empty()) {
                 face.texture = resolved;
-                CORE_INFO("  Resolved face {}: {} -> {}", direction, originalTexture, resolved);
             } else {
-                CORE_WARN("  Failed to resolve face {}: {}", direction, originalTexture);
+                CORE_WARN("Failed to resolve face {}: {}", direction, originalTexture);
             }
         }
     }
-    CORE_INFO("=== Texture resolution complete ===");
 }
 
 std::string BlockModelLoader::ResolveTextureVariable(
