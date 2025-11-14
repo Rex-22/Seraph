@@ -69,12 +69,20 @@ Graphics::TextureAtlas* TextureAtlasBuilder::BuildAtlas(int spriteSize, int padd
     // Pack textures into atlas
     PackTextures(atlasWidth, atlasHeight, spriteSize, padding);
 
+    // Calculate grid dimensions for Y-flipping
+    int gridWidth = static_cast<int>(std::ceil(std::sqrt(m_Textures.size())));
+    int gridHeight = static_cast<int>(std::ceil(static_cast<double>(m_Textures.size()) / gridWidth));
+
     // Copy texture data into atlas
     for (const auto& [resourceName, position] : m_Positions) {
         const TextureData& texture = m_Textures[resourceName];
 
         int destX = position.gridCoords.x * (spriteSize + padding);
-        int destY = position.gridCoords.y * (spriteSize + padding);
+
+        // Y-flip the destination to match OpenGL texture coordinates
+        // Grid Y=0 (top) should map to bottom of atlas image (higher pixel Y)
+        int flippedGridY = (gridHeight - 1) - position.gridCoords.y;
+        int destY = flippedGridY * (spriteSize + padding);
 
         // Copy each row of the texture
         for (int y = 0; y < texture.height && y < spriteSize; ++y) {
@@ -127,9 +135,6 @@ Graphics::TextureAtlas* TextureAtlasBuilder::BuildAtlas(int spriteSize, int padd
     // DEBUG: Write detailed texture positions to file
     std::ofstream debugFile(debugInfoPath);
     if (debugFile.is_open()) {
-        int gridWidth = static_cast<int>(std::ceil(std::sqrt(m_Textures.size())));
-        int gridHeight = static_cast<int>(std::ceil(static_cast<double>(m_Textures.size()) / gridWidth));
-
         debugFile << "=== ATLAS DEBUG INFO ===\n";
         debugFile << "Atlas dimensions: " << atlasWidth << "x" << atlasHeight << " pixels\n";
         debugFile << "Logical grid: " << gridWidth << "x" << gridHeight << "\n";
@@ -139,11 +144,13 @@ Graphics::TextureAtlas* TextureAtlasBuilder::BuildAtlas(int spriteSize, int padd
 
         for (const auto& [resourceName, position] : m_Positions) {
             int pixelX = position.gridCoords.x * (spriteSize + padding);
-            int pixelY = position.gridCoords.y * (spriteSize + padding);
+            // Show actual flipped pixel Y position
+            int flippedGridY = (gridHeight - 1) - position.gridCoords.y;
+            int pixelY = flippedGridY * (spriteSize + padding);
 
             debugFile << "  '" << resourceName << "'\n";
-            debugFile << "    Grid: (" << position.gridCoords.x << ", " << position.gridCoords.y << ")\n";
-            debugFile << "    Pixel: (" << pixelX << ", " << pixelY << ")\n";
+            debugFile << "    Grid: (" << position.gridCoords.x << ", " << position.gridCoords.y << ") [logical]\n";
+            debugFile << "    Pixel: (" << pixelX << ", " << pixelY << ") [actual Y-flipped]\n";
             debugFile << "    UV Offset: (" << position.uvOffset.x << ", " << position.uvOffset.y << ")\n";
             debugFile << "    UV Size: (" << position.uvSize.x << ", " << position.uvSize.y << ")\n\n";
         }

@@ -25,6 +25,16 @@ struct BakedQuad
     /// Correspond to vertices array
     glm::vec2 uvs[4];
 
+    /// Overlay texture UV coordinates in atlas space [0-1]
+    /// Used for multi-layer rendering (e.g., grass block sides with tintable overlay)
+    /// Only used if hasOverlay is true
+    glm::vec2 overlayUVs[4];
+
+    /// Whether this quad has an overlay texture
+    /// If true, overlayUVs contains valid texture coordinates
+    /// If false, overlayUVs should be ignored
+    bool hasOverlay = false;
+
     /// Face normal vector (for lighting calculations)
     glm::vec3 normal;
 
