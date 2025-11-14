@@ -16,6 +16,7 @@ class TextureAtlas;
 
 namespace Resources
 {
+class TextureAtlasBuilder;
 
 /**
  * Information about a texture's location in an atlas.
@@ -89,20 +90,39 @@ public:
     void UpdateAnimations(float deltaTime);
 
     /**
+     * Reload the current resource pack (hot-reload).
+     * Useful for development when texture files are modified.
+     * @return True if reloaded successfully
+     */
+    bool ReloadResourcePack();
+
+    /**
+     * Switch to a different resource pack.
+     * @param packPath Path to new resource pack
+     * @return True if loaded successfully
+     */
+    bool SwitchResourcePack(const std::string& packPath);
+
+    /**
+     * Get the current resource pack path.
+     */
+    const std::string& GetCurrentPackPath() const { return m_PackPath; }
+
+    /**
      * Clear all loaded data.
      */
     void Clear();
 
 private:
     /**
-     * Scan for texture files in a directory.
+     * Scan for texture files in a directory and add them to the builder.
      */
-    void ScanTextures(const std::string& texturesPath);
+    void ScanTextures(const std::string& texturesPath, TextureAtlasBuilder& builder);
 
     /**
-     * Build texture atlases from loaded textures.
+     * Build texture atlases from loaded textures using the builder.
      */
-    void BuildAtlases();
+    void BuildAtlases(TextureAtlasBuilder& builder);
 
     /**
      * Register a texture with its atlas coordinates.

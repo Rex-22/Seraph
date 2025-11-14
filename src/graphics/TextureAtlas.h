@@ -19,6 +19,22 @@ public:
 
     static TextureAtlas* Create(const std::string& path, uint32_t spriteSize);
 
+    /**
+     * Create a TextureAtlas from raw RGBA pixel data in memory.
+     * @param data Raw RGBA pixel data (4 bytes per pixel)
+     * @param width Atlas width in pixels
+     * @param height Atlas height in pixels
+     * @param spriteSize Size of each sprite in pixels
+     * @param name Optional name for the texture (for debugging)
+     * @return TextureAtlas* if successful, nullptr otherwise
+     */
+    static TextureAtlas* CreateFromMemory(
+        const unsigned char* data,
+        uint32_t width,
+        uint32_t height,
+        uint32_t spriteSize,
+        const std::string& name = "atlas_from_memory");
+
     bgfx::TextureHandle TextureHandle() const;
     uint32_t Width() const { return m_Width; }
     uint32_t Height() const { return m_Height; }
