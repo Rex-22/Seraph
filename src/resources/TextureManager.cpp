@@ -101,8 +101,6 @@ void TextureManager::Clear()
 
 void TextureManager::ScanTextures(const std::string& texturesPath, TextureAtlasBuilder& builder)
 {
-    CORE_INFO("Scanning textures in: {}", texturesPath);
-
     int textureCount = 0;
     try {
         for (const auto& entry : fs::directory_iterator(texturesPath)) {

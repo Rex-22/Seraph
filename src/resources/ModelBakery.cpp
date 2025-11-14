@@ -260,14 +260,6 @@ void ModelBakery::ResolveTextureUVs(
         // Use the UV size from TextureInfo (already calculated correctly by TextureAtlasBuilder)
         uvSpriteWidth = texInfo.uvSize.x;
         uvSpriteHeight = texInfo.uvSize.y;
-
-        // Only log each texture once to avoid spam
-        static std::unordered_set<std::string> loggedTextures;
-        if (loggedTextures.find(texturePath) == loggedTextures.end()) {
-            CORE_INFO("Resolved texture '{}' to UV offset ({}, {}) size ({}, {})",
-                texturePath, baseU, baseV, uvSpriteWidth, uvSpriteHeight);
-            loggedTextures.insert(texturePath);
-        }
     } else {
         CORE_ERROR("Texture '{}' NOT FOUND in atlas! Using fallback (0,0) - will render BLACK", texturePath);
         // Default to (0,0) which might be black - this indicates a problem

@@ -37,8 +37,6 @@ bool TextureAtlasBuilder::AddTexture(
         return false;
     }
 
-    CORE_INFO("Loaded texture: {} ({}x{})", resourceName, data.width, data.height);
-
     m_Textures[resourceName] = std::move(data);
     return true;
 }
@@ -55,9 +53,6 @@ Graphics::TextureAtlas* TextureAtlasBuilder::BuildAtlas(int spriteSize, int padd
 
     // Calculate atlas dimensions
     glm::ivec2 atlasDims = CalculateAtlasDimensions(spriteSize, padding);
-    CORE_INFO(
-        "Building atlas: {}x{} pixels, {} textures, sprite size {}, padding {}", atlasDims.x,
-        atlasDims.y, m_Textures.size(), spriteSize, padding);
 
     // Allocate atlas pixel data (RGBA)
     int atlasWidth = atlasDims.x;
@@ -120,47 +115,6 @@ Graphics::TextureAtlas* TextureAtlasBuilder::BuildAtlas(int spriteSize, int padd
                 }
             }
         }
-    }
-
-    // DEBUG: Save atlas to file for inspection
-    std::string debugPath = "debug_atlas.png";
-    std::string debugInfoPath = "debug_atlas_info.txt";
-
-    if (stbi_write_png(debugPath.c_str(), atlasWidth, atlasHeight, 4, atlasData, atlasWidth * 4)) {
-        CORE_INFO("=== DEBUG: Saved atlas to {} ===", debugPath);
-    } else {
-        CORE_ERROR("Failed to save debug atlas");
-    }
-
-    // DEBUG: Write detailed texture positions to file
-    std::ofstream debugFile(debugInfoPath);
-    if (debugFile.is_open()) {
-        debugFile << "=== ATLAS DEBUG INFO ===\n";
-        debugFile << "Atlas dimensions: " << atlasWidth << "x" << atlasHeight << " pixels\n";
-        debugFile << "Logical grid: " << gridWidth << "x" << gridHeight << "\n";
-        debugFile << "Sprite size: " << spriteSize << ", Padding: " << padding << "\n";
-        debugFile << "Total textures: " << m_Positions.size() << "\n\n";
-        debugFile << "Texture positions:\n";
-
-        for (const auto& [resourceName, position] : m_Positions) {
-            int pixelX = position.gridCoords.x * (spriteSize + padding);
-            // Show actual flipped pixel Y position
-            int flippedGridY = (gridHeight - 1) - position.gridCoords.y;
-            int pixelY = flippedGridY * (spriteSize + padding);
-
-            debugFile << "  '" << resourceName << "'\n";
-            debugFile << "    Grid: (" << position.gridCoords.x << ", " << position.gridCoords.y << ") [logical]\n";
-            debugFile << "    Pixel: (" << pixelX << ", " << pixelY << ") [actual Y-flipped]\n";
-            debugFile << "    UV Offset: (" << position.uvOffset.x << ", " << position.uvOffset.y << ")\n";
-            debugFile << "    UV Size: (" << position.uvSize.x << ", " << position.uvSize.y << ")\n\n";
-        }
-
-        debugFile << "=== END ATLAS DEBUG ===\n";
-        debugFile.close();
-
-        CORE_INFO("=== DEBUG: Saved atlas info to {} ===", debugInfoPath);
-    } else {
-        CORE_ERROR("Failed to save debug atlas info file");
     }
 
     // Create TextureAtlas from the generated data
@@ -254,9 +208,6 @@ void TextureAtlasBuilder::PackTextures(int atlasWidth, int atlasHeight, int spri
     int gridWidth = static_cast<int>(std::ceil(std::sqrt(textureCount)));
     int gridHeight = static_cast<int>(std::ceil(static_cast<double>(textureCount) / gridWidth));
 
-    CORE_INFO("Packing {} textures into logical {}x{} grid in {}x{} atlas",
-        textureCount, gridWidth, gridHeight, atlasWidth, atlasHeight);
-
     int x = 0;
     int y = 0;
 
@@ -294,8 +245,6 @@ void TextureAtlasBuilder::PackTextures(int atlasWidth, int atlasHeight, int spri
 
         x++;
     }
-
-    CORE_INFO("Packed {} textures into {}x{} grid", m_Positions.size(), gridWidth, gridHeight);
 }
 
 } // namespace Resources

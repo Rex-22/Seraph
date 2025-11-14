@@ -30,8 +30,6 @@ void Blocks::RegisterBlocks(const Core::Application* app)
         return;
     }
 
-    CORE_INFO("Registering blocks with JSON block model system...");
-
     // Get the BlockStateLoader from Application
     auto* stateLoader = app->GetBlockStateLoader();
     if (!stateLoader) {

@@ -97,9 +97,6 @@ std::vector<World::BlockState*> BlockStateLoader::LoadBlockState(
                     break;
                 }
             }
-
-            CORE_INFO("Blockstate has {} variants (total weight: {}), selected variant with weight {}",
-                variantList.size(), totalWeight, selectedVariant->weight);
         }
 
         if (selectedVariant) {

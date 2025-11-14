@@ -13,8 +13,12 @@ Mesh::Mesh()
 
 Mesh::~Mesh()
 {
-    bgfx::destroy(m_VertexBuffer);
-    bgfx::destroy(m_IndexBuffer);
+    if (bgfx::isValid(m_VertexBuffer)) {
+        bgfx::destroy(m_VertexBuffer);
+    }
+    if (bgfx::isValid(m_IndexBuffer)) {
+        bgfx::destroy(m_IndexBuffer);
+    }
 }
 
 void Mesh::SetVertexData(
