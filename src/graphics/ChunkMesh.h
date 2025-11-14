@@ -26,7 +26,8 @@ public:
     {
         glm::vec3 Position;
         glm::vec2 UV;
-        float AO;  // Ambient occlusion weight [0-1]
+        glm::vec2 OverlayUV;  // Overlay texture coordinates for multi-layer rendering
+        float AO;             // Ambient occlusion weight [0-1]
 
         static void Setup()
         {
@@ -37,8 +38,9 @@ public:
 
             Layout.begin()
                 .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-                .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
-                .add(bgfx::Attrib::TexCoord1, 1, bgfx::AttribType::Float)  // AO
+                .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)  // Base UV
+                .add(bgfx::Attrib::TexCoord1, 2, bgfx::AttribType::Float)  // Overlay UV
+                .add(bgfx::Attrib::TexCoord2, 1, bgfx::AttribType::Float)  // AO
                 .end();
             HasSetup = true;
         }

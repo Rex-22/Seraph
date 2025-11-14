@@ -173,6 +173,8 @@ void Application::Run()
     m_ChunkMaterial = new Material(m_ChunkProgram);
     m_ChunkMaterial->AddProperty<TextureProperty>(
         "s_texColor", blocksAtlas->TextureHandle(), 0);
+    m_ChunkMaterial->AddProperty<TextureProperty>(
+        "s_texOverlay", blocksAtlas->TextureHandle(), 1);
 
     m_TimeOffset = bx::getHPCounter();
 

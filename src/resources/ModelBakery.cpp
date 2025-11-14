@@ -42,6 +42,9 @@ BakedModel* ModelBakery::BakeModel(
         BakeElement(element, textureAtlas, quads);
     }
 
+    // Merge overlay quads with their base quads
+    MergeOverlayQuads(quads);
+
     // Add quads to baked model
     for (const auto& quad : quads) {
         bakedModel->AddQuad(quad);
@@ -302,6 +305,72 @@ std::string ModelBakery::GenerateCacheKey(const BlockModel& model)
     // TODO: Implement proper hashing for better cache key generation
     return std::to_string(model.GetElements().size()) + "_" +
            std::to_string(model.GetTextures().size());
+}
+
+void ModelBakery::MergeOverlayQuads(std::vector<BakedQuad>& quads)
+{
+    // Merge overlay quads (tintindex >= 0) with their corresponding base quads
+    // This handles cases like grass blocks where the same face has both base and overlay textures
+
+    std::vector<size_t> quadsToRemove;
+
+    for (size_t overlayIdx = 0; overlayIdx < quads.size(); overlayIdx++) {
+        BakedQuad& overlayQuad = quads[overlayIdx];
+
+        // Check if this is a potential overlay quad (has tint index)
+        if (overlayQuad.tintindex < 0) {
+            continue; // Not a tinted quad
+        }
+
+        // Find matching base quad (same position and normal, but NO tint index)
+        bool foundMatch = false;
+        for (size_t baseIdx = 0; baseIdx < overlayIdx; baseIdx++) {
+            BakedQuad& baseQuad = quads[baseIdx];
+
+            // Base quad must NOT have tintindex and must not already be merged
+            if (baseQuad.hasOverlay || baseQuad.tintindex >= 0) {
+                continue;
+            }
+
+            // Check if quads match (same vertices = same face)
+            bool matches = true;
+            for (int v = 0; v < 4; v++) {
+                float dist = glm::length(baseQuad.vertices[v] - overlayQuad.vertices[v]);
+                if (dist > 0.001f) { // Small epsilon for floating point comparison
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches) {
+                // Found matching base quad - copy overlay UVs to it
+                for (int v = 0; v < 4; v++) {
+                    baseQuad.overlayUVs[v] = overlayQuad.uvs[v];
+                }
+                baseQuad.hasOverlay = true;
+
+                // Inherit tintindex from overlay
+                baseQuad.tintindex = overlayQuad.tintindex;
+
+                // Mark overlay quad for removal
+                quadsToRemove.push_back(overlayIdx);
+                foundMatch = true;
+                break;
+            }
+        }
+
+        // If no matching base quad found, this is a standalone tinted quad (e.g., grass top)
+        // Leave it as-is (no action needed)
+    }
+
+    // Remove overlay quads (iterate backwards to maintain indices)
+    for (auto it = quadsToRemove.rbegin(); it != quadsToRemove.rend(); ++it) {
+        quads.erase(quads.begin() + *it);
+    }
+
+    if (!quadsToRemove.empty()) {
+        CORE_INFO("Merged and removed {} overlay quads", quadsToRemove.size());
+    }
 }
 
 } // namespace Resources

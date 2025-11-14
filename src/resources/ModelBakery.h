@@ -116,6 +116,14 @@ private:
      */
     std::string GenerateCacheKey(const BlockModel& model);
 
+    /**
+     * Merge overlay quads with their corresponding base quads.
+     * Detects quads with tintindex >= 0 as overlays and merges them with
+     * matching base quads (same vertices/position) by copying their UVs
+     * to the base quad's overlayUVs array.
+     */
+    void MergeOverlayQuads(std::vector<BakedQuad>& quads);
+
 private:
     /// Cache of baked models
     /// Key: cache key (model hash)

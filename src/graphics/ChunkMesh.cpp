@@ -244,6 +244,7 @@ void ChunkMesh::AddBakedQuad(const Resources::BakedQuad& quad, const BlockPos bl
         ChunkVertex vertex = {
             .Position = quad.vertices[i] + blockPosVec,
             .UV = quad.uvs[i],
+            .OverlayUV = quad.hasOverlay ? quad.overlayUVs[i] : glm::vec2(0.0f),
             .AO = aoValue,  // Dynamic AO calculation!
         };
 
