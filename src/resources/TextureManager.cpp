@@ -64,7 +64,7 @@ bool TextureManager::HasTexture(const std::string& resourceName) const
     return m_TextureRegistry.find(resourceName) != m_TextureRegistry.end();
 }
 
-void TextureManager::UpdateAnimations(float deltaTime)
+void TextureManager::UpdateAnimations([[maybe_unused]] float deltaTime)
 {
     // TODO: Implement animation updates when AnimatedTexture is implemented
     // For now, this is a no-op
