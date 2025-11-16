@@ -315,7 +315,6 @@ void ModelBakery::MergeOverlayQuads(std::vector<BakedQuad>& quads)
         }
 
         // Find matching base quad (same position and normal, but NO tint index)
-        bool foundMatch = false;
         for (size_t baseIdx = 0; baseIdx < overlayIdx; baseIdx++) {
             BakedQuad& baseQuad = quads[baseIdx];
 
@@ -346,7 +345,6 @@ void ModelBakery::MergeOverlayQuads(std::vector<BakedQuad>& quads)
 
                 // Mark overlay quad for removal
                 quadsToRemove.push_back(overlayIdx);
-                foundMatch = true;
                 break;
             }
         }

@@ -56,8 +56,6 @@ void ChunkMesh::GenerateMeshData(const Chunk& chunk)
     const float numSubTextureWidth = static_cast<float>(atlasWidth) / static_cast<float>(textureSize);
     const float numSubTextureHeight = static_cast<float>(atlasHeight) / static_cast<float>(textureSize);
 
-    glm::vec2 uvSize = glm::vec2(1.0f / numSubTextureWidth, 1.0f / numSubTextureHeight);
-
     // Use new BakedModel system!
     CORE_INFO("ChunkMesh: Using JSON block model system");
 

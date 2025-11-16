@@ -1,5 +1,11 @@
 make_executable()
 
+# Disable specific warnings for third-party STB library
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    set_source_files_properties(ext/stb_image_write.cpp PROPERTIES
+        COMPILE_FLAGS "-Wno-error=missing-field-initializers")
+endif()
+
 target_include_directories(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${PROJECT_BINARY_DIR}
