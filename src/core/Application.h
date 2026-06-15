@@ -68,6 +68,9 @@ private:
     bool m_MouseCaptured = false;
     bool m_ShouldCaptureMouse = false;
 
+    Graphics::Material* m_Material = nullptr;
+    Graphics::Mesh* m_Mesh = nullptr;
+
     glm::vec3 m_ClearColor {0.3, 0.3, 0.3};
 
     Graphics::Camera m_Camera;

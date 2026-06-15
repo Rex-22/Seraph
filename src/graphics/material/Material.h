@@ -40,7 +40,7 @@ public:
 
     [[nodiscard]] MaterialProperty* GetProperty(const std::string& name) const;
 
-    void Apply(uint8_t viewId, uint64_t state = BGFX_STATE_DEFAULT) const;
+    void Apply(uint8_t viewId, uint64_t flags = BGFX_STATE_DEFAULT) const;
 
     [[nodiscard]] bgfx::ProgramHandle Program() const { return m_Program; }
 

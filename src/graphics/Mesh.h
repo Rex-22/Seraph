@@ -4,14 +4,18 @@
 
 #ifndef MESH_H
 #define MESH_H
+#include "material/Material.h"
+
 #include <bgfx/bgfx.h>
 
 namespace Graphics
 {
+class Camera;
+class Material;
 class Mesh
 {
 public:
-    Mesh();
+    explicit Mesh(const Material& material);
     ~Mesh();
 
 public:
@@ -19,12 +23,15 @@ public:
         const void* data, uint32_t size, const bgfx::VertexLayout& layout);
     void SetIndexData(const uint16_t* indices, uint32_t size);
 
-    bgfx::VertexLayout Layout() const { return m_Layout; };
-    bgfx::VertexBufferHandle VertexBuffer() const { return m_VertexBuffer; };
-    bgfx::IndexBufferHandle IndexBuffer() const { return m_IndexBuffer; };
+    bgfx::VertexLayout Layout() const { return m_Layout; }
+    bgfx::VertexBufferHandle VertexBuffer() const { return m_VertexBuffer; }
+    bgfx::IndexBufferHandle IndexBuffer() const { return m_IndexBuffer; }
+
+    void Submit(uint8_t viewId, Camera& camera, uint64_t state = 0) const;
 
 private:
     bgfx::VertexLayout m_Layout;
+    const Material* m_Material;
 
     bgfx::VertexBufferHandle m_VertexBuffer { bgfx::kInvalidHandle };
     bgfx::IndexBufferHandle m_IndexBuffer { bgfx::kInvalidHandle };

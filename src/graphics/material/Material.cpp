@@ -55,15 +55,13 @@ MaterialProperty* Material::GetProperty(const std::string& name) const
     return nullptr;
 }
 
-void Material::Apply(uint8_t viewId, uint64_t state) const
+void Material::Apply(uint8_t viewId, uint64_t flags) const
 {
-    bgfx::setState(state);
-
     for (const auto& val : m_Properties | std::views::values) {
         val->Apply();
     }
 
-    bgfx::submit(viewId, m_Program);
+    bgfx::submit(viewId, m_Program, 0, flags);
 }
 
 } // namespace Graphics

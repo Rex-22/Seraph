@@ -7,13 +7,10 @@
 #include "Core.h"
 #include "Log.h"
 #include "bgfx-imgui/imgui_impl_bgfx.h"
-#include "graphics/Mesh.h"
 #include "graphics/Renderer.h"
-#include "graphics/material/Material.h"
-#include "graphics/material/TextureProperty.h"
-#include "graphics/material/Vector4ArrayProperty.h"
-#include "platform/Window.h"
 #include "graphics/TextureAtlas.h"
+#include "graphics/material/Material.h"
+#include "platform/Window.h"
 
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
@@ -27,15 +24,66 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
+#include "graphics/Mesh.h"
+#include "graphics/material/ColorProperty.h"
 
 namespace Core
 {
 
+struct PosColorVertex
+{
+    float m_x;
+    float m_y;
+    float m_z;
+    uint32_t m_abgr;
+
+    static void init()
+    {
+        ms_layout
+            .begin()
+            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+            .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
+            .end();
+    };
+
+    static bgfx::VertexLayout ms_layout;
+};
+
+bgfx::VertexLayout PosColorVertex::ms_layout;
+
+static PosColorVertex s_cubeVertices[] =
+{
+    {-1.0f,  1.0f,  1.0f, 0xff000000 },
+    { 1.0f,  1.0f,  1.0f, 0xff0000ff },
+    {-1.0f, -1.0f,  1.0f, 0xff00ff00 },
+    { 1.0f, -1.0f,  1.0f, 0xff00ffff },
+    {-1.0f,  1.0f, -1.0f, 0xffff0000 },
+    { 1.0f,  1.0f, -1.0f, 0xffff00ff },
+    {-1.0f, -1.0f, -1.0f, 0xffffff00 },
+    { 1.0f, -1.0f, -1.0f, 0xffffffff },
+};
+
+static const uint16_t s_cubeTriList[] =
+{
+    0, 1, 2, // 0
+    1, 3, 2,
+    4, 6, 5, // 2
+    5, 6, 7,
+    0, 2, 4, // 4
+    4, 2, 6,
+    1, 5, 3, // 6
+    5, 7, 3,
+    0, 4, 1, // 8
+    4, 5, 1,
+    2, 3, 6, // 10
+    6, 3, 7,
+};
+
 using namespace Graphics;
 
 const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
-     BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
-     BGFX_EMBEDDED_SHADER_END() //
+    BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
+    BGFX_EMBEDDED_SHADER_END() //
 }};
 
 Application* Application::s_Instance{nullptr};
@@ -66,6 +114,9 @@ const Application* Application::GetInstance()
 }
 void Application::Cleanup() const
 {
+    delete m_Mesh;
+    delete m_Material;
+
     Renderer::Cleanup();
     CleanupCore();
 
@@ -86,10 +137,7 @@ void Application::SetMouseCaptured(bool captured)
     m_MouseCaptured = captured;
 
     if (captured) {
-        // Enable relative mouse mode after focus is gained
         SDL_SetWindowRelativeMouseMode(m_Window->Handle(), true);
-
-        // Clear any accumulated mouse movement
         float dummy_x, dummy_y;
         SDL_GetRelativeMouseState(&dummy_x, &dummy_y);
     } else {
@@ -99,14 +147,25 @@ void Application::SetMouseCaptured(bool captured)
 
 void Application::Run()
 {
-    Renderer::Init();
     InitCore();
 
-    // const bgfx::RendererType::Enum type = bgfx::getRendererType();
-    // const auto chunkVs =
-    //     bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_chunk");
-    // const auto chunkFs =
-    //     bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_chunk");
+    Renderer::Init();
+
+    const auto type = bgfx::getRendererType();
+    const auto vsSimple =
+        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_simple");
+    const auto fsSimple =
+        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
+    const auto program = bgfx::createProgram(vsSimple, fsSimple, true);
+
+    m_Material = new Material(program);
+    m_Material->AddProperty<ColorProperty>(
+        "u_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+
+    PosColorVertex::init();
+    m_Mesh = new Mesh(*m_Material);
+    m_Mesh->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices), PosColorVertex::ms_layout);
+    m_Mesh->SetIndexData(s_cubeTriList, 36);
 
     m_TimeOffset = bx::getHPCounter();
 
@@ -250,10 +309,8 @@ void Application::Loop()
         pos += move_direction * speed * deltaTime;
         m_Camera.SetPosition(pos);
     }
-
-    bgfx::setViewTransform(
-        0, glm::value_ptr(m_Camera.ViewMatrix()),
-        glm::value_ptr(m_Camera.ProjectionMatrix()));
+    auto viewId = 0;
+    m_Mesh->Submit(viewId, m_Camera);
 
     bgfx::frame(false);
 }
