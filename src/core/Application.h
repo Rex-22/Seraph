@@ -5,8 +5,6 @@
 #pragma once
 
 #include "graphics/Camera.h"
-#include "graphics/ChunkMesh.h"
-#include "world/Chunk.h"
 
 #include <bgfx/bgfx.h>
 #include <mutex>
@@ -24,14 +22,6 @@ class Mesh;
 namespace Platform
 {
 class Window;
-}
-
-namespace Resources
-{
-class TextureManager;
-class BlockModelLoader;
-class ModelBakery;
-class BlockStateLoader;
 }
 
 namespace Core
@@ -52,15 +42,9 @@ public:
     [[nodiscard]] const Platform::Window& Window() const;
     void Run();
 
-    [[nodiscard]] Graphics::TextureAtlas* TextureAtlas() const;
-    Resources::BlockStateLoader* GetBlockStateLoader() const;
-
 private:
     void ImGuiBegin();
     void ImGuiEnd();
-    void BeginStatsWindow();
-    void EndStatsWindow();
-    void StatItem(const char* str, const char* text, ...);
     void Loop();
     void SetMouseCaptured(bool captured);
 
@@ -69,22 +53,7 @@ private:
     static Application* s_Instance;
     bool m_Running = false;
 
-    // Legacy texture atlas (kept for compatibility)
-    Graphics::TextureAtlas* m_Atlas = nullptr;
-
-    // New JSON-driven block model system
-    Resources::TextureManager* m_TextureManager = nullptr;
-    Resources::BlockModelLoader* m_BlockModelLoader = nullptr;
-    Resources::ModelBakery* m_ModelBakery = nullptr;
-    Resources::BlockStateLoader* m_BlockStateLoader = nullptr;
-
     Platform::Window* m_Window = nullptr;
-
-    bgfx::ProgramHandle m_ChunkProgram = BGFX_INVALID_HANDLE;
-    Graphics::Material* m_ChunkMaterial = nullptr;
-
-    World::Chunk* m_Chunk = nullptr;
-    Graphics::ChunkMesh* m_ChunkMesh = nullptr;
 
     float m_PrevMouseX = 0;
     float m_PrevMouseY = 0;
@@ -98,8 +67,6 @@ private:
 
     bool m_MouseCaptured = false;
     bool m_ShouldCaptureMouse = false;
-
-    bool m_ShowStatsWindow = true;
 
     glm::vec3 m_ClearColor {0.3, 0.3, 0.3};
 

@@ -14,12 +14,6 @@
 #include "graphics/material/Vector4ArrayProperty.h"
 #include "platform/Window.h"
 #include "graphics/TextureAtlas.h"
-#include "world/Blocks.h"
-#include "resources/TextureManager.h"
-#include "resources/BlockModelLoader.h"
-#include "resources/ModelBakery.h"
-#include "resources/BlockStateLoader.h"
-#include "world/BlockState.h"
 
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
@@ -33,21 +27,15 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
-#define SHADER_NAME vs_chunk
-#include "ShaderIncluder.h"
-#define SHADER_NAME fs_chunk
-#include "ShaderIncluder.h"
 
 namespace Core
 {
 
-using namespace World;
 using namespace Graphics;
 
-const std::array<bgfx::EmbeddedShader, 5> k_EmbeddedShaders = {{
-    BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
-    BGFX_EMBEDDED_SHADER(vs_chunk), BGFX_EMBEDDED_SHADER(fs_chunk),
-    BGFX_EMBEDDED_SHADER_END() //
+const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
+     BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
+     BGFX_EMBEDDED_SHADER_END() //
 }};
 
 Application* Application::s_Instance{nullptr};
@@ -78,20 +66,6 @@ const Application* Application::GetInstance()
 }
 void Application::Cleanup() const
 {
-    Blocks::CleanUp();
-
-    // Cleanup new JSON-driven system
-    delete m_BlockStateLoader;
-    delete m_ModelBakery;
-    delete m_BlockModelLoader;
-    delete m_TextureManager; // This will also delete the atlas
-
-    // m_Atlas is now owned by TextureManager, so don't delete it here
-
-    delete m_ChunkMaterial;
-    delete m_ChunkMesh;
-    delete m_Chunk;
-
     Renderer::Cleanup();
     CleanupCore();
 
@@ -128,53 +102,11 @@ void Application::Run()
     Renderer::Init();
     InitCore();
 
-    // Initialize new JSON-driven block model system
-    CORE_INFO("Initializing JSON block model system...");
-
-    m_TextureManager = new Resources::TextureManager();
-    m_TextureManager->LoadResourcePack(ASSET_PATH);
-
-    m_BlockModelLoader = new Resources::BlockModelLoader();
-    m_ModelBakery = new Resources::ModelBakery();
-    m_ModelBakery->SetTextureManager(m_TextureManager);  // Enable texture UV lookups
-
-    m_BlockStateLoader = new Resources::BlockStateLoader(
-        m_BlockModelLoader,
-        m_ModelBakery,
-        m_TextureManager->GetAtlas("blocks")
-    );
-
-    CORE_INFO("JSON block model system initialized successfully");
-
-    // Get the blocks atlas from TextureManager
-    Graphics::TextureAtlas* blocksAtlas = m_TextureManager->GetAtlas("blocks");
-    if (!blocksAtlas) {
-        CORE_ERROR("Failed to get blocks atlas from TextureManager!");
-        exit(1);
-    }
-
-    // Legacy texture atlas (for backwards compatibility - points to new atlas)
-    m_Atlas = blocksAtlas;
-
-    // TODO: Replace this with JSON-driven block loading
-    Blocks::RegisterBlocks(this);
-
-    const bgfx::RendererType::Enum type = bgfx::getRendererType();
-
-    const auto chunkVs =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_chunk");
-    const auto chunkFs =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_chunk");
-
-    m_ChunkProgram = bgfx::createProgram(chunkVs, chunkFs, true);
-    bgfx::setName(chunkVs, "chunk_vs");
-    bgfx::setName(chunkFs, "chunk_fs");
-
-    m_ChunkMaterial = new Material(m_ChunkProgram);
-    m_ChunkMaterial->AddProperty<TextureProperty>(
-        "s_texColor", blocksAtlas->TextureHandle(), 0);
-    m_ChunkMaterial->AddProperty<TextureProperty>(
-        "s_texOverlay", blocksAtlas->TextureHandle(), 1);
+    // const bgfx::RendererType::Enum type = bgfx::getRendererType();
+    // const auto chunkVs =
+    //     bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_chunk");
+    // const auto chunkFs =
+    //     bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_chunk");
 
     m_TimeOffset = bx::getHPCounter();
 
@@ -184,25 +116,12 @@ void Application::Run()
             static_cast<float>(m_Window->Height()),
         0.01f, 1000.0f);
 
-    m_Chunk = new Chunk();
-    m_ChunkMesh = ChunkMesh::Create(*m_Chunk);
-
     m_Running = true;
 
     while (m_Running) {
         Loop();
     }
     Cleanup();
-}
-
-Graphics::TextureAtlas* Application::TextureAtlas() const
-{
-    return m_Atlas;
-}
-
-Resources::BlockStateLoader* Application::GetBlockStateLoader() const
-{
-    return m_BlockStateLoader;
 }
 
 void Application::ImGuiBegin()
@@ -216,35 +135,6 @@ void Application::ImGuiEnd()
 {
     ImGui::Render();
     ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());
-}
-void Application::BeginStatsWindow()
-{
-    ImGui::Begin(
-        "Stats", &m_ShowStatsWindow,
-        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
-    ImGui::SetWindowSize(ImVec2(400, 200));
-    auto debugWindowSize = ImGui::GetWindowSize();
-    auto windowPos = ImVec2(
-        static_cast<float>(m_Window->Width()),
-        static_cast<float>(m_Window->Height()));
-    windowPos.x = windowPos.x - debugWindowSize.x - 20;
-    windowPos.y = windowPos.y - debugWindowSize.y - 20;
-    ImGui::SetWindowPos(windowPos);
-}
-void Application::EndStatsWindow()
-{
-    ImGui::End();
-}
-void Application::StatItem(const char* str, const char* text, ...)
-{
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    ImGui::Text("%s", str);
-    ImGui::TableNextColumn();
-    va_list args;
-    va_start(args, text);
-    ImGui::TextV(text, args);
-    va_end(args);
 }
 
 void Application::Loop()
@@ -294,10 +184,6 @@ void Application::Loop()
                     current_event.key.down && m_MouseCaptured) {
                     SetMouseCaptured(false);
                 }
-                if (current_event.key.key == SDLK_F3 &&
-                    current_event.key.type == SDL_EVENT_KEY_UP) {
-                    m_ShowStatsWindow = !m_ShowStatsWindow;
-                }
                 if (current_event.key.key == SDLK_F4 &&
                     current_event.key.type == SDL_EVENT_KEY_UP) {
                     m_Camera.LookAt(glm::vec3(0, 10, 0));
@@ -320,32 +206,9 @@ void Application::Loop()
     }
 
     ImGuiBegin();
+    ImGui::Begin("Test");
 
-    if (m_ShowStatsWindow) {
-        BeginStatsWindow();
-        ImGui::BeginTable("stats", 2);
-        StatItem(
-            "Frame Time", "%.2f ms", static_cast<float>(frameTime) / 1000.0f);
-        StatItem("Debug Text", "Some text");
-        StatItem(
-            "Camera Position", "x: %.2f y: %.2f z: %.2f", m_Camera.Position().x,
-            m_Camera.Position().y, m_Camera.Position().z);
-        StatItem(
-            "Camera Rotation", "x: %.2f y: %.2f z: %.2f",
-            glm::degrees(m_Camera.EulerAngles().x),
-            glm::degrees(m_Camera.EulerAngles().y),
-            glm::degrees(m_Camera.EulerAngles().z));
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        ImGui::Text("Clear color");
-        ImGui::TableNextColumn();
-        ImGui::ColorEdit3(
-            "", glm::value_ptr(m_ClearColor), ImGuiColorEditFlags_Float);
-        ImGui::EndTable();
-
-        EndStatsWindow();
-    }
-
+    ImGui::End();
     ImGuiEnd();
     bgfx::setViewClear(
         0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
@@ -391,32 +254,6 @@ void Application::Loop()
     bgfx::setViewTransform(
         0, glm::value_ptr(m_Camera.ViewMatrix()),
         glm::value_ptr(m_Camera.ProjectionMatrix()));
-
-    // Pass 1: Render opaque geometry with Z-write
-    auto opaqueMesh = m_ChunkMesh->GetMesh();
-    if (opaqueMesh && opaqueMesh->VertexBuffer().idx != bgfx::kInvalidHandle) {
-        bgfx::setVertexBuffer(0, opaqueMesh->VertexBuffer());
-        bgfx::setIndexBuffer(opaqueMesh->IndexBuffer());
-
-        m_ChunkMaterial->Apply(
-            0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
-                   BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_MSAA |
-                   BGFX_STATE_CULL_CW);
-    }
-
-    // Pass 2: Render transparent geometry with blending (no Z-write)
-    auto transparentMesh = m_ChunkMesh->GetTransparentMesh();
-    if (transparentMesh && transparentMesh->VertexBuffer().idx != bgfx::kInvalidHandle) {
-        bgfx::setVertexBuffer(0, transparentMesh->VertexBuffer());
-        bgfx::setIndexBuffer(transparentMesh->IndexBuffer());
-
-        m_ChunkMaterial->Apply(
-            0, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                   BGFX_STATE_DEPTH_TEST_LESS |
-                   BGFX_STATE_BLEND_ALPHA |  // Enable alpha blending
-                   BGFX_STATE_MSAA |
-                   BGFX_STATE_CULL_CW);
-    }
 
     bgfx::frame(false);
 }

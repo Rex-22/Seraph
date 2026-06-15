@@ -10,6 +10,7 @@
 
 namespace Platform
 {
+
 Window::Window(const WindowProperties& window_properties) : m_Handle(nullptr)
 {
     m_Handle = SDL_CreateWindow(
@@ -24,6 +25,7 @@ Window::Window(const WindowProperties& window_properties) : m_Handle(nullptr)
 
     SDL_SetWindowSurfaceVSync(m_Handle, window_properties.VSync);
 }
+
 Window::~Window()
 {
     Cleanup();
@@ -44,6 +46,7 @@ int Window::Height() const
     SDL_GetWindowSize(m_Handle, &width, &height);
     return height;
 }
+
 SDL_Window* Window::Handle() const
 {
     return m_Handle;

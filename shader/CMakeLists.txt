@@ -2,56 +2,46 @@ if(NOT DEFINED SHADER_DIR)
     set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 
-file(GLOB VERTEX_SHADERS "${SHADER_DIR}/vs_*.sc")
-file(GLOB FRAGMENT_SHADERS "${SHADER_DIR}/fs_*.sc")
-file(GLOB SERAPH_VARYING_DEF_FILE "${SHADER_DIR}/varying.def.sc")
+set(SHADER_OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders)
 
-file(GLOB CHUNK_VERTEX_SHADERS "${SHADER_DIR}/chunk/vs_*.sc")
-file(GLOB CHUNK_FRAGMENT_SHADERS "${SHADER_DIR}/chunk/fs_*.sc")
-file(GLOB CHUNK_SERAPH_VARYING_DEF_FILE "${SHADER_DIR}/chunk/varying.def.sc")
+file(GLOB_RECURSE SHADER_VARYING_DEFS CONFIGURE_DEPENDS "${SHADER_DIR}/varying.def.sc")
 
-bgfx_compile_shaders(
-        AS_HEADERS
-        TYPE VERTEX
-        INCLUDE_DIRS ${SHADER_DIR}
-        SHADERS ${VERTEX_SHADERS}
-        VARYING_DEF ${SERAPH_VARYING_DEF_FILE}
-        OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders
-        OUT_FILES_VAR VERTEX_FILES
-)
+set(ALL_SHADER_OUTPUTS "")
 
-bgfx_compile_shaders(
-        AS_HEADERS
-        TYPE FRAGMENT
-        INCLUDE_DIRS ${SHADER_DIR}
-        SHADERS ${FRAGMENT_SHADERS}
-        VARYING_DEF ${SERAPH_VARYING_DEF_FILE}
-        OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders
-        OUT_FILES_VAR FRAGMENT_FILES
-)
+foreach(VARYING_DEF ${SHADER_VARYING_DEFS})
+    get_filename_component(SHADER_SET_DIR ${VARYING_DEF} DIRECTORY)
 
-bgfx_compile_shaders(
-        AS_HEADERS
-        TYPE VERTEX
-        INCLUDE_DIRS ${SHADER_DIR}
-        SHADERS ${CHUNK_VERTEX_SHADERS}
-        VARYING_DEF ${CHUNK_SERAPH_VARYING_DEF_FILE}
-        OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders
-        OUT_FILES_VAR CHUNK_VERTEX_FILES
-)
+    file(GLOB SET_VERTEX_SHADERS CONFIGURE_DEPENDS "${SHADER_SET_DIR}/vs_*.sc")
+    file(GLOB SET_FRAGMENT_SHADERS CONFIGURE_DEPENDS "${SHADER_SET_DIR}/fs_*.sc")
 
-bgfx_compile_shaders(
-        AS_HEADERS
-        TYPE FRAGMENT
-        INCLUDE_DIRS ${SHADER_DIR}
-        SHADERS ${CHUNK_FRAGMENT_SHADERS}
-        VARYING_DEF ${CHUNK_SERAPH_VARYING_DEF_FILE}
-        OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders
-        OUT_FILES_VAR CHUNK_FRAGMENT_FILES
-)
+    if(SET_VERTEX_SHADERS)
+        bgfx_compile_shaders(
+                AS_HEADERS
+                TYPE VERTEX
+                INCLUDE_DIRS ${SHADER_DIR} ${SHADER_SET_DIR}
+                SHADERS ${SET_VERTEX_SHADERS}
+                VARYING_DEF ${VARYING_DEF}
+                OUTPUT_DIR ${SHADER_OUTPUT_DIR}
+                OUT_FILES_VAR SET_VERTEX_OUTPUTS
+        )
+        list(APPEND ALL_SHADER_OUTPUTS ${SET_VERTEX_OUTPUTS})
+    endif ()
+
+    if(SET_FRAGMENT_SHADERS)
+        bgfx_compile_shaders(
+                AS_HEADERS
+                TYPE FRAGMENT
+                INCLUDE_DIRS ${SHADER_DIR} ${SHADER_SET_DIR}
+                SHADERS ${SET_FRAGMENT_SHADERS}
+                VARYING_DEF ${VARYING_DEF}
+                OUTPUT_DIR ${SHADER_OUTPUT_DIR}
+                OUT_FILES_VAR SET_FRAGMENT_OUTPUTS
+        )
+        list(APPEND ALL_SHADER_OUTPUTS ${SET_FRAGMENT_OUTPUTS})
+    endif ()
+endforeach ()
 
 add_custom_target(
         Shaders ALL
-        DEPENDS ${FRAGMENT_FILES} ${VERTEX_FILES}
-        ${CHUNK_FRAGMENT_FILES} ${CHUNK_VERTEX_FILES}
+        DEPENDS ${ALL_SHADER_OUTPUTS}
 )
