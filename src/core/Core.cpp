@@ -31,7 +31,7 @@ public:
     {
         String filePath(ASSET_PATH);
         filePath.append(_filePath);
-        return super::open(filePath, _err);
+        return super::open(bx::FilePath(filePath), _err);
     }
 };
 

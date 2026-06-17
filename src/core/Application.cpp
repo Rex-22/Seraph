@@ -11,6 +11,11 @@
 #include "graphics/TextureAtlas.h"
 #include "graphics/material/Material.h"
 #include "platform/Window.h"
+#include "Transform.h"
+#include "graphics/Mesh.h"
+#include "graphics/material/ColorProperty.h"
+#include "graphics/material/TextureProperty.h"
+
 
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
@@ -23,10 +28,6 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
-#include "Transform.h"
-#include "graphics/Mesh.h"
-#include "graphics/material/ColorProperty.h"
-#include "graphics/material/TextureProperty.h"
 
 namespace Core
 {
@@ -191,7 +192,7 @@ void Application::Run()
 
     m_Material = new Material(program);
     m_Material->AddProperty<ColorProperty>(
-        "u_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+        "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
     m_Material->AddProperty<TextureProperty>("s_texColor", m_TextureHandle, 0);
 
     PosColorVertex::init();
