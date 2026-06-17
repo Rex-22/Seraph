@@ -44,9 +44,14 @@ public:
 
     [[nodiscard]] bgfx::ProgramHandle Program() const { return m_Program; }
 
+    void SetState(const uint64_t state) { m_State = state; }
+    [[nodiscard]] uint64_t State() const { return m_State;}
+
 private:
     bgfx::ProgramHandle m_Program;
     std::unordered_map<std::string, std::unique_ptr<MaterialProperty>>
         m_Properties;
+
+    uint64_t m_State = BGFX_STATE_DEFAULT;
 };
 } // namespace Graphics

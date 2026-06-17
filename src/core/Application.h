@@ -45,8 +45,12 @@ public:
 private:
     void ImGuiBegin();
     void ImGuiEnd();
+    void UpdateLogic(double deltaTime);
+    void Render();
     void Loop();
     void SetMouseCaptured(bool captured);
+    void UpdateEvents();
+    void DrawImGui();
 
 private:
     static std::mutex s_Mutex;

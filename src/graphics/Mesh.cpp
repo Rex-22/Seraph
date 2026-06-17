@@ -5,6 +5,7 @@
 #include "Mesh.h"
 
 #include "Camera.h"
+#include "core/Transform.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "material/Material.h"
 
@@ -37,7 +38,7 @@ void Mesh::SetVertexData(
     m_Layout = layout;
 }
 
-void Mesh::SetIndexData(const uint16_t* indices, const uint32_t size)
+void Mesh::SetIndexData(const uint16_t* indices, const size_t size)
 {
     if (bgfx::isValid(m_IndexBuffer)) {
         bgfx::destroy(m_IndexBuffer);
@@ -46,26 +47,9 @@ void Mesh::SetIndexData(const uint16_t* indices, const uint32_t size)
 }
 
 void Mesh::Submit(
-    uint8_t viewId, Camera& camera, uint64_t state) const
+    uint16_t viewId, Core::Transform& transform) const
 {
-    if (BGFX_STATE_MASK == state)
-    {
-        state = 0
-            | BGFX_STATE_WRITE_RGB
-            | BGFX_STATE_WRITE_A
-            | BGFX_STATE_WRITE_Z
-            | BGFX_STATE_DEPTH_TEST_LESS
-            | BGFX_STATE_CULL_CCW
-            | BGFX_STATE_MSAA
-            ;
-    }
-
-    bgfx::setState(state);
-
-    bgfx::setViewTransform(
-        viewId, glm::value_ptr(camera.ViewMatrix()),
-        glm::value_ptr(camera.ProjectionMatrix())
-    );
+    bgfx::setTransform(glm::value_ptr(transform.TransformMatrix()));
 
     bgfx::setVertexBuffer(0, VertexBuffer());
     bgfx::setIndexBuffer(IndexBuffer());

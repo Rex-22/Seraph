@@ -24,6 +24,7 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_simple
 #include "ShaderIncluder.h"
+#include "Transform.h"
 #include "graphics/Mesh.h"
 #include "graphics/material/ColorProperty.h"
 
@@ -65,18 +66,18 @@ static PosColorVertex s_cubeVertices[] =
 
 static const uint16_t s_cubeTriList[] =
 {
-    0, 1, 2, // 0
-    1, 3, 2,
-    4, 6, 5, // 2
-    5, 6, 7,
-    0, 2, 4, // 4
-    4, 2, 6,
-    1, 5, 3, // 6
-    5, 7, 3,
-    0, 4, 1, // 8
-    4, 5, 1,
-    2, 3, 6, // 10
-    6, 3, 7,
+    2, 1, 0, // 0
+    2, 3, 1,
+    5, 6, 4, // 2
+    7, 6, 5,
+    4, 2, 0, // 4
+    6, 2, 4,
+    3, 5, 1, // 6
+    3, 7, 5,
+    1, 4, 0, // 8
+    1, 5, 4,
+    6, 3, 2, // 10
+    7, 3, 6,
 };
 
 using namespace Graphics;
@@ -165,7 +166,7 @@ void Application::Run()
     PosColorVertex::init();
     m_Mesh = new Mesh(*m_Material);
     m_Mesh->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices), PosColorVertex::ms_layout);
-    m_Mesh->SetIndexData(s_cubeTriList, 36);
+    m_Mesh->SetIndexData(s_cubeTriList, sizeof(s_cubeTriList));
 
     m_TimeOffset = bx::getHPCounter();
 
@@ -174,6 +175,8 @@ void Application::Run()
         static_cast<float>(m_Window->Width()) /
             static_cast<float>(m_Window->Height()),
         0.01f, 1000.0f);
+
+    Renderer::SetCamera(&m_Camera);
 
     m_Running = true;
 
@@ -196,16 +199,52 @@ void Application::ImGuiEnd()
     ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());
 }
 
-void Application::Loop()
+void Application::UpdateLogic(double deltaTime)
 {
-    const int64_t now = bx::getHPCounter();
-    static int64_t last = now;
-    const int64_t frameTime = now - last;
-    last = now;
-    const auto freq = static_cast<double>(bx::getHPFrequency());
-    const auto deltaTime =
-        static_cast<float>(static_cast<double>(frameTime) / freq);
+    bgfx::setViewClear(
+        0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
+        EncodeColorRgba8(m_ClearColor.r, m_ClearColor.g, m_ClearColor.b, 1.0f),
+        1.0f, 0);
+    bgfx::touch(0);
 
+    if (m_MouseCaptured) {
+        float delta_x, delta_y;
+        SDL_GetRelativeMouseState(&delta_x, &delta_y);
+        m_Camera.RotatePitch(-delta_y * m_RotScale);
+        m_Camera.RotateYaw(-delta_x * m_RotScale);
+    }
+    float speed = 10;
+
+    glm::vec3 forward = m_Camera.Forward();
+    glm::vec3 right = m_Camera.Right();
+
+    auto move_direction = glm::vec3(0.0f);
+    if (m_UpPressed) {
+        move_direction = move_direction + forward;
+    }
+    if (m_DownPressed) {
+        move_direction = move_direction - forward;
+    }
+
+    if (m_LeftPressed) {
+        move_direction = move_direction - right;
+    }
+    if (m_RightPressed) {
+        move_direction = move_direction + right;
+    }
+
+    float length_sq = glm::dot(move_direction, move_direction);
+    if (length_sq > 0.0f) {
+        float inv_length = 1.0f / bx::sqrt(length_sq);
+        move_direction = move_direction * inv_length;
+        auto pos = m_Camera.Position();
+        pos += move_direction * speed * static_cast<float>(deltaTime);
+        m_Camera.SetPosition(pos);
+    }
+}
+
+void Application::UpdateEvents()
+{
     SDL_Event current_event;
     while (SDL_PollEvent(&current_event)) {
         ImGui_ImplSDL3_ProcessEvent(&current_event);
@@ -263,56 +302,45 @@ void Application::Loop()
             };
         }
     }
+}
 
+void Application::DrawImGui()
+{
     ImGuiBegin();
+
     ImGui::Begin("Test");
-
     ImGui::End();
+
     ImGuiEnd();
-    bgfx::setViewClear(
-        0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
-        EncodeColorRgba8(m_ClearColor.r, m_ClearColor.g, m_ClearColor.b, 1.0f),
-        1.0f, 0);
-    bgfx::touch(0);
+}
 
-    if (m_MouseCaptured) {
-        float delta_x, delta_y;
-        SDL_GetRelativeMouseState(&delta_x, &delta_y);
-        m_Camera.RotatePitch(-delta_y * m_RotScale);
-        m_Camera.RotateYaw(-delta_x * m_RotScale);
-    }
-    float speed = 10;
+void Application::Render()
+{
+    Transform meshTransform;
 
-    glm::vec3 forward = m_Camera.Forward();
-    glm::vec3 right = m_Camera.Right();
+    Renderer::Begin(0);
 
-    auto move_direction = glm::vec3(0.0f);
-    if (m_UpPressed) {
-        move_direction = move_direction + forward;
-    }
-    if (m_DownPressed) {
-        move_direction = move_direction - forward;
-    }
+    Renderer::SubmitMesh(*m_Mesh, meshTransform);
 
-    if (m_LeftPressed) {
-        move_direction = move_direction - right;
-    }
-    if (m_RightPressed) {
-        move_direction = move_direction + right;
-    }
+    DrawImGui();
 
-    float length_sq = glm::dot(move_direction, move_direction);
-    if (length_sq > 0.0f) {
-        float inv_length = 1.0f / bx::sqrt(length_sq);
-        move_direction = move_direction * inv_length;
-        auto pos = m_Camera.Position();
-        pos += move_direction * speed * deltaTime;
-        m_Camera.SetPosition(pos);
-    }
-    auto viewId = 0;
-    m_Mesh->Submit(viewId, m_Camera);
+    Renderer::End();
+}
 
-    bgfx::frame(false);
+void Application::Loop()
+{
+    const int64_t now = bx::getHPCounter();
+    static int64_t last = now;
+    const int64_t frameTime = now - last;
+    last = now;
+    const auto freq = static_cast<double>(bx::getHPFrequency());
+    const auto deltaTime =static_cast<double>(frameTime) / freq;
+
+    UpdateEvents();
+
+    UpdateLogic(deltaTime);
+
+    Render();
 }
 
 } // namespace Core

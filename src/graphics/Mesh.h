@@ -8,6 +8,10 @@
 
 #include <bgfx/bgfx.h>
 
+namespace Core
+{
+class Transform;
+}
 namespace Graphics
 {
 class Camera;
@@ -21,13 +25,13 @@ public:
 public:
     void SetVertexData(
         const void* data, uint32_t size, const bgfx::VertexLayout& layout);
-    void SetIndexData(const uint16_t* indices, uint32_t size);
+    void SetIndexData(const uint16_t* indices, size_t size);
 
     bgfx::VertexLayout Layout() const { return m_Layout; }
     bgfx::VertexBufferHandle VertexBuffer() const { return m_VertexBuffer; }
     bgfx::IndexBufferHandle IndexBuffer() const { return m_IndexBuffer; }
 
-    void Submit(uint8_t viewId, Camera& camera, uint64_t state = 0) const;
+    void Submit(uint16_t viewId, Core::Transform& transform) const;
 
 private:
     bgfx::VertexLayout m_Layout;

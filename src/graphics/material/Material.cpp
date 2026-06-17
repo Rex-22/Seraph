@@ -57,6 +57,8 @@ MaterialProperty* Material::GetProperty(const std::string& name) const
 
 void Material::Apply(uint8_t viewId, uint64_t flags) const
 {
+    bgfx::setState(m_State);
+
     for (const auto& val : m_Properties | std::views::values) {
         val->Apply();
     }

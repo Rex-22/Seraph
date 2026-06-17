@@ -4,22 +4,35 @@
 
 #include "Renderer.h"
 
+#include "Mesh.h"
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "core/Application.h"
+#include "core/Log.h"
+#include "glm/gtc/type_ptr.hpp"
 #include "platform/Window.h"
 
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <bx/platform.h>
 #include <bx/bx.h>
+#include <bx/platform.h>
 #include <imgui_impl_sdl3.h>
 
 namespace Graphics
 {
 
+struct RenderData
+{
+    Camera* camera;
+
+    uint16_t currentViewId;
+};
+
+static RenderData s_RenderData;
+
 void Renderer::Init()
 {
+    s_RenderData = {};
 
     // Signal to bgfx that we want multithreaded rendering
     bgfx::renderFrame();
@@ -32,8 +45,8 @@ void Renderer::Init()
         SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 #elif BX_PLATFORM_OSX
     pd.nwh = SDL_GetPointerProperty(
-        SDL_GetWindowProperties(window.Handle()), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER,
-        nullptr);
+        SDL_GetWindowProperties(window.Handle()),
+        SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
     pd.ndt = nullptr;
 #elif BX_PLATFORM_LINUX
     if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
@@ -75,6 +88,35 @@ void Renderer::Cleanup()
 
     ImGui::DestroyContext();
     bgfx::shutdown();
+}
+
+void Renderer::SubmitMesh(const Mesh& mesh, Core::Transform& transform)
+{
+    mesh.Submit(s_RenderData.currentViewId,  transform);
+}
+
+void Renderer::Begin(uint16_t viewId)
+{
+    if (s_RenderData.camera == nullptr) {
+        CORE_WARN("No camera set for Renderer");
+        return;
+    }
+    s_RenderData.currentViewId = viewId;
+
+    bgfx::setViewTransform(
+        s_RenderData.currentViewId, glm::value_ptr(s_RenderData.camera->ViewMatrix()),
+        glm::value_ptr(s_RenderData.camera->ProjectionMatrix()));
+}
+
+void Renderer::End()
+{
+    s_RenderData.currentViewId = -1;
+    bgfx::frame(false);
+}
+
+void Renderer::SetCamera(Camera* camera)
+{
+    s_RenderData.camera = camera;
 }
 
 void Renderer::SetupImGui()
