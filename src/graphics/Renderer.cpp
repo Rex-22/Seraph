@@ -7,6 +7,7 @@
 #include "Mesh.h"
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "core/Application.h"
+#include "core/Core.h"
 #include "core/Log.h"
 #include "glm/gtc/type_ptr.hpp"
 #include "platform/Window.h"
@@ -14,7 +15,6 @@
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <bx/bx.h>
 #include <bx/platform.h>
 #include <imgui_impl_sdl3.h>
 
@@ -103,6 +103,7 @@ void Renderer::Begin(uint16_t viewId)
     }
     s_RenderData.currentViewId = viewId;
 
+    bgfx::touch(s_RenderData.currentViewId);
     bgfx::setViewTransform(
         s_RenderData.currentViewId, glm::value_ptr(s_RenderData.camera->ViewMatrix()),
         glm::value_ptr(s_RenderData.camera->ProjectionMatrix()));
@@ -117,6 +118,13 @@ void Renderer::End()
 void Renderer::SetCamera(Camera* camera)
 {
     s_RenderData.camera = camera;
+}
+void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)
+{
+    bgfx::setViewClear(
+        s_RenderData.currentViewId, flags,
+        EncodeColorRgba8(clearColor.r, clearColor.g, clearColor.b, 1.0f),
+        1.0f, 0);
 }
 
 void Renderer::SetupImGui()

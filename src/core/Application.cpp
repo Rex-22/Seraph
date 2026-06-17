@@ -16,7 +16,6 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/embedded_shader.h>
 #include <bx/timer.h>
-#include <cstdint>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui_impl_sdl3.h>
 
@@ -27,16 +26,19 @@
 #include "Transform.h"
 #include "graphics/Mesh.h"
 #include "graphics/material/ColorProperty.h"
+#include "graphics/material/TextureProperty.h"
 
 namespace Core
 {
 
 struct PosColorVertex
 {
-    float m_x;
-    float m_y;
-    float m_z;
-    uint32_t m_abgr;
+    float x;
+    float y;
+    float z;
+    uint32_t abgr;
+    float u;
+    float v;
 
     static void init()
     {
@@ -44,6 +46,7 @@ struct PosColorVertex
             .begin()
             .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
             .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
+            .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
             .end();
     };
 
@@ -54,30 +57,51 @@ bgfx::VertexLayout PosColorVertex::ms_layout;
 
 static PosColorVertex s_cubeVertices[] =
 {
-    {-1.0f,  1.0f,  1.0f, 0xff000000 },
-    { 1.0f,  1.0f,  1.0f, 0xff0000ff },
-    {-1.0f, -1.0f,  1.0f, 0xff00ff00 },
-    { 1.0f, -1.0f,  1.0f, 0xff00ffff },
-    {-1.0f,  1.0f, -1.0f, 0xffff0000 },
-    { 1.0f,  1.0f, -1.0f, 0xffff00ff },
-    {-1.0f, -1.0f, -1.0f, 0xffffff00 },
-    { 1.0f, -1.0f, -1.0f, 0xffffffff },
+    // +Z (front)
+    {-1.0f,  1.0f,  1.0f, 0xffffffff, 0.0f, 0.0f }, // 0
+    { 1.0f,  1.0f,  1.0f, 0xffffffff, 1.0f, 0.0f }, // 1
+    {-1.0f, -1.0f,  1.0f, 0xffffffff, 0.0f, 1.0f }, // 2
+    { 1.0f, -1.0f,  1.0f, 0xffffffff, 1.0f, 1.0f }, // 3
+
+    // -Z (back)
+    {-1.0f,  1.0f, -1.0f, 0xffffffff, 1.0f, 0.0f }, // 4
+    { 1.0f,  1.0f, -1.0f, 0xffffffff, 0.0f, 0.0f }, // 5
+    {-1.0f, -1.0f, -1.0f, 0xffffffff, 1.0f, 1.0f }, // 6
+    { 1.0f, -1.0f, -1.0f, 0xffffffff, 0.0f, 1.0f }, // 7
+
+    // -X (left)
+    {-1.0f,  1.0f,  1.0f, 0xffffffff, 1.0f, 0.0f }, // 8
+    {-1.0f, -1.0f,  1.0f, 0xffffffff, 1.0f, 1.0f }, // 9
+    {-1.0f,  1.0f, -1.0f, 0xffffffff, 0.0f, 0.0f }, // 10
+    {-1.0f, -1.0f, -1.0f, 0xffffffff, 0.0f, 1.0f }, // 11
+
+    // +X (right)
+    { 1.0f,  1.0f,  1.0f, 0xffffffff, 0.0f, 0.0f }, // 12
+    { 1.0f, -1.0f,  1.0f, 0xffffffff, 0.0f, 1.0f }, // 13
+    { 1.0f,  1.0f, -1.0f, 0xffffffff, 1.0f, 0.0f }, // 14
+    { 1.0f, -1.0f, -1.0f, 0xffffffff, 1.0f, 1.0f }, // 15
+
+    // +Y (top)
+    {-1.0f,  1.0f,  1.0f, 0xffffffff, 0.0f, 1.0f }, // 16
+    { 1.0f,  1.0f,  1.0f, 0xffffffff, 1.0f, 1.0f }, // 17
+    {-1.0f,  1.0f, -1.0f, 0xffffffff, 0.0f, 0.0f }, // 18
+    { 1.0f,  1.0f, -1.0f, 0xffffffff, 1.0f, 0.0f }, // 19
+
+    // -Y (bottom)
+    {-1.0f, -1.0f,  1.0f, 0xffffffff, 0.0f, 0.0f }, // 20
+    { 1.0f, -1.0f,  1.0f, 0xffffffff, 1.0f, 0.0f }, // 21
+    {-1.0f, -1.0f, -1.0f, 0xffffffff, 0.0f, 1.0f }, // 22
+    { 1.0f, -1.0f, -1.0f, 0xffffffff, 1.0f, 1.0f }, // 23
 };
 
 static const uint16_t s_cubeTriList[] =
 {
-    2, 1, 0, // 0
-    2, 3, 1,
-    5, 6, 4, // 2
-    7, 6, 5,
-    4, 2, 0, // 4
-    6, 2, 4,
-    3, 5, 1, // 6
-    3, 7, 5,
-    1, 4, 0, // 8
-    1, 5, 4,
-    6, 3, 2, // 10
-    7, 3, 6,
+     2,  1,  0,  2,  3,  1, // +Z
+     5,  6,  4,  7,  6,  5, // -Z
+    10,  9,  8, 11,  9, 10, // -X
+    13, 14, 12, 13, 15, 14, // +X
+    17, 18, 16, 17, 19, 18, // +Y
+    22, 21, 20, 23, 21, 22, // -Y
 };
 
 using namespace Graphics;
@@ -117,6 +141,10 @@ void Application::Cleanup() const
 {
     delete m_Mesh;
     delete m_Material;
+
+    if (bgfx::isValid(m_TextureHandle)) {
+        bgfx::destroy(m_TextureHandle);
+    }
 
     Renderer::Cleanup();
     CleanupCore();
@@ -159,9 +187,12 @@ void Application::Run()
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
     const auto program = bgfx::createProgram(vsSimple, fsSimple, true);
 
+    m_TextureHandle = LoadTexture("textures/test_texture.png");
+
     m_Material = new Material(program);
     m_Material->AddProperty<ColorProperty>(
         "u_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    m_Material->AddProperty<TextureProperty>("s_texColor", m_TextureHandle, 0);
 
     PosColorVertex::init();
     m_Mesh = new Mesh(*m_Material);
@@ -201,12 +232,6 @@ void Application::ImGuiEnd()
 
 void Application::UpdateLogic(double deltaTime)
 {
-    bgfx::setViewClear(
-        0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
-        EncodeColorRgba8(m_ClearColor.r, m_ClearColor.g, m_ClearColor.b, 1.0f),
-        1.0f, 0);
-    bgfx::touch(0);
-
     if (m_MouseCaptured) {
         float delta_x, delta_y;
         SDL_GetRelativeMouseState(&delta_x, &delta_y);
@@ -320,6 +345,7 @@ void Application::Render()
 
     Renderer::Begin(0);
 
+    Renderer::Clear(m_ClearColor);
     Renderer::SubmitMesh(*m_Mesh, meshTransform);
 
     DrawImGui();

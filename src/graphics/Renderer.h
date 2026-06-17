@@ -3,6 +3,9 @@
 //
 
 #pragma once
+#include "bgfx/defines.h"
+#include "glm/vec3.hpp"
+
 #include <cstdint>
 
 namespace Core
@@ -26,6 +29,7 @@ struct Renderer
     static void End();
 
     static void SetCamera(Camera* camera);
+    static void Clear(glm::vec3 clearColor, uint16_t flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
 
 private:
     static void SetupImGui();
