@@ -4,59 +4,26 @@
 
 #include "Core.h"
 
-#include "ext/stb_image.h"
 #include "Log.h"
-#include "bx/pixelformat.h"
-#include "config.h"
+#include "ext/stb_image.h"
+#include "platform/FileReader.h"
 
 #include <bgfx/bgfx.h>
 #include <bimg/decode.h>
 #include <bx/file.h>
 #include <bx/filepath.h>
 #include <bx/readerwriter.h>
-#include <glm/glm.hpp>
 
 static bx::FileReader* s_fileReader = nullptr;
-extern bx::AllocatorI* GetDefaultAllocator();
-bx::AllocatorI* g_allocator = GetDefaultAllocator();
 
-typedef bx::StringT<&g_allocator> String;
-
-class FileReader : public bx::FileReader
+namespace Core
 {
-    typedef bx::FileReader super;
 
-public:
-    bool open(const bx::FilePath& _filePath, bx::Error* _err) override
-    {
-        String filePath(ASSET_PATH);
-        filePath.append(_filePath);
-        return super::open(bx::FilePath(filePath), _err);
-    }
-};
+typedef bx::StringT<&Core::g_allocator> String;
 
-void* Load(
-    bx::FileReaderI* _reader, bx::AllocatorI* _allocator,
-    const bx::FilePath& _filePath, uint32_t* _size)
+void Unload(void* _ptr)
 {
-    if (bx::open(_reader, _filePath)) {
-        const auto size = static_cast<uint32_t>(bx::getSize(_reader));
-        void* data = bx::alloc(_allocator, size);
-        bx::read(_reader, data, size, bx::ErrorAssert{});
-        bx::close(_reader);
-        if (_size != nullptr) {
-            *_size = size;
-        }
-        return data;
-    } else {
-        CORE_ERROR("Failed to open: {}.", _filePath.getCPtr());
-    }
-
-    if (_size != nullptr) {
-        *_size = 0;
-    }
-
-    return nullptr;
+    bx::free(Core::GetAllocator(), _ptr);
 }
 
 static void ImageReleaseCb(void* _ptr, void* _userData)
@@ -66,9 +33,27 @@ static void ImageReleaseCb(void* _ptr, void* _userData)
     bimg::imageFree(imageContainer);
 }
 
-void Unload(void* _ptr)
+void* Load(
+    bx::FileReaderI* reader, bx::AllocatorI* allocator,
+    const bx::FilePath& filePath, uint32_t* _size)
 {
-    bx::free(GetAllocator(), _ptr);
+    if (!bx::open(reader, filePath)) {
+        CORE_ERROR("Failed to open: {}.", filePath.getCPtr());
+        if (_size != nullptr) {
+            *_size = 0;
+        }
+
+        return nullptr;
+    }
+
+    const auto size = static_cast<int32_t>(bx::getSize(reader));
+    void* data = bx::alloc(allocator, size);
+    bx::read(reader, data, size, bx::ErrorAssert{});
+    bx::close(reader);
+    if (_size != nullptr) {
+        *_size = size;
+    }
+    return data;
 }
 
 bgfx::TextureHandle LoadTexture(
@@ -83,8 +68,8 @@ bgfx::TextureHandle LoadTexture(
     void* data = Load(_reader, GetAllocator(), _filePath, &size);
     if (data != nullptr) {
 
-        if (bimg::ImageContainer* imageContainer =
-                bimg::imageParse(GetAllocator(), data, size, bimg::TextureFormat::RGBA8);
+        if (bimg::ImageContainer* imageContainer = bimg::imageParse(
+                GetAllocator(), data, size, bimg::TextureFormat::RGBA8);
             imageContainer != nullptr) {
             if (_orientation != nullptr) {
                 *_orientation = imageContainer->m_orientation;
@@ -151,30 +136,18 @@ bx::FileReaderI* GetFileReader()
     return s_fileReader;
 }
 
-bx::AllocatorI* GetDefaultAllocator()
-{
-    BX_PRAGMA_DIAGNOSTIC_PUSH();
-    BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(
-        4459); // warning C4459: declaration of 's_allocator' hides global
-               // declaration
-    BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wshadow");
-    static bx::DefaultAllocator s_allocator;
-    return &s_allocator;
-    BX_PRAGMA_DIAGNOSTIC_POP();
-}
-
 bx::AllocatorI* GetAllocator()
 {
-    if (g_allocator == nullptr) {
-        g_allocator = GetDefaultAllocator();
+    if (Core::g_allocator == nullptr) {
+        Core::g_allocator = GetDefaultAllocator();
     }
 
-    return g_allocator;
+    return Core::g_allocator;
 }
 
 void InitCore()
 {
-    s_fileReader = BX_NEW(GetAllocator(), FileReader);
+    s_fileReader = BX_NEW(GetAllocator(), Platform::FileReader);
 }
 
 void CleanupCore()
@@ -292,4 +265,17 @@ void CalcTangents(
     }
 
     delete[] tangents;
+}
+}
+
+bx::AllocatorI* GetDefaultAllocator()
+{
+    BX_PRAGMA_DIAGNOSTIC_PUSH();
+    BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(
+        4459); // warning C4459: declaration of 's_allocator' hides global
+    // declaration
+    BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wshadow");
+    static bx::DefaultAllocator s_allocator;
+    return &s_allocator;
+    BX_PRAGMA_DIAGNOSTIC_POP();
 }

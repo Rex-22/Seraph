@@ -10,6 +10,14 @@
 #include <bx/readerwriter.h>
 #include <string>
 
+extern bx::AllocatorI* GetDefaultAllocator();
+
+namespace Core
+{
+
+static bx::AllocatorI* g_allocator = GetDefaultAllocator();
+typedef bx::StringT<&g_allocator> String;
+
 inline uint32_t EncodeColorRgba8(float r, float g, float b, float a)
 {
     const float src[] = {
@@ -44,6 +52,7 @@ bgfx::TextureHandle LoadTexture(
 
 void CalcTangents(void* _vertices, uint16_t _numVertices, bgfx::VertexLayout _layout, const uint16_t* _indices, uint32_t _numIndices);
 
-
 void InitCore();
 void CleanupCore();
+
+}

@@ -25,7 +25,7 @@ TextureAtlas::~TextureAtlas()
 TextureAtlas* TextureAtlas::Create(const std::string& path, uint32_t spriteSize)
 {
     bgfx::TextureInfo info;
-    bgfx::TextureHandle handle = LoadTexture(
+    bgfx::TextureHandle handle = Core::LoadTexture(
         path.c_str(),
             BGFX_SAMPLER_MIN_POINT
             | BGFX_SAMPLER_MAG_POINT, 0,

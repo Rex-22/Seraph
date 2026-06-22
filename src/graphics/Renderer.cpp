@@ -123,7 +123,7 @@ void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)
 {
     bgfx::setViewClear(
         s_RenderData.currentViewId, flags,
-        EncodeColorRgba8(clearColor.r, clearColor.g, clearColor.b, 1.0f),
+        Core::EncodeColorRgba8(clearColor.r, clearColor.g, clearColor.b, 1.0f),
         1.0f, 0);
 }
 
