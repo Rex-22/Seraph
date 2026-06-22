@@ -200,8 +200,6 @@ void Application::Run()
     m_Mesh->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices), PosColorVertex::ms_layout);
     m_Mesh->SetIndexData(s_cubeTriList, sizeof(s_cubeTriList));
 
-    m_TimeOffset = bx::getHPCounter();
-
     m_Camera = Camera(
         60.0f,
         static_cast<float>(m_Window->Width()) /
@@ -211,7 +209,7 @@ void Application::Run()
     Renderer::SetCamera(&m_Camera);
 
     m_Running = true;
-
+    m_LastFrameTime =  bx::getHPCounter();
     while (m_Running) {
         Loop();
     }
@@ -357,9 +355,8 @@ void Application::Render()
 void Application::Loop()
 {
     const int64_t now = bx::getHPCounter();
-    static int64_t last = now;
-    const int64_t frameTime = now - last;
-    last = now;
+    const int64_t frameTime = now - m_LastFrameTime;
+    m_LastFrameTime = now;
     const auto freq = static_cast<double>(bx::getHPFrequency());
     const auto deltaTime =static_cast<double>(frameTime) / freq;
 

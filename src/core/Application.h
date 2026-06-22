@@ -62,7 +62,7 @@ private:
     float m_PrevMouseX = 0;
     float m_PrevMouseY = 0;
     float m_RotScale = 0.01f;
-    int64_t m_TimeOffset = 0;
+    int64_t m_LastFrameTime = 0;
 
     bool m_UpPressed = false;
     bool m_DownPressed = false;
