@@ -74,7 +74,7 @@ private:
 
     Graphics::Material* m_Material = nullptr;
     Graphics::Mesh* m_Mesh = nullptr;
-    bgfx::TextureHandle m_TextureHandle;
+    bgfx::TextureHandle m_TextureHandle = BGFX_INVALID_HANDLE;
 
     glm::vec3 m_ClearColor {0.3, 0.3, 0.3};
 

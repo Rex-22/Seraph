@@ -41,22 +41,22 @@ struct PosColorVertex
     float u;
     float v;
 
-    static void init()
+    static const bgfx::VertexLayout* Layout()
     {
-        ms_layout
-            .begin()
+        static const bgfx::VertexLayout layout = [] {
+            bgfx::VertexLayout l;
+            l.begin()
             .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
             .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
             .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
             .end();
-    };
-
-    static bgfx::VertexLayout ms_layout;
+            return l;
+        }();
+        return &layout;
+    }
 };
 
-bgfx::VertexLayout PosColorVertex::ms_layout;
-
-static PosColorVertex s_cubeVertices[] =
+PosColorVertex s_cubeVertices[] =
 {
     // +Z (front)
     {-1.0f,  1.0f,  1.0f, 0xffffffff, 0.0f, 0.0f }, // 0
@@ -195,9 +195,9 @@ void Application::Run()
         "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
     m_Material->AddProperty<TextureProperty>("s_texColor", m_TextureHandle, 0);
 
-    PosColorVertex::init();
     m_Mesh = new Mesh(*m_Material);
-    m_Mesh->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices), PosColorVertex::ms_layout);
+    m_Mesh->SetVertexLayout<PosColorVertex>();
+    m_Mesh->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices));
     m_Mesh->SetIndexData(s_cubeTriList, sizeof(s_cubeTriList));
 
     m_Camera = Camera(
