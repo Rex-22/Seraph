@@ -5,119 +5,34 @@
 #include "Application.h"
 
 #include "Core.h"
+#include "ImGuiLayer.h"
+#include "Layer.h"
+#include "LayerStack.h"
 #include "Log.h"
-#include "bgfx-imgui/imgui_impl_bgfx.h"
+#include "events/KeyEvent.h"
+#include "events/MouseEvent.h"
+#include "events/WindowEvent.h"
 #include "graphics/Renderer.h"
-#include "graphics/TextureAtlas.h"
-#include "graphics/material/Material.h"
 #include "platform/Window.h"
-#include "Transform.h"
-#include "graphics/Mesh.h"
-#include "graphics/material/ColorProperty.h"
-#include "graphics/material/TextureProperty.h"
-
 
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
-#include <bgfx/embedded_shader.h>
 #include <bx/timer.h>
-#include <glm/gtc/type_ptr.hpp>
 #include <imgui_impl_sdl3.h>
 
-#define SHADER_NAME vs_simple
-#include "ShaderIncluder.h"
-#define SHADER_NAME fs_simple
-#include "ShaderIncluder.h"
+#include <ranges>
 
 namespace Core
 {
 
-struct PosColorVertex
-{
-    float x;
-    float y;
-    float z;
-    uint32_t abgr;
-    float u;
-    float v;
-
-    static const bgfx::VertexLayout* Layout()
-    {
-        static const bgfx::VertexLayout layout = [] {
-            bgfx::VertexLayout l;
-            l.begin()
-            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
-            .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
-            .end();
-            return l;
-        }();
-        return &layout;
-    }
-};
-
-PosColorVertex s_cubeVertices[] =
-{
-    // +Z (front)
-    {-1.0f,  1.0f,  1.0f, 0xffffffff, 0.0f, 0.0f }, // 0
-    { 1.0f,  1.0f,  1.0f, 0xffffffff, 1.0f, 0.0f }, // 1
-    {-1.0f, -1.0f,  1.0f, 0xffffffff, 0.0f, 1.0f }, // 2
-    { 1.0f, -1.0f,  1.0f, 0xffffffff, 1.0f, 1.0f }, // 3
-
-    // -Z (back)
-    {-1.0f,  1.0f, -1.0f, 0xffffffff, 1.0f, 0.0f }, // 4
-    { 1.0f,  1.0f, -1.0f, 0xffffffff, 0.0f, 0.0f }, // 5
-    {-1.0f, -1.0f, -1.0f, 0xffffffff, 1.0f, 1.0f }, // 6
-    { 1.0f, -1.0f, -1.0f, 0xffffffff, 0.0f, 1.0f }, // 7
-
-    // -X (left)
-    {-1.0f,  1.0f,  1.0f, 0xffffffff, 1.0f, 0.0f }, // 8
-    {-1.0f, -1.0f,  1.0f, 0xffffffff, 1.0f, 1.0f }, // 9
-    {-1.0f,  1.0f, -1.0f, 0xffffffff, 0.0f, 0.0f }, // 10
-    {-1.0f, -1.0f, -1.0f, 0xffffffff, 0.0f, 1.0f }, // 11
-
-    // +X (right)
-    { 1.0f,  1.0f,  1.0f, 0xffffffff, 0.0f, 0.0f }, // 12
-    { 1.0f, -1.0f,  1.0f, 0xffffffff, 0.0f, 1.0f }, // 13
-    { 1.0f,  1.0f, -1.0f, 0xffffffff, 1.0f, 0.0f }, // 14
-    { 1.0f, -1.0f, -1.0f, 0xffffffff, 1.0f, 1.0f }, // 15
-
-    // +Y (top)
-    {-1.0f,  1.0f,  1.0f, 0xffffffff, 0.0f, 1.0f }, // 16
-    { 1.0f,  1.0f,  1.0f, 0xffffffff, 1.0f, 1.0f }, // 17
-    {-1.0f,  1.0f, -1.0f, 0xffffffff, 0.0f, 0.0f }, // 18
-    { 1.0f,  1.0f, -1.0f, 0xffffffff, 1.0f, 0.0f }, // 19
-
-    // -Y (bottom)
-    {-1.0f, -1.0f,  1.0f, 0xffffffff, 0.0f, 0.0f }, // 20
-    { 1.0f, -1.0f,  1.0f, 0xffffffff, 1.0f, 0.0f }, // 21
-    {-1.0f, -1.0f, -1.0f, 0xffffffff, 0.0f, 1.0f }, // 22
-    { 1.0f, -1.0f, -1.0f, 0xffffffff, 1.0f, 1.0f }, // 23
-};
-
-static const uint16_t s_cubeTriList[] =
-{
-     2,  1,  0,  2,  3,  1, // +Z
-     5,  6,  4,  7,  6,  5, // -Z
-    10,  9,  8, 11,  9, 10, // -X
-    13, 14, 12, 13, 15, 14, // +X
-    17, 18, 16, 17, 19, 18, // +Y
-    22, 21, 20, 23, 21, 22, // -Y
-};
-
 using namespace Graphics;
 
-const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
-    BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
-    BGFX_EMBEDDED_SHADER_END() //
-}};
-
-Application* Application::s_Instance{nullptr};
 std::mutex Application::s_Mutex;
+Application* Application::s_Instance{nullptr};
 
 Application::Application()
 {
-    Log::Init();
+    InitCore();
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         CORE_ERROR("SDL could not initialize. {}", SDL_GetError());
@@ -126,9 +41,24 @@ Application::Application()
 
     m_Window = new Platform::Window({1280, 720, "Seraph", false});
     s_Instance = this;
+
+    Renderer::Init();
+
+    m_ImGuiLayer = new ImGuiLayer();
+    PushOverlay(m_ImGuiLayer);
 }
 
-const Application* Application::GetInstance()
+Application::~Application()
+{
+    Renderer::Cleanup();
+
+    delete m_Window;
+
+    CleanupCore();
+    SDL_Quit();
+}
+
+Application& Application::Instance()
 {
     std::lock_guard lock(s_Mutex);
     if (!s_Instance) {
@@ -136,27 +66,69 @@ const Application* Application::GetInstance()
         exit(1);
     }
 
-    return s_Instance;
-}
-void Application::Cleanup() const
-{
-    delete m_Mesh;
-    delete m_Material;
-
-    if (bgfx::isValid(m_TextureHandle)) {
-        bgfx::destroy(m_TextureHandle);
-    }
-
-    Renderer::Cleanup();
-    CleanupCore();
-
-    delete m_Window;
-    SDL_Quit();
+    return *s_Instance;
 }
 
 const Platform::Window& Application::Window() const
 {
     return *m_Window;
+}
+
+void Application::Run()
+{
+    m_Running = true;
+    m_LastFrameTime = bx::getHPCounter();
+    while (m_Running) {
+        Loop();
+    }
+}
+
+void Application::PushLayer(Layer* layer)
+{
+    m_LayerStack.PushLayer(layer);
+    layer->OnAttach();
+}
+
+void Application::PushOverlay(Layer* overlay)
+{
+    m_LayerStack.PushOverlay(overlay);
+    overlay->OnAttach();
+}
+
+void Application::OnEvent(Event::Event& e)
+{
+    Event::EventDispatcher dispatcher(e);
+    dispatcher.Dispatch<Event::WindowCloseEvent>(SP_BIND_EVENT_FN(Application::OnWindowClose));
+
+    for (const auto & it : std::views::reverse(m_LayerStack))
+    {
+        if (e.Handled)
+            break;
+        it->OnEvent(e);
+    }
+}
+
+void Application::Loop()
+{
+    const int64_t now = bx::getHPCounter();
+    const int64_t frameTime = now - m_LastFrameTime;
+    m_LastFrameTime = now;
+    const auto freq = static_cast<double>(bx::getHPFrequency());
+    const auto deltaTime = static_cast<double>(frameTime) / freq;
+
+    ProcessEvents();
+
+    if (!m_Minimized) {
+        for (Layer* layer : m_LayerStack) {
+            layer->OnUpdate(deltaTime);
+        }
+
+        m_ImGuiLayer->Begin();
+        for (Layer* layer : m_LayerStack) {
+            layer->OnImGuiRender();
+        }
+        m_ImGuiLayer->End();
+    }
 }
 
 void Application::SetMouseCaptured(bool captured)
@@ -175,196 +147,66 @@ void Application::SetMouseCaptured(bool captured)
     }
 }
 
-void Application::Run()
+void Application::ProcessEvents()
 {
-    InitCore();
-
-    Renderer::Init();
-
-    const auto type = bgfx::getRendererType();
-    const auto vsSimple =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_simple");
-    const auto fsSimple =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
-    const auto program = bgfx::createProgram(vsSimple, fsSimple, true);
-
-    m_TextureHandle = LoadTexture("textures/test_texture.png");
-
-    m_Material = new Material(program);
-    m_Material->AddProperty<ColorProperty>(
-        "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-    m_Material->AddProperty<TextureProperty>("s_texColor", m_TextureHandle, 0);
-
-    m_Mesh = new Mesh(*m_Material);
-    m_Mesh->SetVertexLayout<PosColorVertex>();
-    m_Mesh->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices));
-    m_Mesh->SetIndexData(s_cubeTriList, sizeof(s_cubeTriList));
-
-    m_Camera = Camera(
-        60.0f,
-        static_cast<float>(m_Window->Width()) /
-            static_cast<float>(m_Window->Height()),
-        0.01f, 1000.0f);
-
-    Renderer::SetCamera(&m_Camera);
-
-    m_Running = true;
-    m_LastFrameTime =  bx::getHPCounter();
-    while (m_Running) {
-        Loop();
-    }
-    Cleanup();
-}
-
-void Application::ImGuiBegin()
-{
-    ImGui_Implbgfx_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-
-    ImGui::NewFrame();
-}
-void Application::ImGuiEnd()
-{
-    ImGui::Render();
-    ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());
-}
-
-void Application::UpdateLogic(double deltaTime)
-{
-    if (m_MouseCaptured) {
-        float delta_x, delta_y;
-        SDL_GetRelativeMouseState(&delta_x, &delta_y);
-        m_Camera.RotatePitch(-delta_y * m_RotScale);
-        m_Camera.RotateYaw(-delta_x * m_RotScale);
-    }
-    float speed = 10;
-
-    glm::vec3 forward = m_Camera.Forward();
-    glm::vec3 right = m_Camera.Right();
-
-    auto move_direction = glm::vec3(0.0f);
-    if (m_UpPressed) {
-        move_direction = move_direction + forward;
-    }
-    if (m_DownPressed) {
-        move_direction = move_direction - forward;
-    }
-
-    if (m_LeftPressed) {
-        move_direction = move_direction - right;
-    }
-    if (m_RightPressed) {
-        move_direction = move_direction + right;
-    }
-
-    float length_sq = glm::dot(move_direction, move_direction);
-    if (length_sq > 0.0f) {
-        float inv_length = 1.0f / bx::sqrt(length_sq);
-        move_direction = move_direction * inv_length;
-        auto pos = m_Camera.Position();
-        pos += move_direction * speed * static_cast<float>(deltaTime);
-        m_Camera.SetPosition(pos);
-    }
-}
-
-void Application::UpdateEvents()
-{
-    SDL_Event current_event;
-    while (SDL_PollEvent(&current_event)) {
-        ImGui_ImplSDL3_ProcessEvent(&current_event);
-        switch (current_event.type) {
+    SDL_Event sdlEvent;
+    while (SDL_PollEvent(&sdlEvent)) {
+        ImGui_ImplSDL3_ProcessEvent(&sdlEvent);
+        switch (sdlEvent.type) {
             case SDL_EVENT_QUIT: {
                 m_Running = false;
                 break;
             }
             case SDL_EVENT_WINDOW_RESIZED: {
-                bgfx::reset(
-                    current_event.window.data1, current_event.window.data2);
-                bgfx::setViewRect(
-                    0, 0, 0, current_event.window.data1,
-                    current_event.window.data2);
-                m_Camera.SetAspectRatio(
-                    static_cast<float>(current_event.window.data1) /
-                    static_cast<float>(current_event.window.data2));
+                auto e = Event::WindowResizeEvent(
+                    sdlEvent.window.data1, sdlEvent.window.data2);
+                OnEvent(e);
                 break;
             }
-            case SDL_EVENT_KEY_UP:
+            case SDL_EVENT_KEY_UP: {
+                auto e = Event::KeyPressedEvent(sdlEvent.key.key, sdlEvent.key.repeat);
+                OnEvent(e);
+                break;
+            }
             case SDL_EVENT_KEY_DOWN: {
-                if (current_event.key.key == SDLK_W) {
-                    m_UpPressed = current_event.key.down;
-                }
-                if (current_event.key.key == SDLK_S) {
-                    m_DownPressed = current_event.key.down;
-                }
-                if (current_event.key.key == SDLK_A) {
-                    m_LeftPressed = current_event.key.down;
-                }
-                if (current_event.key.key == SDLK_D) {
-                    m_RightPressed = current_event.key.down;
-                }
-                if (current_event.key.key == SDLK_ESCAPE &&
-                    current_event.key.down && m_MouseCaptured) {
-                    SetMouseCaptured(false);
-                }
-                if (current_event.key.key == SDLK_F4 &&
-                    current_event.key.type == SDL_EVENT_KEY_UP) {
-                    m_Camera.LookAt(glm::vec3(0, 10, 0));
-                }
+                auto e = Event::KeyReleasedEvent(sdlEvent.key.key);
+                OnEvent(e);
                 break;
             }
-            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                auto e = Event::MouseButtonPressedEvent(sdlEvent.button.button);
+                OnEvent(e);
+                break;
+            }
             case SDL_EVENT_MOUSE_BUTTON_UP: {
-                if (current_event.button.type == SDL_EVENT_MOUSE_BUTTON_UP &&
-                    current_event.button.button == SDL_BUTTON_LEFT &&
-                    !ImGui::GetIO().WantCaptureMouse && !m_MouseCaptured) {
-                    SetMouseCaptured(true);
-                }
+                auto e = Event::MouseButtonReleasedEvent(sdlEvent.button.button);
+                OnEvent(e);
                 break;
             }
             default: {
                 break;
-            };
+            }
         }
     }
 }
 
-void Application::DrawImGui()
+bool Application::OnWindowResize(Event::WindowResizeEvent& e)
 {
-    ImGuiBegin();
+    if (e.Width() == 0 || e.Height() == 0) {
+        m_Minimized = true;
+        return false;
+    }
 
-    ImGui::Begin("Test");
-    ImGui::End();
+    m_Minimized = false;
+    Renderer::OnWindowResize(e.Width(), e.Height());
 
-    ImGuiEnd();
+    return false;
 }
 
-void Application::Render()
+bool Application::OnWindowClose(Event::WindowCloseEvent& e)
 {
-    Transform meshTransform;
-
-    Renderer::Begin(0);
-
-    Renderer::Clear(m_ClearColor);
-    Renderer::SubmitMesh(*m_Mesh, meshTransform);
-
-    DrawImGui();
-
-    Renderer::End();
-}
-
-void Application::Loop()
-{
-    const int64_t now = bx::getHPCounter();
-    const int64_t frameTime = now - m_LastFrameTime;
-    m_LastFrameTime = now;
-    const auto freq = static_cast<double>(bx::getHPFrequency());
-    const auto deltaTime =static_cast<double>(frameTime) / freq;
-
-    UpdateEvents();
-
-    UpdateLogic(deltaTime);
-
-    Render();
+    m_Running = false;
+    return true;
 }
 
 } // namespace Core

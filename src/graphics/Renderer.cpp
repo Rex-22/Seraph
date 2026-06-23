@@ -4,6 +4,7 @@
 
 #include "Renderer.h"
 
+#include "Camera.h"
 #include "Mesh.h"
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "core/Application.h"
@@ -40,7 +41,7 @@ void Renderer::Init()
 
     // Signal to bgfx that we want multithreaded rendering
     bgfx::renderFrame();
-    auto& window = Core::Application::GetInstance()->Window();
+    auto& window = Core::Application::Instance().Window();
 
     bgfx::PlatformData pd{};
 #if BX_PLATFORM_WINDOWS
@@ -131,10 +132,16 @@ void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)
         Core::EncodeColorRgba8(clearColor.r, clearColor.g, clearColor.b, 1.0f),
         1.0f, 0);
 }
+void Renderer::OnWindowResize(u32 width, u32 height)
+{
+    bgfx::reset(width, height);
+    bgfx::setViewRect(
+        0, 0, 0, width, height);
+}
 
 void Renderer::SetupImGui()
 {
-    auto& window = Core::Application::GetInstance()->Window();
+    auto& window = Core::Application::Instance().Window();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

@@ -6,9 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 include(cmake/vendor.cmake)
 include(cmake/config.cmake)
 
-set(PROJECT ${PROJECT_NAME})
-
-add_compile_definitions("GT_DEBUG=$<CONFIG:Debug>")
+add_compile_definitions("SP_DEBUG=$<CONFIG:Debug>")
 
 # Set option to control setting the resource path variable
 option(USE_INSTALL_ASSET_PATH "Set resource path to install location" OFF)
@@ -27,5 +25,5 @@ install(DIRECTORY assets
 configure_file(src/config.h.in src/config.h)
 
 # projects
-add_subdirectory(src)
-add_dependencies(${PROJECT} Shaders)
+add_subdirectory(src)      # Seraph engine (static library)
+add_subdirectory(Sandbox)  # Sandbox client (executable, links Seraph)

@@ -1,4 +1,9 @@
-make_executable()
+set(PROJECT Seraph)
+
+# EntryPoint.h / Seraph.h are client-facing headers: EntryPoint.h defines main()
+# and must only be compiled into the consuming executable (Sandbox), never the
+# library. They are headers, so the *.cpp glob never picks them up here.
+make_library()
 
 # Disable specific warnings for third-party STB library
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -6,6 +11,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STRE
         COMPILE_FLAGS "-Wno-error=missing-field-initializers")
 endif()
 
+# PUBLIC so consumers (Sandbox) inherit the engine + vendor include paths.
 target_include_directories(${PROJECT} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${PROJECT_BINARY_DIR}
@@ -20,7 +26,8 @@ target_include_directories(${PROJECT} PUBLIC
         ${CMAKE_BINARY_DIR}/include
 )
 
-target_link_libraries(${PROJECT}
+# PUBLIC so the static library's dependencies propagate to consumers at link time.
+target_link_libraries(${PROJECT} PUBLIC
         ${SDL3_LIBRARIES}
         ${IMGUI_LIBRARIES}
         ${BGFX_LIBRARIES}
