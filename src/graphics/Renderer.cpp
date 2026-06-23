@@ -26,7 +26,7 @@ struct RenderData
 
     uint16_t currentViewId;
 
-    void Clear()
+    void EndFrame()
     {
         currentViewId = -1;
     }
@@ -115,7 +115,7 @@ void Renderer::Begin(uint16_t viewId)
 
 void Renderer::End()
 {
-    s_RenderData.Clear();
+    s_RenderData.EndFrame();
     bgfx::frame(false);
 }
 
