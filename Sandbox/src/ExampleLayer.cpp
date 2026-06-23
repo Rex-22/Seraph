@@ -29,6 +29,7 @@ void ExampleLayer::OnAttach()
         static_cast<float>(window.Width()) /
             static_cast<float>(window.Height()),
         0.01f, 1000.0f);
+
     Graphics::Renderer::SetCamera(&m_Camera);
 }
 
@@ -102,8 +103,9 @@ bool ExampleLayer::OnWindowResizeEvent(Event::WindowResizeEvent& e)
     m_Camera.SetAspectRatio(
             static_cast<float>(e.Width()) /
             static_cast<float>(e.Height()));
-    return true;
+    return false;
 }
+
 bool ExampleLayer::OnKeyPressedEvent(Event::KeyPressedEvent& e)
 {
     auto& app = Core::Application::Instance();
