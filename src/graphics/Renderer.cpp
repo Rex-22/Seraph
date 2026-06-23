@@ -14,7 +14,6 @@
 
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
 #include <bx/platform.h>
 #include <imgui_impl_sdl3.h>
 
@@ -26,6 +25,11 @@ struct RenderData
     Camera* camera;
 
     uint16_t currentViewId;
+
+    void Clear()
+    {
+        currentViewId = -1;
+    }
 };
 
 static RenderData s_RenderData;
@@ -111,7 +115,7 @@ void Renderer::Begin(uint16_t viewId)
 
 void Renderer::End()
 {
-    s_RenderData.currentViewId = -1;
+    s_RenderData.Clear();
     bgfx::frame(false);
 }
 
@@ -119,6 +123,7 @@ void Renderer::SetCamera(Camera* camera)
 {
     s_RenderData.camera = camera;
 }
+
 void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)
 {
     bgfx::setViewClear(
