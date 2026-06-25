@@ -16,9 +16,8 @@ namespace Core
 class Layer
 {
 public:
-    Layer(const std::string& name = "Layer");
+    Layer(std::string name = "Layer");
     virtual ~Layer() = default;
-
 
     virtual void OnAttach() {}
     virtual void OnDetach() {}

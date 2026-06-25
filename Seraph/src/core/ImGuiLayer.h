@@ -11,6 +11,7 @@ class ImGuiLayer: public Layer
 {
 public:
     ImGuiLayer();
+    ~ImGuiLayer() override = default;
 
     void Begin();
     void End();

@@ -22,8 +22,8 @@ install(DIRECTORY assets
 )
 
 # Generate config.h
-configure_file(src/config.h.in src/config.h)
+configure_file(Seraph/src/config.h.in Seraph/src/config.h)
 
 # projects
-add_subdirectory(src)      # Seraph engine (static library)
+add_subdirectory(Seraph)      # Seraph engine (static library)
 add_subdirectory(Sandbox)  # Sandbox client (executable, links Seraph)

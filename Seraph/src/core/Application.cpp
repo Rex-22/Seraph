@@ -50,10 +50,11 @@ Application::Application()
 
 Application::~Application()
 {
+    m_LayerStack.Shutdown();
+    m_ImGuiLayer = nullptr;
+
     Renderer::Cleanup();
-
     delete m_Window;
-
     CleanupCore();
     SDL_Quit();
 }

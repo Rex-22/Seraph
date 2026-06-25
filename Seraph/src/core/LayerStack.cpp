@@ -10,10 +10,7 @@ namespace Core
 
 LayerStack::~LayerStack()
 {
-    for (Layer* layer: m_Layers) {
-        layer->OnDetach();
-        delete layer;
-    }
+    Shutdown();
 }
 
 void LayerStack::PushLayer(Layer* layer)
@@ -44,6 +41,15 @@ void LayerStack::PopOverlay(Layer* overlay)
         overlay->OnDetach();
         m_Layers.erase(it);
     }
+}
+void LayerStack::Shutdown()
+{
+    for (Layer* layer: m_Layers) {
+        layer->OnDetach();
+        delete layer;
+    }
+    m_Layers.clear();
+    m_LayerInsertIndex = 0;
 }
 
 } // namespace Core

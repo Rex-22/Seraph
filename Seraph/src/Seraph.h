@@ -15,6 +15,7 @@
 #include "core/Application.h"
 #include "core/Layer.h"
 #include "core/Log.h"
+#include "core/Math.h"
 #include "core/Transform.h"
 
 // --- Graphics --------------------------------------------------------------

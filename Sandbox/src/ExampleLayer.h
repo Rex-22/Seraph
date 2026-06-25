@@ -10,6 +10,7 @@
 #include "events/WindowEvent.h"
 #include "glm/vec3.hpp"
 #include "graphics/Camera.h"
+#include "graphics/Mesh.h"
 
 #include <core/Layer.h>
 
@@ -44,6 +45,10 @@ private:
     bool m_RightPressed = false;
 
     Graphics::Camera m_Camera;
+
+    Graphics::Mesh* m_Cube = nullptr;
+    bgfx::TextureHandle m_Texture{};
+    Graphics::Material* m_Material = nullptr;
 };
 
 } // namespace Sandbox
