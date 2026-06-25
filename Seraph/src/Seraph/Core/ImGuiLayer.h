@@ -5,13 +5,13 @@
 #pragma once
 #include "Layer.h"
 
-namespace Core
+namespace Seraph
 {
 class ImGuiLayer: public Layer
 {
 public:
     ImGuiLayer();
-    ~ImGuiLayer() override = default;
+    ~ImGuiLayer() override;
 
     void Begin();
     void End();

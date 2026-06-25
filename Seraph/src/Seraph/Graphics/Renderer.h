@@ -3,17 +3,17 @@
 //
 
 #pragma once
+#include "Seraph/Core/Base.h"
 #include "bgfx/defines.h"
-#include "core/Base.h"
 #include "glm/vec3.hpp"
 
 #include <cstdint>
 
-namespace Core
+namespace Seraph
 {
 class Transform;
 }
-namespace Graphics
+namespace Seraph
 {
 class Camera;
 class Mesh;
@@ -24,7 +24,7 @@ struct Renderer
     static void Init();
     static void Cleanup();
 
-    static void SubmitMesh(const Mesh& mesh, Core::Transform& transform);
+    static void SubmitMesh(const Mesh& mesh, Transform& transform);
 
     static void Begin(uint16_t viewId);
     static void End();
@@ -33,8 +33,7 @@ struct Renderer
     static void Clear(glm::vec3 clearColor, uint16_t flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
     static void OnWindowResize(u32 width, u32 height);
 
-private:
-    static void SetupImGui();
+    static void FlushFrame();
 };
 
 } // namespace Graphics
