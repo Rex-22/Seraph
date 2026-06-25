@@ -11,26 +11,33 @@
 #pragma once
 
 // --- Core ------------------------------------------------------------------
-#include "core/Base.h"
-#include "core/Application.h"
-#include "core/Layer.h"
-#include "core/Log.h"
-#include "core/Math.h"
-#include "core/Transform.h"
+#include "Seraph/Core/Application.h"
+#include "Seraph/Core/Base.h"
+#include "Seraph/Core/Core.h"
+#include "Seraph/Core/Layer.h"
+#include "Seraph/Core/Log.h"
+#include "Seraph/Core/Math.h"
+#include "Seraph/Core/Transform.h"
 
 // --- Graphics --------------------------------------------------------------
-#include "graphics/Camera.h"
-#include "graphics/Mesh.h"
-#include "graphics/Renderer.h"
-#include "graphics/material/Material.h"
-#include "graphics/material/ColorProperty.h"
-#include "graphics/material/TextureProperty.h"
-
-// --- Asset / resource helpers ----------------------------------------------
-#include "core/Core.h"
+#include "Seraph/Graphics/Camera.h"
+#include "Seraph/Graphics/Mesh.h"
+#include "Seraph/Graphics/Renderer.h"
+#include "Seraph/Graphics/TextureAtlas.h"
+#include "Seraph/Graphics/Material/ColorProperty.h"
+#include "Seraph/Graphics/Material/FloatProperty.h"
+#include "Seraph/Graphics/Material/Material.h"
+#include "Seraph/Graphics/Material/MaterialProperty.h"
+#include "Seraph/Graphics/Material/TextureProperty.h"
+#include "Seraph/Graphics/Material/Vector3Property.h"
+#include "Seraph/Graphics/Material/Vector4ArrayProperty.h"
+#include "Seraph/Graphics/Material/Vector4Property.h"
 
 // --- Events ----------------------------------------------------------------
-#include "events/Event.h"
-#include "events/KeyEvent.h"
-#include "events/MouseEvent.h"
-#include "events/KeyEvent.h"
+#include "Seraph/Events/KeyEvent.h"
+#include "Seraph/Events/MouseEvent.h"
+#include "Seraph/Events/WindowEvent.h"
+#include "Seraph/Events/Seraph.h"
+
+// --- Platform --------------------------------------------------------------
+#include "Platform/Window.h"

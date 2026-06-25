@@ -3,20 +3,18 @@
 //
 
 #include "ExampleLayer.h"
+#include <Seraph.h>
 
-#include "SDL3/SDL_mouse.h"
-#include "bgfx/embedded_shader.h"
-#include "bx/math.h"
-#include "core/Application.h"
-#include "imgui_internal.h"
-#include "platform/Window.h"
+#include <SDL3/SDL_mouse.h>
+#include <bgfx/embedded_shader.h>
+#include <bx/math.h>
+#include <imgui_internal.h>
 
 #define SHADER_NAME vs_simple
-#include "ShaderIncluder.h"
+#include "Seraph/Graphics/ShaderIncluder.h"
 #define SHADER_NAME fs_simple
-#include "ShaderIncluder.h"
+#include "Seraph/Graphics/ShaderIncluder.h"
 
-#include <Seraph.h>
 
 namespace Sandbox
 {
@@ -106,17 +104,17 @@ ExampleLayer::ExampleLayer() : Layer("ExampleLayer")
 void ExampleLayer::OnAttach()
 {
     CORE_INFO("ExampleLayer attached");
-    const auto& app = Core::Application::Instance();
+    const auto& app = Seraph::Application::Instance();
     auto& window = app.Window();
-    m_Camera = Graphics::Camera(
+    m_Camera = Seraph::Camera(
         60.0f,
         static_cast<float>(window.Width()) /
             static_cast<float>(window.Height()),
         0.01f, 1000.0f);
 
-    Graphics::Renderer::SetCamera(&m_Camera);
+    Seraph::Renderer::SetCamera(&m_Camera);
 
-    m_Texture = Core::LoadTexture("textures/test_texture.png");
+    m_Texture = Seraph::LoadTexture("textures/test_texture.png");
 
     const auto type = bgfx::getRendererType();
     const auto vsSimple =
@@ -125,12 +123,12 @@ void ExampleLayer::OnAttach()
         bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
     const auto program = bgfx::createProgram(vsSimple, fsSimple, true);
 
-    m_Material = new Graphics::Material(program);
-    m_Material->AddProperty<Graphics::ColorProperty>(
+    m_Material = new Seraph::Material(program);
+    m_Material->AddProperty<Seraph::ColorProperty>(
        "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-    m_Material->AddProperty<Graphics::TextureProperty>("s_texColor", m_Texture, 0);
+    m_Material->AddProperty<Seraph::TextureProperty>("s_texColor", m_Texture, 0);
 
-    m_Cube = new Graphics::Mesh(*m_Material);
+    m_Cube = new Seraph::Mesh(*m_Material);
     m_Cube->SetVertexLayout<PosColorVertex>();
     m_Cube->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices));
     m_Cube->SetIndexData(s_cubeTriList, sizeof(s_cubeTriList));
@@ -148,7 +146,7 @@ void ExampleLayer::OnDetach()
 
 void ExampleLayer::OnUpdate(f64 deltaTime)
 {
-    auto& app = Core::Application::Instance();
+    auto& app = Seraph::Application::Instance();
 
     if (app.IsMouseCaptured()) {
         f32 delta_x, delta_y;
@@ -185,32 +183,32 @@ void ExampleLayer::OnUpdate(f64 deltaTime)
         m_Camera.SetPosition(pos);
     }
 
-    Graphics::Renderer::Begin(0);
-    Graphics::Renderer::Clear(m_ClearColor);
+    Seraph::Renderer::Begin(0);
+    Seraph::Renderer::Clear(m_ClearColor);
 
-    Core::Transform transform;
-    Graphics::Renderer::SubmitMesh(*m_Cube, transform);
+    Seraph::Transform transform;
+    Seraph::Renderer::SubmitMesh(*m_Cube, transform);
 
-    Graphics::Renderer::End();
+    Seraph::Renderer::End();
 }
 
-void ExampleLayer::OnEvent(Event::Event& e)
+void ExampleLayer::OnEvent(Seraph::Event& e)
 {
-    Event::EventDispatcher dispatcher(e);
-    dispatcher.Dispatch<Event::WindowResizeEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnWindowResizeEvent));
-    dispatcher.Dispatch<Event::KeyPressedEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnKeyPressedEvent));
-    dispatcher.Dispatch<Event::KeyReleasedEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnKeyReleasedEvent));
-    dispatcher.Dispatch<Event::MouseButtonReleasedEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnMouseButtonReleasedEvent));
+    Seraph::EventDispatcher dispatcher(e);
+    dispatcher.Dispatch<Seraph::WindowResizeEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnWindowResizeEvent));
+    dispatcher.Dispatch<Seraph::KeyPressedEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnKeyPressedEvent));
+    dispatcher.Dispatch<Seraph::KeyReleasedEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnKeyReleasedEvent));
+    dispatcher.Dispatch<Seraph::MouseButtonReleasedEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnMouseButtonReleasedEvent));
 }
 
 void ExampleLayer::OnImGuiRender()
 {
     ImGui::Begin("Settings");
-    ImGui::Text("Camera: %s", Core::ToString(m_Camera.Position()).c_str());
+    ImGui::Text("Camera: %s", Seraph::ToString(m_Camera.Position()).c_str());
     ImGui::End();
 }
 
-bool ExampleLayer::OnWindowResizeEvent(Event::WindowResizeEvent& e)
+bool ExampleLayer::OnWindowResizeEvent(Seraph::WindowResizeEvent& e)
 {
     m_Camera.SetAspectRatio(
             static_cast<float>(e.Width()) /
@@ -218,9 +216,9 @@ bool ExampleLayer::OnWindowResizeEvent(Event::WindowResizeEvent& e)
     return false;
 }
 
-bool ExampleLayer::OnKeyPressedEvent(Event::KeyPressedEvent& e)
+bool ExampleLayer::OnKeyPressedEvent(Seraph::KeyPressedEvent& e)
 {
-    auto& app = Core::Application::Instance();
+    auto& app = Seraph::Application::Instance();
 
     if (e.KeyCode() == SDLK_W) {
         m_UpPressed = true;
@@ -240,7 +238,7 @@ bool ExampleLayer::OnKeyPressedEvent(Event::KeyPressedEvent& e)
     return false;
 }
 
-bool ExampleLayer::OnKeyReleasedEvent(Event::KeyReleasedEvent& e)
+bool ExampleLayer::OnKeyReleasedEvent(Seraph::KeyReleasedEvent& e)
 {
     if (e.KeyCode() == SDLK_W) {
         m_UpPressed = false;
@@ -261,9 +259,9 @@ bool ExampleLayer::OnKeyReleasedEvent(Event::KeyReleasedEvent& e)
     return false;
 }
 
-bool ExampleLayer::OnMouseButtonReleasedEvent(Event::MouseButtonReleasedEvent& e)
+bool ExampleLayer::OnMouseButtonReleasedEvent(Seraph::MouseButtonReleasedEvent& e)
 {
-    auto& app = Core::Application::Instance();
+    auto& app = Seraph::Application::Instance();
 
     if (e.MouseButton() == SDL_BUTTON_LEFT && !ImGui::GetIO().WantCaptureMouse && !app.IsMouseCaptured()) {
         app.SetMouseCaptured(true);

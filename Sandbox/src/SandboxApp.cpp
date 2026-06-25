@@ -5,15 +5,15 @@
 #include <Seraph.h>
 
 // EntryPoint.h defines main() and must be included in exactly ONE translation
-// unit — this one. It calls Core::CreateApplication(), implemented below.
-#include <core/EntryPoint.h>
+// unit — this one. It calls CreateApplication(), implemented below.
+#include <Seraph/Core/EntryPoint.h>
 
 #include "ExampleLayer.h"
 
 namespace Sandbox
 {
 
-class SandboxApp : public Core::Application
+class SandboxApp : public Seraph::Application
 {
 public:
     SandboxApp() { PushLayer(new ExampleLayer()); }
@@ -22,7 +22,7 @@ public:
 
 } // namespace Sandbox
 
-Core::Application* Core::CreateApplication()
+Seraph::Application* Seraph::CreateApplication()
 {
     return new Sandbox::SandboxApp();
 }

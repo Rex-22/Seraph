@@ -5,19 +5,13 @@
 
 #pragma once
 
-#include "events/KeyEvent.h"
-#include "events/MouseEvent.h"
-#include "events/WindowEvent.h"
-#include "glm/vec3.hpp"
-#include "graphics/Camera.h"
-#include "graphics/Mesh.h"
 
-#include <core/Layer.h>
+#include <Seraph.h>
 
 namespace Sandbox
 {
 
-class ExampleLayer : public Core::Layer
+class ExampleLayer : public Seraph::Layer
 {
 public:
     ExampleLayer();
@@ -25,13 +19,13 @@ public:
     void OnAttach() override;
     void OnDetach() override;
     void OnUpdate(f64 deltaTime) override;
-    void OnEvent(Event::Event &e) override;
+    void OnEvent(Seraph::Event &e) override;
     void OnImGuiRender() override;
 
-    bool OnWindowResizeEvent(Event::WindowResizeEvent& e);
-    bool OnKeyPressedEvent(Event::KeyPressedEvent& e);
-    bool OnKeyReleasedEvent(Event::KeyReleasedEvent& e);
-    bool OnMouseButtonReleasedEvent(Event::MouseButtonReleasedEvent& e);
+    bool OnWindowResizeEvent(Seraph::WindowResizeEvent& e);
+    bool OnKeyPressedEvent(Seraph::KeyPressedEvent& e);
+    bool OnKeyReleasedEvent(Seraph::KeyReleasedEvent& e);
+    bool OnMouseButtonReleasedEvent(Seraph::MouseButtonReleasedEvent& e);
 private:
     glm::vec3 m_ClearColor {0.3, 0.3, 0.3};
 
@@ -44,11 +38,11 @@ private:
     bool m_LeftPressed = false;
     bool m_RightPressed = false;
 
-    Graphics::Camera m_Camera;
+    Seraph::Camera m_Camera;
 
-    Graphics::Mesh* m_Cube = nullptr;
+    Seraph::Mesh* m_Cube = nullptr;
     bgfx::TextureHandle m_Texture{};
-    Graphics::Material* m_Material = nullptr;
+    Seraph::Material* m_Material = nullptr;
 };
 
 } // namespace Sandbox
