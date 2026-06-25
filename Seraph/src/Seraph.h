@@ -23,6 +23,7 @@
 #include "Seraph/Graphics/Camera.h"
 #include "Seraph/Graphics/Mesh.h"
 #include "Seraph/Graphics/Renderer.h"
+#include "Seraph/Graphics/Texture2D.h"
 #include "Seraph/Graphics/TextureAtlas.h"
 #include "Seraph/Graphics/Material/ColorProperty.h"
 #include "Seraph/Graphics/Material/FloatProperty.h"

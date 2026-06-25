@@ -6,9 +6,7 @@
 #include "bx/pixelformat.h"
 
 #include <bgfx/bgfx.h>
-#include <bimg/bimg.h>
 #include <bx/readerwriter.h>
-#include <string>
 
 extern bx::AllocatorI* GetDefaultAllocator();
 
@@ -44,11 +42,9 @@ bx::FileReaderI* GetFileReader();
 
 bx::AllocatorI* GetAllocator();
 
-bgfx::TextureHandle LoadTexture(
-    const bx::FilePath& _filePath,
-    uint64_t _flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE, uint8_t _skip = 0,
-    bgfx::TextureInfo* _info = nullptr,
-    bimg::Orientation::Enum* _orientation = nullptr);
+void* Load(
+    bx::FileReaderI* reader, bx::AllocatorI* allocator,
+    const bx::FilePath& filePath, uint32_t* _size);
 
 void CalcTangents(void* _vertices, uint16_t _numVertices, bgfx::VertexLayout _layout, const uint16_t* _indices, uint32_t _numIndices);
 

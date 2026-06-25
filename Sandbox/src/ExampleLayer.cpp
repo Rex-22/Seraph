@@ -114,7 +114,7 @@ void ExampleLayer::OnAttach()
 
     Seraph::Renderer::SetCamera(&m_Camera);
 
-    m_Texture = Seraph::LoadTexture("textures/test_texture.png");
+    m_Texture = Seraph::Texture2D::Create("textures/test_texture.png");
 
     const auto type = bgfx::getRendererType();
     const auto vsSimple =
@@ -126,7 +126,7 @@ void ExampleLayer::OnAttach()
     m_Material = new Seraph::Material(program);
     m_Material->AddProperty<Seraph::ColorProperty>(
        "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-    m_Material->AddProperty<Seraph::TextureProperty>("s_texColor", m_Texture, 0);
+    m_Material->AddProperty<Seraph::TextureProperty>("s_texColor", *m_Texture, 0);
 
     m_Cube = new Seraph::Mesh(*m_Material);
     m_Cube->SetVertexLayout<PosColorVertex>();
@@ -138,10 +138,7 @@ void ExampleLayer::OnDetach()
 {
     delete m_Cube;
     delete m_Material;
-
-    if (bgfx::isValid(m_Texture)) {
-        bgfx::destroy(m_Texture);
-    }
+    delete m_Texture;
 }
 
 void ExampleLayer::OnUpdate(f64 deltaTime)

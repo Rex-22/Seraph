@@ -41,7 +41,7 @@ private:
     Seraph::Camera m_Camera;
 
     Seraph::Mesh* m_Cube = nullptr;
-    bgfx::TextureHandle m_Texture{};
+    Seraph::Texture2D* m_Texture = nullptr;
     Seraph::Material* m_Material = nullptr;
 };
 
