@@ -104,7 +104,7 @@ ExampleLayer::ExampleLayer() : Layer("ExampleLayer")
 
 void ExampleLayer::OnAttach()
 {
-    CORE_INFO("ExampleLayer attached");
+    APP_INFO("ExampleLayer attached");
     const auto& app = Seraph::Application::Instance();
     auto& window = app.Window();
     m_Camera = Seraph::Camera(
