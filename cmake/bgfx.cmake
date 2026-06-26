@@ -6,7 +6,7 @@ set(BGFX_BUILD_TOOLS_SHADER ON)
 
 set(BGFX_CONFIG_RENDERER_WEBGPU ON)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/bgfx EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/bgfx EXCLUDE_FROM_ALL SYSTEM)
 
 set(BGFX_INCLUDE_DIR ${BGFX_DIR}/include)
 set(BX_INCLUDE_DIR ${BX_DIR}/include)

@@ -13,7 +13,7 @@ add_library(imgui STATIC
         ${IMGUI_BACKEND_HEADERS} ${IMGUI_BACKEND_SOURCES}
 )
 
-target_include_directories(imgui PUBLIC
+target_include_directories(imgui SYSTEM PUBLIC
         ${SDL3_INCLUDE_DIR}
         ${IMGUI_INCLUDE_DIR}
         ${IMGUI_BACKENDS_DIR}

@@ -1,6 +1,6 @@
 set(SPDLOG_BUILD_EXAMPLE_HO FALSE)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/spdlog)
+add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/spdlog SYSTEM)
 
 set(SPDLOG_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/vendor/spdlog/include)
 

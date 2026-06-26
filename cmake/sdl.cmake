@@ -1,7 +1,7 @@
 set(SDL_STATIC TRUE)
 set(SDL_SHARED FALSE)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/SDL EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/SDL EXCLUDE_FROM_ALL SYSTEM)
 
 set(SDL3_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/vendor/SDL/include)
 

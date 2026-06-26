@@ -7,6 +7,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.12.0
     GIT_SHALLOW TRUE
+    SYSTEM
 )
 
 # Configure nlohmann/json options

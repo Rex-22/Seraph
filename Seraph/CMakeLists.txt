@@ -11,10 +11,24 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STRE
         COMPILE_FLAGS "-Wno-error=missing-field-initializers")
 endif()
 
-# PUBLIC so consumers (Sandbox) inherit the engine + vendor include paths.
+# Engine's own source root. PRIVATE (non-system) for our own build, so engine
+# code keeps including engine headers with "". SYSTEM INTERFACE for consumers
+# (Sandbox), so they include engine headers as <Seraph/...> and never inherit
+# our warnings.
+target_include_directories(${PROJECT} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(${PROJECT} SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# Generated headers (config.h, etc.) — needed by both us and consumers.
 target_include_directories(${PROJECT} PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${PROJECT_BINARY_DIR}
+        ${CMAKE_BINARY_DIR}/include
+        ${CMAKE_BINARY_DIR}/src
+)
+
+# Third-party headers as SYSTEM so their warnings are suppressed. SYSTEM also
+# propagates to consumers (Sandbox), and avoids a -I/-isystem clash with the
+# same dirs propagated by the vendor targets we link below.
+target_include_directories(${PROJECT} SYSTEM PUBLIC
         ${SDL3_INCLUDE_DIR}
         ${IMGUI_INCLUDE_DIR}
         ${BGFX_INCLUDE_DIR}
@@ -23,8 +37,6 @@ target_include_directories(${PROJECT} PUBLIC
         ${SPDLOG_INCLUDE_DIR}
         ${GLM_INCLUDE_DIR}
         ${JSON_INCLUDE_DIR}
-        ${CMAKE_BINARY_DIR}/include
-        ${CMAKE_BINARY_DIR}/src
 )
 
 # PUBLIC so the static library's dependencies propagate to consumers at link time.

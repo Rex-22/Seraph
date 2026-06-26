@@ -5,7 +5,6 @@
 
 #pragma once
 
-
 #include <Seraph.h>
 
 namespace Sandbox

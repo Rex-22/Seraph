@@ -3,7 +3,6 @@
 //
 
 #include "ExampleLayer.h"
-#include <Seraph.h>
 
 #include <SDL3/SDL_mouse.h>
 #include <bgfx/embedded_shader.h>

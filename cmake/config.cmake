@@ -23,7 +23,10 @@ endmacro ()
 
 macro(make_project_options_)
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-        target_compile_options(${PROJECT} PRIVATE /Wall)
+        target_compile_options(${PROJECT} PRIVATE
+            /Wall
+            /external:W0          # don't warn inside SYSTEM (/external:I) headers
+            /external:templates-) # judge template warnings by the defining header
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         target_compile_options(${PROJECT} PRIVATE -Wall -Wextra -Werror -Wpedantic)
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
