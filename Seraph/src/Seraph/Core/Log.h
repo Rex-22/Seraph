@@ -17,6 +17,7 @@ struct Log
 };
 }
 
+#define CORE_TRACE(...) Seraph::Log::core_logger->trace(__VA_ARGS__);
 #define CORE_DEBUG(...) Seraph::Log::core_logger->debug(__VA_ARGS__);
 #define CORE_INFO(...) Seraph::Log::core_logger->info(__VA_ARGS__);
 #define CORE_WARN(...) Seraph::Log::core_logger->warn(__VA_ARGS__);
