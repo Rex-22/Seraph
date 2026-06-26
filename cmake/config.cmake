@@ -4,7 +4,7 @@ endif ()
 
 macro(make_project_)
     if (NOT DEFINED PROJECT)
-        get_filename_component(PROJECT ../../../AppData/Local/Temp NAME)
+        get_filename_component(PROJECT ${CMAKE_CURRENT_SOURCE_DIR} NAME)
     endif ()
 
     project(${PROJECT} CXX)
@@ -47,7 +47,7 @@ macro(make_library)
     add_library(${PROJECT} STATIC ${HEADERS} ${SOURCES})
     make_project_options_()
 
-    target_include_directories(${PROJECT} INTERFACE ../../../AppData/Local/Temp)
+    target_include_directories(${PROJECT} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
     set_target_properties(${PROJECT} PROPERTIES FOLDER Libraries)
 
     if (NOT SOURCES)
@@ -56,7 +56,7 @@ macro(make_library)
 endmacro()
 
 function(add_all_subdirectories)
-    file(GLOB CHILDREN RELATIVE ../../../AppData/Local/Temp ${CMAKE_CURRENT_SOURCE_DIR}/*)
+    file(GLOB CHILDREN RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*)
 
     foreach(CHILD ${CHILDREN})
         if (IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${CHILD})
