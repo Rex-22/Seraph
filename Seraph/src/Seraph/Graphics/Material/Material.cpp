@@ -14,13 +14,6 @@ Material::Material(bgfx::ProgramHandle program) : m_Program(program)
 {
 }
 
-Material::~Material()
-{
-    if (bgfx::isValid(m_Program)) {
-        bgfx::destroy(m_Program);
-    }
-}
-
 Material::Material(Material&& other) noexcept
     : m_Program(other.m_Program)
     , m_Properties(std::move(other.m_Properties))
@@ -32,12 +25,6 @@ Material::Material(Material&& other) noexcept
 Material& Material::operator=(Material&& other) noexcept
 {
     if (this != &other) {
-        // Clean up existing resources
-        if (bgfx::isValid(m_Program)) {
-            bgfx::destroy(m_Program);
-        }
-
-        // Move resources from other
         m_Program = other.m_Program;
         m_Properties = std::move(other.m_Properties);
 

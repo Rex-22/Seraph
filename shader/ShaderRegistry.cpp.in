@@ -1,0 +1,43 @@
+// =============================================================================
+// AUTO-GENERATED — DO NOT EDIT.
+//
+// Produced by shader/CMakeLists.txt (configure_file) from
+// shader/ShaderRegistry.cpp.in, and regenerated whenever the set of shader
+// sources changes. It embeds every compiled shader's per-renderer byte arrays
+// and registers each vertex/fragment pair with Seraph::ShaderManager, so client
+// code can fetch a linked program by name:
+//
+//     auto program = Seraph::ShaderManager::Get("simple");
+//
+// This file must be compiled into the final executable (not the engine static
+// library) so the embedded shader bytes land in the consumer's binary.
+// =============================================================================
+
+#include "Seraph/Graphics/ShaderManager.h"
+
+#include <bgfx/embedded_shader.h>
+
+// Per-renderer byte arrays for every compiled shader.
+// clang-format off
+@SERAPH_SHADER_INCLUDES@
+// clang-format on
+
+namespace
+{
+
+// Lookup table bgfx::createEmbeddedShader uses to select the blob matching the
+// active renderer. Static storage duration, so the pointer handed to the
+// manager stays valid for the whole run.
+const bgfx::EmbeddedShader s_embeddedShaders[] = {
+@SERAPH_SHADER_EMBEDDED_ENTRIES@    BGFX_EMBEDDED_SHADER_END()
+};
+
+// Registered via a static initialiser so programs are available by name without
+// any explicit setup call. Only stores source pointers — no bgfx calls — so it
+// is safe to run before the renderer is initialised.
+const bool s_shadersRegistered = []
+{
+@SERAPH_SHADER_REGISTRATIONS@    return true;
+}();
+
+} // namespace

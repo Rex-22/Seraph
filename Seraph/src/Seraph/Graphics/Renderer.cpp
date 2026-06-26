@@ -10,6 +10,7 @@
 #include "Seraph/Core/Core.h"
 #include "Seraph/Graphics/Camera.h"
 #include "Seraph/Graphics/Mesh.h"
+#include "Seraph/Graphics/ShaderManager.h"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <SDL3/SDL.h>
@@ -190,6 +191,7 @@ void Renderer::Init()
 
 void Renderer::Cleanup()
 {
+    ShaderManager::Shutdown();
     bgfx::shutdown();
 }
 

@@ -5,16 +5,8 @@
 #include "ExampleLayer.h"
 
 #include <SDL3/SDL_mouse.h>
-#include <bgfx/embedded_shader.h>
 #include <bx/math.h>
 #include <imgui_internal.h>
-#include <array>
-
-#define SHADER_NAME vs_simple
-#include "Seraph/Graphics/ShaderIncluder.h"
-#define SHADER_NAME fs_simple
-#include "Seraph/Graphics/ShaderIncluder.h"
-
 
 namespace Sandbox
 {
@@ -92,11 +84,6 @@ static const uint16_t s_cubeTriList[] =
    22, 21, 20, 23, 21, 22, // -Y
 };
 
-const std::array<bgfx::EmbeddedShader, 3> k_EmbeddedShaders = {{
-    BGFX_EMBEDDED_SHADER(vs_simple), BGFX_EMBEDDED_SHADER(fs_simple),
-    BGFX_EMBEDDED_SHADER_END() //
-}};
-
 ExampleLayer::ExampleLayer() : Layer("ExampleLayer")
 {
 }
@@ -120,14 +107,7 @@ void ExampleLayer::OnAttach()
     };
     m_Texture = Seraph::Texture2D::Create("Test", data, 1, 1);
 
-    const auto type = bgfx::getRendererType();
-    const auto vsSimple =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_simple");
-    const auto fsSimple =
-        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_simple");
-    const auto program = bgfx::createProgram(vsSimple, fsSimple, true);
-
-    m_Material = new Seraph::Material(program);
+    m_Material = new Seraph::Material(Seraph::ShaderManager::Get("simple"));
     m_Material->AddProperty<Seraph::ColorProperty>(
        "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
     m_Material->AddProperty<Seraph::TextureProperty>("s_texColor", *m_Texture, 0);

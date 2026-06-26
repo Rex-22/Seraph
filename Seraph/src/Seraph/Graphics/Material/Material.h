@@ -16,7 +16,7 @@ class Material
 {
 public:
     explicit Material(bgfx::ProgramHandle program);
-    ~Material();
+    ~Material() = default;
 
     // Disable copy operations
     Material(const Material&) = delete;
