@@ -2,17 +2,20 @@
 // Created by Ruben on 2025/05/23.
 //
 #pragma once
-#include "bgfx/bgfx.h"
-#include "glm/gtx/io.hpp"
+
+#include "Seraph/Core/Base.h"
 
 #include <string>
 
 namespace Seraph
 {
+
+class Texture2D;
+
 class TextureAtlas
 {
 private:
-    TextureAtlas(bgfx::TextureHandle handle, std::string path, uint32_t width,uint32_t height, uint32_t spriteSize);
+    TextureAtlas(Texture2D* texture, std::string path, uint32_t width,uint32_t height, uint32_t spriteSize);
 public:
     ~TextureAtlas();
 
@@ -27,23 +30,23 @@ public:
      * @param name Optional name for the texture (for debugging)
      * @return TextureAtlas* if successful, nullptr otherwise
      */
-    static TextureAtlas* CreateFromMemory(
-        const unsigned char* data,
-        uint32_t width,
-        uint32_t height,
-        uint32_t spriteSize,
-        const std::string& name = "atlas_from_memory");
+    // static TextureAtlas* CreateFromMemory(
+    //     const unsigned char* data,
+    //     uint32_t width,
+    //     uint32_t height,
+    //     uint32_t spriteSize,
+    //     const std::string& name = "atlas_from_memory");
 
-    bgfx::TextureHandle TextureHandle() const;
-    uint32_t Width() const { return m_Width; }
-    uint32_t Height() const { return m_Height; }
-    uint32_t SpriteSize() const { return m_SpriteSize; }
+    [[nodiscard]] Texture2D* Texture() const { return m_Texture;}
+    [[nodiscard]] u32 Width() const { return m_Width; }
+    [[nodiscard]] u32 Height() const { return m_Height; }
+    [[nodiscard]] u32 SpriteSize() const { return m_SpriteSize; }
 
     // void AddTexture(const std::string& texturePath, const std::string& textureName);
     // bgfx::TextureHandle TextureByName(const std::string& textureName);
 private:
     // std::unordered_map<std::string, bgfx::TextureHandle> m_Textures;
-    bgfx::TextureHandle m_TextureHandle;
+    Texture2D* m_Texture;
 
     std::string m_Path;
     uint32_t m_Width, m_Height;
