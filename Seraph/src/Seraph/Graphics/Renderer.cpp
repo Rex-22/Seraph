@@ -16,8 +16,111 @@
 #include <bgfx/bgfx.h>
 #include <bx/platform.h>
 
+#include <cstdarg>
+#include <cstdio>
+
 namespace Seraph
 {
+
+namespace
+{
+
+// Routes bgfx's diagnostics into our spdlog-backed logger. bgfx may invoke
+// these from the render thread, which is safe because the sinks are _mt.
+class BgfxCallback final : public bgfx::CallbackI
+{
+public:
+    ~BgfxCallback() override = default;
+
+    void fatal(
+        const char* filePath, uint16_t line, bgfx::Fatal::Enum code,
+        const char* str) override
+    {
+        CORE_ERROR(
+            "bgfx fatal [{}:{}] (code {}): {}", filePath, line,
+            static_cast<int>(code), str);
+
+        // bgfx considers everything but DebugCheck unrecoverable. Break into
+        // the debugger here; promote to a hard abort if you want release
+        // builds to stop rather than limp on with a broken context.
+        if (code != bgfx::Fatal::DebugCheck) {
+            SP_DEBUGBREAK();
+        }
+    }
+
+    void traceVargs(
+        const char* /*filePath*/, uint16_t /*line*/, const char* format,
+        va_list argList) override
+    {
+        char buffer[2048];
+
+        va_list argListCopy;
+        va_copy(argListCopy, argList);
+        const int written =
+            std::vsnprintf(buffer, sizeof(buffer), format, argListCopy);
+        va_end(argListCopy);
+
+        if (written <= 0) {
+            return;
+        }
+
+        // Clamp to what was actually written, then drop bgfx's trailing
+        // newline so spdlog doesn't emit a blank line after each message.
+        size_t length = static_cast<size_t>(written) < sizeof(buffer)
+                            ? static_cast<size_t>(written)
+                            : sizeof(buffer) - 1;
+        while (length > 0 &&
+               (buffer[length - 1] == '\n' || buffer[length - 1] == '\r')) {
+            --length;
+        }
+        buffer[length] = '\0';
+
+        CORE_TRACE("[bgfx] {}", buffer);
+    }
+
+    void profilerBegin(
+        const char* /*name*/, uint32_t /*abgr*/, const char* /*filePath*/,
+        uint16_t /*line*/) override
+    {
+    }
+    void profilerBeginLiteral(
+        const char* /*name*/, uint32_t /*abgr*/, const char* /*filePath*/,
+        uint16_t /*line*/) override
+    {
+    }
+    void profilerEnd() override {}
+
+    // No shader/pipeline cache wired up yet.
+    uint32_t cacheReadSize(uint64_t /*id*/) override { return 0; }
+    bool cacheRead(uint64_t /*id*/, void* /*data*/, uint32_t /*size*/) override
+    {
+        return false;
+    }
+    void cacheWrite(
+        uint64_t /*id*/, const void* /*data*/, uint32_t /*size*/) override
+    {
+    }
+
+    void screenShot(
+        const char* /*filePath*/, uint32_t /*width*/, uint32_t /*height*/,
+        uint32_t /*pitch*/, bgfx::TextureFormat::Enum /*format*/,
+        const void* /*data*/, uint32_t /*size*/, bool /*yflip*/) override
+    {
+    }
+
+    void captureBegin(
+        uint32_t /*width*/, uint32_t /*height*/, uint32_t /*pitch*/,
+        bgfx::TextureFormat::Enum /*format*/, bool /*yflip*/) override
+    {
+    }
+    void captureEnd() override {}
+    void captureFrame(const void* /*data*/, uint32_t /*size*/) override {}
+};
+
+// Must outlive bgfx (bgfx::init stores the pointer until bgfx::shutdown).
+BgfxCallback s_BgfxCallback;
+
+} // namespace
 
 struct RenderData
 {
@@ -75,11 +178,14 @@ void Renderer::Init()
     bgfx_init.resolution.height = window.Height();
     bgfx_init.resolution.reset = BGFX_RESET_VSYNC;
     bgfx_init.platformData = pd;
+    bgfx_init.callback = &s_BgfxCallback; // route bgfx logging to our logger
     bgfx::init(bgfx_init);
 
     bgfx::setViewClear(
         0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x6495EDFF, 1.0f, 0);
     bgfx::setViewRect(0, 0, 0, window.Width(), window.Height());
+
+    CORE_INFO("[Renderer]: Backend: {}", bgfx::getRendererName(bgfx::getRendererType()));
 }
 
 void Renderer::Cleanup()
