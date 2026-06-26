@@ -176,6 +176,10 @@ public:
     static Texture2D* Create(
         const char* path, const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
 
+    static Texture2D* Create(
+        const char* name, const void* data, u32 width, u32 height,
+        const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
+
 private:
     const char* m_DebugName{};
 

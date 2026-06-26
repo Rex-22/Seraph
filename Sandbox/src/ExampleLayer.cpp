@@ -115,7 +115,11 @@ void ExampleLayer::OnAttach()
 
     Seraph::Renderer::SetCamera(&m_Camera);
 
-    m_Texture = Seraph::Texture2D::Create("textures/test_texture.png");
+    // m_Texture = Seraph::Texture2D::Create("textures/test_texture.png");
+    u32 data[] = {
+        0xffff00ff,
+    };
+    m_Texture = Seraph::Texture2D::Create("Test", data, 1, 1);
 
     const auto type = bgfx::getRendererType();
     const auto vsSimple =

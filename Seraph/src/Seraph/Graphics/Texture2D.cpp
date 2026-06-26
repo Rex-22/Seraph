@@ -67,76 +67,93 @@ bool Texture2D::IsValid() const
 Texture2D* Texture2D::Create(
     const char* path, const Texture2DCreateInfo& createInfo)
 {
-    bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
-    auto flags = createInfo.Flags();
     auto texture = new Texture2D();
     texture->m_DebugName = path;
+    const u64 flags = createInfo.Flags();
 
-    uint32_t size;
+    uint32_t size = 0;
     void* data =
         Load(GetFileReader(), GetAllocator(), bx::FilePath(path), &size);
+    if (data == nullptr) {
+        return texture;
+    }
 
-    if (data != nullptr) {
-        if (bimg::ImageContainer* imageContainer = bimg::imageParse(
-                GetAllocator(), data, size, bimg::TextureFormat::RGBA8);
-            imageContainer != nullptr) {
+    bimg::ImageContainer* imageContainer = bimg::imageParse(
+        GetAllocator(), data, size, bimg::TextureFormat::RGBA8);
+    bx::free(GetAllocator(), data);
+    if (imageContainer == nullptr) {
+        return texture;
+    }
 
-            const bgfx::Memory* mem = bgfx::makeRef(
-                imageContainer->m_data, imageContainer->m_size, ImageReleaseCb,
-                imageContainer);
-            bx::free(GetAllocator(), data);
+    const bgfx::Memory* mem = bgfx::makeRef(
+        imageContainer->m_data, imageContainer->m_size, ImageReleaseCb,
+        imageContainer);
+    const auto format =
+        static_cast<bgfx::TextureFormat::Enum>(imageContainer->m_format);
 
-            bgfx::TextureInfo textureInfo{};
+    texture->m_Width = imageContainer->m_width;
+    texture->m_Height = imageContainer->m_height;
 
-            bgfx::calcTextureSize(
-                textureInfo, static_cast<uint16_t>(imageContainer->m_width),
-                static_cast<uint16_t>(imageContainer->m_height),
-                static_cast<uint16_t>(imageContainer->m_depth),
-                imageContainer->m_cubeMap, 1 < imageContainer->m_numMips,
-                imageContainer->m_numLayers,
-                static_cast<bgfx::TextureFormat::Enum>(
-                    imageContainer->m_format));
+    bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
+    if (imageContainer->m_cubeMap) {
+        handle = bgfx::createTextureCube(
+            static_cast<uint16_t>(imageContainer->m_width),
+            1 < imageContainer->m_numMips, imageContainer->m_numLayers, format,
+            flags, mem);
+    } else if (1 < imageContainer->m_depth) {
+        handle = bgfx::createTexture3D(
+            static_cast<uint16_t>(imageContainer->m_width),
+            static_cast<uint16_t>(imageContainer->m_height),
+            static_cast<uint16_t>(imageContainer->m_depth),
+            1 < imageContainer->m_numMips, format, flags, mem);
+    } else if (bgfx::isTextureValid(
+                   0, false, imageContainer->m_numLayers, format, flags)) {
+        handle = bgfx::createTexture2D(
+            static_cast<uint16_t>(imageContainer->m_width),
+            static_cast<uint16_t>(imageContainer->m_height),
+            1 < imageContainer->m_numMips, imageContainer->m_numLayers, format,
+            flags, mem);
+    }
 
-            texture->m_Width = textureInfo.width;
-            texture->m_Height = textureInfo.height;
+    if (bgfx::isValid(handle)) {
+        texture->m_TextureHandle = handle;
+        const bx::StringView name(path);
+        bgfx::setName(handle, name.getPtr(), name.getLength());
+    }
 
-            if (imageContainer->m_cubeMap) {
-                handle = bgfx::createTextureCube(
-                    static_cast<uint16_t>(imageContainer->m_width),
-                    1 < imageContainer->m_numMips, imageContainer->m_numLayers,
-                    static_cast<bgfx::TextureFormat::Enum>(
-                        imageContainer->m_format),
-                    flags, mem);
-            } else if (1 < imageContainer->m_depth) {
-                handle = bgfx::createTexture3D(
-                    static_cast<uint16_t>(imageContainer->m_width),
-                    static_cast<uint16_t>(imageContainer->m_height),
-                    static_cast<uint16_t>(imageContainer->m_depth),
-                    1 < imageContainer->m_numMips,
-                    static_cast<bgfx::TextureFormat::Enum>(
-                        imageContainer->m_format),
-                    flags, mem);
-            } else if (bgfx::isTextureValid(
-                           0, false, imageContainer->m_numLayers,
-                           static_cast<bgfx::TextureFormat::Enum>(
-                               imageContainer->m_format),
-                           flags)) {
-                handle = bgfx::createTexture2D(
-                    static_cast<uint16_t>(imageContainer->m_width),
-                    static_cast<uint16_t>(imageContainer->m_height),
-                    1 < imageContainer->m_numMips, imageContainer->m_numLayers,
-                    static_cast<bgfx::TextureFormat::Enum>(
-                        imageContainer->m_format),
-                    flags, mem);
-            }
+    return texture;
+}
 
-            if (bgfx::isValid(handle)) {
-                texture->m_TextureHandle = handle;
-                const bx::StringView name(path);
-                bgfx::setName(handle, name.getPtr(), name.getLength());
-            }
+Texture2D* Texture2D::Create(
+    const char* name, const void* data, u32 width, u32 height,
+    const Texture2DCreateInfo& createInfo)
+{
+    auto texture = new Texture2D();
+    texture->m_DebugName = name;
+    texture->m_Width = width;
+    texture->m_Height = height;
+
+    if (data == nullptr) {
+        return texture;
+    }
+
+    constexpr auto format = bgfx::TextureFormat::RGBA8;
+    const u32 size = width * height * 4;
+
+    const bgfx::Memory* mem = bgfx::copy(data, size);
+    const u64 flags = createInfo.Flags();
+
+    if (bgfx::isTextureValid(0, false, 1, format, flags)) {
+        const bgfx::TextureHandle handle = bgfx::createTexture2D(
+            static_cast<uint16_t>(width), static_cast<uint16_t>(height), false,
+            1, format, flags, mem);
+        if (bgfx::isValid(handle)) {
+            texture->m_TextureHandle = handle;
+            const bx::StringView tName(name);
+            bgfx::setName(handle, tName.getPtr(), tName.getLength());
         }
     }
+
     return texture;
 }
 } // namespace Seraph
