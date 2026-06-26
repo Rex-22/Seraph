@@ -24,9 +24,7 @@ TextureAtlas::~TextureAtlas()
 TextureAtlas* TextureAtlas::Create(const std::string& path, uint32_t spriteSize)
 {
     auto texture = Texture2D::Create(
-        path.c_str(),
-            BGFX_SAMPLER_MIN_POINT
-            | BGFX_SAMPLER_MAG_POINT);
+        path.c_str());
 
     TextureAtlas* textureAtlas =
         new TextureAtlas(texture, path, texture->Width(), texture->Height(), spriteSize);

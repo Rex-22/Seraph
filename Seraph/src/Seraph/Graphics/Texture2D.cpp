@@ -19,6 +19,33 @@ static void ImageReleaseCb(void* _ptr, void* _userData)
     bimg::imageFree(imageContainer);
 }
 
+Texture2DCreateInfo::Texture2DCreateInfo(
+    TextureUsage usage, WrapMode wrapMode, FilterMode filterMode,
+    Compare compare, MSAALevel msaa, bool renderTargetWriteOnly)
+    : m_Usage(usage), m_WrapMode(wrapMode), m_FilterMode(filterMode),
+      m_Compare(compare), m_MSAALevel(msaa),
+      m_RenderTargetWriteOnly(renderTargetWriteOnly)
+{
+}
+
+u64 Texture2DCreateInfo::Flags() const
+{
+    u64 flags = static_cast<u64>(m_Usage) | static_cast<u64>(m_WrapMode) |
+                static_cast<u64>(m_FilterMode) | static_cast<u64>(m_Compare);
+
+    if (m_MSAALevel != MSAALevel::NoMSAA) {
+        flags &= ~static_cast<u64>(BGFX_TEXTURE_RT_MSAA_MASK);
+        flags |= static_cast<u64>(m_MSAALevel);
+    }
+
+    if (m_RenderTargetWriteOnly &&
+        (flags & static_cast<u64>(BGFX_TEXTURE_RT_MASK)) != 0) {
+        flags |= static_cast<u64>(BGFX_TEXTURE_RT_WRITE_ONLY);
+    }
+
+    return flags;
+}
+
 Texture2D::Texture2D()
     : m_DebugName("Texture2D"), m_TextureHandle(BGFX_INVALID_HANDLE),
       m_Width(0), m_Height(0)
@@ -37,14 +64,17 @@ bool Texture2D::IsValid() const
     return bgfx::isValid(m_TextureHandle);
 }
 
-Texture2D* Texture2D::Create(const char* path, uint64_t flags)
+Texture2D* Texture2D::Create(
+    const char* path, const Texture2DCreateInfo& createInfo)
 {
     bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
+    auto flags = createInfo.Flags();
     auto texture = new Texture2D();
     texture->m_DebugName = path;
 
     uint32_t size;
-    void* data = Load(GetFileReader(), GetAllocator(), bx::FilePath(path), &size);
+    void* data =
+        Load(GetFileReader(), GetAllocator(), bx::FilePath(path), &size);
 
     if (data != nullptr) {
         if (bimg::ImageContainer* imageContainer = bimg::imageParse(
