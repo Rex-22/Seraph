@@ -4,18 +4,17 @@
 
 #include "Renderer.h"
 
-#include "Camera.h"
-#include "Seraph/Core/Application.h"
-#include "Seraph/Core/Core.h"
-#include "Seraph/Core/Base.h"
-#include "Mesh.h"
 #include "Platform/Window.h"
-#include "glm/gtc/type_ptr.hpp"
+#include "Seraph/Core/Application.h"
+#include "Seraph/Core/Base.h"
+#include "Seraph/Core/Core.h"
+#include "Seraph/Graphics/Camera.h"
+#include "Seraph/Graphics/Mesh.h"
 
+#include <glm/gtc/type_ptr.hpp>
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
 #include <bx/platform.h>
-#include <imgui_impl_sdl3.h>
 
 namespace Seraph
 {
