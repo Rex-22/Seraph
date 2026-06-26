@@ -164,12 +164,12 @@ void Application::ProcessEvents()
                 OnEvent(e);
                 break;
             }
-            case SDL_EVENT_KEY_UP: {
+            case SDL_EVENT_KEY_DOWN: {
                 auto e = KeyPressedEvent(sdlEvent.key.key, sdlEvent.key.repeat);
                 OnEvent(e);
                 break;
             }
-            case SDL_EVENT_KEY_DOWN: {
+            case SDL_EVENT_KEY_UP: {
                 auto e = KeyReleasedEvent(sdlEvent.key.key);
                 OnEvent(e);
                 break;

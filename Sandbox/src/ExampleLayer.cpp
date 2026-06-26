@@ -9,6 +9,7 @@
 #include <bgfx/embedded_shader.h>
 #include <bx/math.h>
 #include <imgui_internal.h>
+#include <array>
 
 #define SHADER_NAME vs_simple
 #include "Seraph/Graphics/ShaderIncluder.h"
@@ -158,17 +159,17 @@ void ExampleLayer::OnUpdate(f64 deltaTime)
 
     auto move_direction = glm::vec3(0.0f);
     if (m_UpPressed) {
-        move_direction -= forward;
+        move_direction += forward;
     }
     if (m_DownPressed) {
-        move_direction += forward;
+        move_direction -= forward;
     }
 
     if (m_LeftPressed) {
-        move_direction += right;
+        move_direction -= right;
     }
     if (m_RightPressed) {
-        move_direction -= right;
+        move_direction += right;
     }
 
     float length_sq = glm::dot(move_direction, move_direction);
