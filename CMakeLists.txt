@@ -21,8 +21,10 @@ install(DIRECTORY assets
         DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${CMAKE_PROJECT_NAME}"
 )
 
-# Generate config.h
-configure_file(Seraph/src/config.h.in Seraph/src/config.h)
+# Generate config.h into the build's generated-include dir. That dir is on the
+# include search path (${CMAKE_BINARY_DIR}/include, see Seraph/CMakeLists.txt)
+# for the engine and its consumers, so `#include <config.h>` resolves.
+configure_file(Seraph/src/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
 
 # projects
 add_subdirectory(Seraph)      # Seraph engine (static library)
