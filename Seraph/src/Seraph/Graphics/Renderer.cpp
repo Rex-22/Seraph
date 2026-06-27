@@ -127,7 +127,9 @@ struct RenderData
 {
     Camera* camera;
 
-    uint16_t currentViewId;
+    u16 currentViewId;
+    u32 windowWidth;
+    u32 windowHeight;
 
     void EndFrame()
     {
@@ -233,6 +235,8 @@ void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)
 }
 void Renderer::OnWindowResize(u32 width, u32 height)
 {
+    s_RenderData.windowWidth = width;
+    s_RenderData.windowHeight = height;
     bgfx::reset(width, height);
     bgfx::setViewRect(
         0, 0, 0, width, height);
