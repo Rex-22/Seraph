@@ -11,8 +11,8 @@
 #ifdef SP_DEBUG
     #if BX_PLATFORM_WINDOWS
         #define SP_DEBUGBREAK() __debugbreak()
-    #elif SP_PLATFORM_LINUX
-        #include <signal.h>
+    #elif BX_PLATFORM_LINUX
+        #include <csignal>
         #define SP_DEBUGBREAK() raise(SIGTRAP)
     #elif BX_PLATFORM_OSX
         #define SP_DEBUGBREAK() __builtin_debugtrap()

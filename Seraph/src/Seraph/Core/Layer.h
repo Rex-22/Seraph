@@ -18,8 +18,8 @@ public:
 
     virtual void OnAttach() {}
     virtual void OnDetach() {}
-    virtual void OnUpdate(f64 deltaTime) {}
-    virtual void OnEvent(Event& event) {}
+    virtual void OnUpdate([[maybe_unused]] f64 deltaTime) {}
+    virtual void OnEvent([[maybe_unused]] Event& e) {}
     virtual void OnImGuiRender() {}
 
     [[nodiscard]] const std::string& Name() const { return m_DebugName; }

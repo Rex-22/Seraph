@@ -27,7 +27,7 @@ public:
 public:
     static Application& Instance();
 
-    [[nodiscard]] const Window& Window() const;
+    [[nodiscard]] const Seraph::Window& Window() const;
     void Run();
 
     void PushLayer(Layer* layer);

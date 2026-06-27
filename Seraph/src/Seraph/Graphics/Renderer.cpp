@@ -166,6 +166,7 @@ void Renderer::Init()
             SDL_GetWindowProperties(window.Handle()),
             SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0));
     } else if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0) {
+        pd.type = bgfx::NativeWindowHandleType::Wayland;
         pd.ndt = SDL_GetPointerProperty(
             SDL_GetWindowProperties(window.Handle()),
             SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);

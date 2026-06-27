@@ -204,7 +204,7 @@ bool Application::OnWindowResize(WindowResizeEvent& e)
     return false;
 }
 
-bool Application::OnWindowClose(WindowCloseEvent& e)
+bool Application::OnWindowClose([[maybe_unused]] WindowCloseEvent& e)
 {
     m_Running = false;
     return true;

@@ -25,13 +25,6 @@ void Unload(void* _ptr)
     bx::free(Seraph::GetAllocator(), _ptr);
 }
 
-static void ImageReleaseCb(void* _ptr, void* _userData)
-{
-    BX_UNUSED(_ptr);
-    const auto imageContainer = static_cast<bimg::ImageContainer*>(_userData);
-    bimg::imageFree(imageContainer);
-}
-
 void* Load(
     bx::FileReaderI* reader, bx::AllocatorI* allocator,
     const bx::FilePath& filePath, uint32_t* _size)
