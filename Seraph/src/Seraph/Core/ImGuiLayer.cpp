@@ -6,7 +6,7 @@
 
 #include "Application.h"
 #include "Platform/Window.h"
-#include "bgfx-imgui/imgui_impl_bgfx.h"
+#include "Seraph/Graphics/ImGui/bgfx-imgui/imgui_impl_bgfx.h"
 #include "imgui_impl_sdl3.h"
 
 namespace Seraph
