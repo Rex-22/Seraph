@@ -41,5 +41,14 @@
 #include "Seraph/Events/WindowEvent.h"
 #include "Seraph/Events/Seraph.h"
 
+// --- Scene -----------------------------------------------------------------
+#include "Seraph/Scene/Scene.h"
+#include "Seraph/Scene/Entity.h"
+#include "Seraph/Scene/Components/IDComponent.h"
+#include "Seraph/Scene/Components/TagComponent.h"
+#include "Seraph/Scene/Components/TransformComponent.h"
+#include "Seraph/Scene/Components/MeshComponent.h"
+#include "Seraph/Scene/Components/CameraComponent.h"
+
 // --- Platform --------------------------------------------------------------
 #include "Platform/Window.h"

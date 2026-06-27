@@ -37,6 +37,7 @@ target_include_directories(${PROJECT} SYSTEM PUBLIC
         ${SPDLOG_INCLUDE_DIR}
         ${GLM_INCLUDE_DIR}
         ${JSON_INCLUDE_DIR}
+        ${ENTT_INCLUDE_DIR}
 )
 
 # PUBLIC so the static library's dependencies propagate to consumers at link time.
@@ -47,4 +48,5 @@ target_link_libraries(${PROJECT} PUBLIC
         ${SPDLOG_LIBRARIES}
         ${GLM_LIBRARIES}
         ${JSON_LIBRARIES}
+        ${ENTT_LIBRARIES}
 )

@@ -26,22 +26,24 @@ public:
     bool OnKeyReleasedEvent(Seraph::KeyReleasedEvent& e);
     bool OnMouseButtonReleasedEvent(Seraph::MouseButtonReleasedEvent& e);
 private:
-    glm::vec3 m_ClearColor {0.3, 0.3, 0.3};
-
-    float m_PrevMouseX = 0;
-    float m_PrevMouseY = 0;
     float m_RotScale = 0.01f;
 
-    bool m_UpPressed = false;
-    bool m_DownPressed = false;
-    bool m_LeftPressed = false;
+    bool m_UpPressed    = false;
+    bool m_DownPressed  = false;
+    bool m_LeftPressed  = false;
     bool m_RightPressed = false;
 
-    Seraph::Camera m_Camera;
+    // Scene owns all entities
+    Seraph::Scene m_Scene;
 
-    Seraph::Mesh* m_Cube = nullptr;
-    Seraph::Texture2D* m_Texture = nullptr;
-    Seraph::Material* m_Material = nullptr;
+    // Entity handles — valid for the lifetime of the scene
+    Seraph::Entity m_CameraEntity;
+    Seraph::Entity m_CubeEntity;
+
+    // Raw resources — owned by the layer, referenced by MeshComponent
+    Seraph::Mesh*      m_Mesh     = nullptr;
+    Seraph::Texture2D* m_Texture  = nullptr;
+    Seraph::Material*  m_Material = nullptr;
 };
 
 } // namespace Sandbox

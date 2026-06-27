@@ -93,34 +93,39 @@ void ExampleLayer::OnAttach()
     APP_INFO("ExampleLayer attached");
     const auto& app = Seraph::Application::Instance();
     auto& window = app.Window();
-    m_Camera = Seraph::Camera(
+
+    // Camera entity
+    m_CameraEntity = m_Scene.CreateEntity("Camera");
+    auto& cc = m_CameraEntity.AddComponent<Seraph::CameraComponent>();
+    cc.Camera = Seraph::Camera(
         60.0f,
-        static_cast<float>(window.Width()) /
-            static_cast<float>(window.Height()),
+        static_cast<float>(window.Width()) / static_cast<float>(window.Height()),
         0.01f, 1000.0f);
+    cc.IsPrimary = true;
 
-    Seraph::Renderer::SetCamera(&m_Camera);
-
-    // m_Texture = Seraph::Texture2D::Create("textures/test_texture.png");
-    u32 data[] = {
-        0xffff00ff,
-    };
+    // Resources (owned by the layer)
+    u32 data[] = { 0xffff00ff };
     m_Texture = Seraph::Texture2D::Create("Test", data, 1, 1);
 
     m_Material = new Seraph::Material(Seraph::ShaderManager::Get("simple"));
     m_Material->AddProperty<Seraph::ColorProperty>(
-       "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+        "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
     m_Material->AddProperty<Seraph::TextureProperty>("s_texColor", *m_Texture, 0);
 
-    m_Cube = new Seraph::Mesh(*m_Material);
-    m_Cube->SetVertexLayout<PosColorVertex>();
-    m_Cube->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices));
-    m_Cube->SetIndexData(s_cubeTriList, sizeof(s_cubeTriList));
+    m_Mesh = new Seraph::Mesh(*m_Material);
+    m_Mesh->SetVertexLayout<PosColorVertex>();
+    m_Mesh->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices));
+    m_Mesh->SetIndexData(s_cubeTriList, sizeof(s_cubeTriList));
+
+    // Cube entity
+    m_CubeEntity = m_Scene.CreateEntity("Cube");
+    m_CubeEntity.AddComponent<Seraph::TransformComponent>();
+    m_CubeEntity.AddComponent<Seraph::MeshComponent>(m_Mesh);
 }
 
 void ExampleLayer::OnDetach()
 {
-    delete m_Cube;
+    delete m_Mesh;
     delete m_Material;
     delete m_Texture;
 }
@@ -128,49 +133,31 @@ void ExampleLayer::OnDetach()
 void ExampleLayer::OnUpdate(f64 deltaTime)
 {
     auto& app = Seraph::Application::Instance();
+    auto& cam = m_CameraEntity.Component<Seraph::CameraComponent>().Camera;
 
     if (app.IsMouseCaptured()) {
         f32 delta_x, delta_y;
         SDL_GetRelativeMouseState(&delta_x, &delta_y);
-        m_Camera.RotatePitch(-delta_y * m_RotScale);
-        m_Camera.RotateYaw(-delta_x * m_RotScale);
-    }
-    f32 speed = 10;
-
-    glm::vec3 forward = m_Camera.Forward();
-    glm::vec3 right = m_Camera.Right();
-
-    auto move_direction = glm::vec3(0.0f);
-    if (m_UpPressed) {
-        move_direction += forward;
-    }
-    if (m_DownPressed) {
-        move_direction -= forward;
+        cam.RotatePitch(-delta_y * m_RotScale);
+        cam.RotateYaw(-delta_x * m_RotScale);
     }
 
-    if (m_LeftPressed) {
-        move_direction -= right;
-    }
-    if (m_RightPressed) {
-        move_direction += right;
-    }
+    const f32 speed = 10;
+    glm::vec3 moveDir{0.0f};
 
-    float length_sq = glm::dot(move_direction, move_direction);
-    if (length_sq > 0.0f) {
-        f32 inv_length = 1.0f / bx::sqrt(length_sq);
-        move_direction = move_direction * inv_length;
-        auto pos = m_Camera.Position();
-        pos += move_direction * speed * static_cast<f32>(deltaTime);
-        m_Camera.SetPosition(pos);
+    if (m_UpPressed)    moveDir += cam.Forward();
+    if (m_DownPressed)  moveDir -= cam.Forward();
+    if (m_LeftPressed)  moveDir -= cam.Right();
+    if (m_RightPressed) moveDir += cam.Right();
+
+    const float lengthSq = glm::dot(moveDir, moveDir);
+    if (lengthSq > 0.0f) {
+        moveDir *= 1.0f / bx::sqrt(lengthSq);
+        cam.SetPosition(cam.Position() + moveDir * speed * static_cast<f32>(deltaTime));
     }
 
-    Seraph::Renderer::Begin(0);
-    Seraph::Renderer::Clear(m_ClearColor);
-
-    Seraph::Transform transform;
-    Seraph::Renderer::SubmitMesh(*m_Cube, transform);
-
-    Seraph::Renderer::End();
+    m_Scene.UpdateInternal(deltaTime);
+    m_Scene.RenderScene();
 }
 
 void ExampleLayer::OnEvent(Seraph::Event& e)
@@ -184,16 +171,15 @@ void ExampleLayer::OnEvent(Seraph::Event& e)
 
 void ExampleLayer::OnImGuiRender()
 {
+    auto& cam = m_CameraEntity.Component<Seraph::CameraComponent>().Camera;
     ImGui::Begin("Settings");
-    ImGui::Text("Camera: %s", Seraph::ToString(m_Camera.Position()).c_str());
+    ImGui::Text("Camera: %s", Seraph::ToString(cam.Position()).c_str());
     ImGui::End();
 }
 
 bool ExampleLayer::OnWindowResizeEvent(Seraph::WindowResizeEvent& e)
 {
-    m_Camera.SetAspectRatio(
-            static_cast<float>(e.Width()) /
-            static_cast<float>(e.Height()));
+    m_Scene.OnViewportResize(e.Width(), e.Height());
     return false;
 }
 
@@ -201,41 +187,24 @@ bool ExampleLayer::OnKeyPressedEvent(Seraph::KeyPressedEvent& e)
 {
     auto& app = Seraph::Application::Instance();
 
-    if (e.KeyCode() == SDLK_W) {
-        m_UpPressed = true;
-    }
-    if (e.KeyCode() == SDLK_S) {
-        m_DownPressed = true;
-    }
-    if (e.KeyCode() == SDLK_A) {
-        m_LeftPressed = true;
-    }
-    if (e.KeyCode() == SDLK_D) {
-        m_RightPressed = true;
-    }
-    if (e.KeyCode() == SDLK_ESCAPE && app.IsMouseCaptured()) {
+    if (e.KeyCode() == SDLK_W) m_UpPressed    = true;
+    if (e.KeyCode() == SDLK_S) m_DownPressed   = true;
+    if (e.KeyCode() == SDLK_A) m_LeftPressed   = true;
+    if (e.KeyCode() == SDLK_D) m_RightPressed  = true;
+    if (e.KeyCode() == SDLK_ESCAPE && app.IsMouseCaptured())
         app.SetMouseCaptured(false);
-    }
+
     return false;
 }
 
 bool ExampleLayer::OnKeyReleasedEvent(Seraph::KeyReleasedEvent& e)
 {
-    if (e.KeyCode() == SDLK_W) {
-        m_UpPressed = false;
-    }
-    if (e.KeyCode() == SDLK_S) {
-        m_DownPressed = false;
-    }
-    if (e.KeyCode() == SDLK_A) {
-        m_LeftPressed = false;
-    }
-    if (e.KeyCode() == SDLK_D) {
-        m_RightPressed = false;
-    }
-    if (e.KeyCode() == SDLK_F4) {
-        m_Camera.LookAt(glm::vec3(0, 10, 0));
-    }
+    if (e.KeyCode() == SDLK_W) m_UpPressed    = false;
+    if (e.KeyCode() == SDLK_S) m_DownPressed   = false;
+    if (e.KeyCode() == SDLK_A) m_LeftPressed   = false;
+    if (e.KeyCode() == SDLK_D) m_RightPressed  = false;
+    if (e.KeyCode() == SDLK_F4)
+        m_CameraEntity.Component<Seraph::CameraComponent>().Camera.LookAt(glm::vec3(0, 10, 0));
 
     return false;
 }
@@ -244,9 +213,8 @@ bool ExampleLayer::OnMouseButtonReleasedEvent(Seraph::MouseButtonReleasedEvent& 
 {
     auto& app = Seraph::Application::Instance();
 
-    if (e.MouseButton() == SDL_BUTTON_LEFT && !ImGui::GetIO().WantCaptureMouse && !app.IsMouseCaptured()) {
+    if (e.MouseButton() == SDL_BUTTON_LEFT && !ImGui::GetIO().WantCaptureMouse && !app.IsMouseCaptured())
         app.SetMouseCaptured(true);
-    }
 
     return false;
 }
