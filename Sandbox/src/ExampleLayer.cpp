@@ -119,7 +119,6 @@ void ExampleLayer::OnAttach()
 
     // Cube entity
     m_CubeEntity = m_Scene.CreateEntity("Cube");
-    m_CubeEntity.AddComponent<Seraph::TransformComponent>();
     m_CubeEntity.AddComponent<Seraph::MeshComponent>(m_Mesh);
 }
 
