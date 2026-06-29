@@ -34,15 +34,15 @@ Entity Scene::CreateEntityWithUUID(UUID uuid, const std::string& name)
 
 void Scene::DestroyEntity(Entity entity)
 {
-    m_DestroyQueue.emplace(entity);
+    m_DestroyQueue.emplace(&entity);
 }
 
 void Scene::UpdateInternal(f64 dt)
 {
     while (!m_DestroyQueue.empty()) {
         auto entity = m_DestroyQueue.front();
-        m_EntityMap.erase(entity.GetUUID());
-        m_Registry.destroy(entity);
+        m_EntityMap.erase(entity->GetUUID());
+        m_Registry.destroy(*entity);
         m_DestroyQueue.pop();
     }
     OnUpdate(dt);
