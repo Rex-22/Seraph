@@ -22,7 +22,6 @@ public:
     void OnImGuiRender() override;
 
     bool OnWindowResizeEvent(Seraph::WindowResizeEvent& e);
-    bool OnMouseButtonReleasedEvent(Seraph::MouseButtonReleasedEvent& e);
 private:
 
     // Scene owns all entities
