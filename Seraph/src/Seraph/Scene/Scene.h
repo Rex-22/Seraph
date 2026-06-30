@@ -6,6 +6,7 @@
 
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/UUID.h"
+#include "Seraph/Events/Seraph.h"
 
 #include <entt/entt.hpp>
 #include <glm/vec3.hpp>
@@ -24,12 +25,10 @@ public:
     Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
     void DestroyEntity(Entity entity);
 
-    void UpdateInternal(f64 dt);
-    void RenderScene();
-
     virtual void OnCreate() {}
-    virtual void OnUpdate([[maybe_unused]] f64 dt) {}
+    virtual void OnUpdate([[maybe_unused]] f64 dt);
     virtual void OnDestroy() {}
+    virtual void OnEvent(Event& e) {}
 
     entt::registry& Registry() { return m_Registry; }
 
@@ -37,6 +36,8 @@ public:
 
     glm::vec3 ClearColor{0.3f, 0.3f, 0.3f};
 
+private:
+    void RenderScene();
 private:
     template<typename T>
     void OnComponentAdded(Entity entity, T& component);

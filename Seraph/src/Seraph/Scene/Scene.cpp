@@ -37,7 +37,7 @@ void Scene::DestroyEntity(Entity entity)
     m_DestroyQueue.emplace(&entity);
 }
 
-void Scene::UpdateInternal(f64 dt)
+void Scene::OnUpdate(f64 dt)
 {
     while (!m_DestroyQueue.empty()) {
         auto entity = m_DestroyQueue.front();
@@ -45,7 +45,8 @@ void Scene::UpdateInternal(f64 dt)
         m_Registry.destroy(*entity);
         m_DestroyQueue.pop();
     }
-    OnUpdate(dt);
+
+    RenderScene();
 }
 
 void Scene::OnViewportResize(u32 width, u32 height)
@@ -62,6 +63,7 @@ void Scene::OnViewportResize(u32 width, u32 height)
         cameraComponent.Camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
     }
 }
+
 void Scene::RenderScene()
 {
     Camera* activeCamera = nullptr;
@@ -88,7 +90,6 @@ void Scene::RenderScene()
 
     Renderer::End();
 }
-
 
 template<typename T>
 void Scene::OnComponentAdded([[maybe_unused]] Entity entity, [[maybe_unused]] T& component)

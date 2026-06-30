@@ -22,23 +22,11 @@ public:
     void OnImGuiRender() override;
 
     bool OnWindowResizeEvent(Seraph::WindowResizeEvent& e);
-    bool OnKeyPressedEvent(Seraph::KeyPressedEvent& e);
-    bool OnKeyReleasedEvent(Seraph::KeyReleasedEvent& e);
     bool OnMouseButtonReleasedEvent(Seraph::MouseButtonReleasedEvent& e);
 private:
-    float m_RotScale = 0.01f;
-
-    bool m_UpPressed    = false;
-    bool m_DownPressed  = false;
-    bool m_LeftPressed  = false;
-    bool m_RightPressed = false;
 
     // Scene owns all entities
-    Seraph::Scene m_Scene;
-
-    // Entity handles — valid for the lifetime of the scene
-    Seraph::Entity m_CameraEntity;
-    Seraph::Entity m_CubeEntity;
+    Seraph::Scene* m_Scene;
 
     // Raw resources — owned by the layer, referenced by MeshComponent
     Seraph::Mesh*      m_Mesh     = nullptr;
