@@ -65,6 +65,8 @@ bool World::OnWindowResizeEvent(WindowResizeEvent& e)
     if (m_ActiveScene != nullptr) {
         m_ActiveScene->OnViewportResize(e.Width(), e.Height());
     }
+
+    return false;
 }
 
 } // Seraph
