@@ -15,7 +15,7 @@ public:
         : m_Mesh(mesh), m_Material(material)
     {}
 
-    void OnCreate() override;
+    void OnLoaded() override;
     void OnUpdate(f64 dt) override;
     void OnEvent(Seraph::Event& e) override;
 

@@ -9,6 +9,7 @@
 #include "Components/MeshComponent.h"
 #include "Components/TagComponent.h"
 #include "Components/TransformComponent.h"
+#include "Seraph/Events/WindowEvent.h"
 #include "Seraph/Graphics/Renderer.h"
 #include "Seraph/Scene/Entity.h"
 

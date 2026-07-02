@@ -7,9 +7,9 @@
 #include <SDL3/SDL_mouse.h>
 #include <imgui.h>
 
-void ExampleScene::OnCreate()
+void ExampleScene::OnLoaded()
 {
-    Scene::OnCreate();
+    Scene::OnLoaded();
 
     const auto& app = Seraph::Application::Instance();
     auto& window = app.Window();

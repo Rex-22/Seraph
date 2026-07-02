@@ -25,7 +25,7 @@ public:
     Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
     void DestroyEntity(Entity entity);
 
-    virtual void OnCreate() {}
+    virtual void OnLoaded() {}
     virtual void OnUpdate([[maybe_unused]] f64 dt);
     virtual void OnDestroy() {}
     virtual void OnEvent(Event& e) {}

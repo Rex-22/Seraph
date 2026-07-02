@@ -4,16 +4,14 @@
 
 #include "Application.h"
 
+#include "ImGuiSystem.h"
+#include "Log.h"
+#include "Platform/Window.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Events/MouseEvent.h"
 #include "Seraph/Events/WindowEvent.h"
 #include "Seraph/Graphics/Renderer.h"
-#include "ImGuiLayer.h"
-#include "Layer.h"
-#include "LayerStack.h"
-#include "Log.h"
-#include "Platform/Window.h"
 
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
@@ -42,14 +40,15 @@ Application::Application()
 
     Renderer::Init();
 
-    m_ImGuiLayer = new ImGuiLayer();
-    PushOverlay(m_ImGuiLayer);
+    m_ImGuiSubSystem = new ImGuiSystem();
+
+    m_World = new World();
 }
 
 Application::~Application()
 {
-    m_LayerStack.Shutdown();
-    m_ImGuiLayer = nullptr;
+    delete m_World;
+    delete m_ImGuiSubSystem;
 
     Renderer::Cleanup();
     delete m_Window;
@@ -82,30 +81,13 @@ void Application::Run()
     }
 }
 
-void Application::PushLayer(Layer* layer)
-{
-    m_LayerStack.PushLayer(layer);
-    layer->OnAttach();
-}
-
-void Application::PushOverlay(Layer* overlay)
-{
-    m_LayerStack.PushOverlay(overlay);
-    overlay->OnAttach();
-}
-
 void Application::OnEvent(Event& e)
 {
     EventDispatcher dispatcher(e);
     dispatcher.Dispatch<WindowCloseEvent>(SP_BIND_EVENT_FN(Application::OnWindowClose));
     dispatcher.Dispatch<WindowResizeEvent>(SP_BIND_EVENT_FN(Application::OnWindowResize));
 
-    for (const auto & it : std::views::reverse(m_LayerStack))
-    {
-        if (e.Handled)
-            break;
-        it->OnEvent(e);
-    }
+    m_World->OnEvent(e);
 }
 
 void Application::Loop()
@@ -119,15 +101,13 @@ void Application::Loop()
     ProcessEvents();
 
     if (!m_Minimized) {
-        for (Layer* layer : m_LayerStack) {
-            layer->OnUpdate(deltaTime);
-        }
+        m_World->OnUpdate(deltaTime);
 
-        m_ImGuiLayer->Begin();
-        for (Layer* layer : m_LayerStack) {
-            layer->OnImGuiRender();
-        }
-        m_ImGuiLayer->End();
+        m_ImGuiSubSystem->Begin();
+
+        m_World->OnImGuiDraw();
+
+        m_ImGuiSubSystem->End();
     }
 
     Renderer::FlushFrame();

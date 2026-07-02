@@ -4,15 +4,15 @@
 
 #pragma once
 
-#include "LayerStack.h"
 #include "Seraph/Events/Seraph.h"
 #include "Seraph/Events/WindowEvent.h"
+#include "World.h"
 
 #include <mutex>
 
 namespace Seraph
 {
-class ImGuiLayer;
+class ImGuiSystem;
 class Window;
 
 class Application
@@ -30,14 +30,12 @@ public:
     [[nodiscard]] const Seraph::Window& Window() const;
     void Run();
 
-    void PushLayer(Layer* layer);
-    void PushOverlay(Layer* overlay);
-
     [[nodiscard]] bool IsMouseCaptured() const { return m_MouseCaptured; }
     void SetMouseCaptured(bool captured);
 
-
     void OnEvent(Event& e);
+
+    Seraph::World* GetWorld() { return m_World; }
 
 private:
     void Loop();
@@ -50,9 +48,9 @@ private:
     static std::mutex s_Mutex;
     static Application* s_Instance;
     bool m_Running = false;
+    Seraph::World* m_World = nullptr;
 
-    LayerStack m_LayerStack;
-    ImGuiLayer* m_ImGuiLayer;
+    ImGuiSystem* m_ImGuiSubSystem;
 
     Seraph::Window* m_Window = nullptr;
     int64_t m_LastFrameTime = 0;
