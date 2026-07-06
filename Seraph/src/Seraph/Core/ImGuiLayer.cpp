@@ -2,7 +2,7 @@
 // Created by Ruben on 2026/06/23.
 //
 
-#include "ImGuiSystem.h"
+#include "ImGuiLayer.h"
 
 #include "Application.h"
 #include "Platform/Window.h"
@@ -12,7 +12,7 @@
 namespace Seraph
 {
 
-ImGuiSystem::ImGuiSystem()
+ImGuiLayer::ImGuiLayer(): Layer("ImGui")
 {
     auto& window = Application::Instance().Window();
 
@@ -35,7 +35,7 @@ ImGuiSystem::ImGuiSystem()
     // BX_PLATFORM_EMSCRIPTEN
 }
 
-ImGuiSystem::~ImGuiSystem()
+ImGuiLayer::~ImGuiLayer()
 {
     ImGui_ImplSDL3_Shutdown();
     ImGui_Implbgfx_Shutdown();
@@ -43,7 +43,7 @@ ImGuiSystem::~ImGuiSystem()
     ImGui::DestroyContext();
 }
 
-void ImGuiSystem::Begin()
+void ImGuiLayer::Begin()
 {
     ImGui_Implbgfx_NewFrame();
     ImGui_ImplSDL3_NewFrame();
@@ -51,7 +51,7 @@ void ImGuiSystem::Begin()
     ImGui::NewFrame();
 }
 
-void ImGuiSystem::End()
+void ImGuiLayer::End()
 {
     ImGui::Render();
     ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());

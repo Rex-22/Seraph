@@ -43,7 +43,7 @@ private:
     void OnComponentAdded(Entity entity, T& component);
 
     entt::registry m_Registry;
-    std::queue<Entity> m_DestroyQueue;
+    std::queue<entt::entity> m_DestroyQueue;
     std::unordered_map<UUID, entt::entity> m_EntityMap;
 
     u32 m_ViewportWidth  = 0;

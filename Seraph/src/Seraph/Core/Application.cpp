@@ -4,7 +4,9 @@
 
 #include "Application.h"
 
-#include "ImGuiSystem.h"
+#include "ImGuiLayer.h"
+#include "Layer.h"
+#include "LayerStack.h"
 #include "Log.h"
 #include "Platform/Window.h"
 #include "Seraph/Core/Core.h"
@@ -40,15 +42,14 @@ Application::Application()
 
     Renderer::Init();
 
-    m_ImGuiSubSystem = new ImGuiSystem();
-
-    m_World = new World();
+    m_ImGuiLayer = new ImGuiLayer();
+    PushOverlay(m_ImGuiLayer);
 }
 
 Application::~Application()
 {
-    delete m_World;
-    delete m_ImGuiSubSystem;
+    m_LayerStack.Shutdown();
+    m_ImGuiLayer = nullptr;
 
     Renderer::Cleanup();
     delete m_Window;
@@ -81,13 +82,30 @@ void Application::Run()
     }
 }
 
+void Application::PushLayer(Layer* layer)
+{
+    m_LayerStack.PushLayer(layer);
+    layer->OnAttach();
+}
+
+void Application::PushOverlay(Layer* overlay)
+{
+    m_LayerStack.PushOverlay(overlay);
+    overlay->OnAttach();
+}
+
 void Application::OnEvent(Event& e)
 {
     EventDispatcher dispatcher(e);
     dispatcher.Dispatch<WindowCloseEvent>(SP_BIND_EVENT_FN(Application::OnWindowClose));
     dispatcher.Dispatch<WindowResizeEvent>(SP_BIND_EVENT_FN(Application::OnWindowResize));
 
-    m_World->OnEvent(e);
+    for (const auto & it : std::views::reverse(m_LayerStack))
+    {
+        if (e.Handled)
+            break;
+        it->OnEvent(e);
+    }
 }
 
 void Application::Loop()
@@ -101,13 +119,15 @@ void Application::Loop()
     ProcessEvents();
 
     if (!m_Minimized) {
-        m_World->OnUpdate(deltaTime);
+        for (Layer* layer : m_LayerStack) {
+            layer->OnUpdate(deltaTime);
+        }
 
-        m_ImGuiSubSystem->Begin();
-
-        m_World->OnImGuiDraw();
-
-        m_ImGuiSubSystem->End();
+        m_ImGuiLayer->Begin();
+        for (Layer* layer : m_LayerStack) {
+            layer->OnImGuiRender();
+        }
+        m_ImGuiLayer->End();
     }
 
     Renderer::FlushFrame();

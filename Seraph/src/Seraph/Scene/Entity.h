@@ -18,7 +18,7 @@ class Entity
 {
 public:
     Entity() = default;
-    Entity(const entt::entity handle, Scene* scene);
+    Entity(entt::entity handle, Scene* scene);
     Entity(const Entity& other) = default;
 
     template<typename T, typename... Args>

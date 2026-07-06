@@ -14,6 +14,7 @@
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Core.h"
+#include "Seraph/Core/Layer.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Core/Math.h"
 #include "Seraph/Core/Transform.h"
