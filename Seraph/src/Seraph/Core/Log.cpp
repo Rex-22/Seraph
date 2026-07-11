@@ -1,49 +1,110 @@
-//
-// Created by Ruben on 2025/05/03.
-//
-
 #include "Log.h"
 
-#include "Base.h"
-#include "spdlog/sinks/rotating_file_sink.h"
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/basic_file_sink.h"
 
-namespace Seraph
-{
-std::shared_ptr<spdlog::logger> Log::core_logger;
-std::shared_ptr<spdlog::logger> Log::app_logger;
+// #ifndef SP_HEADLESS
+// #include "Seraph/Editor/EditorConsole/EditorConsoleSink.h"
+// #endif
 
-static std::shared_ptr<spdlog::logger> MakeLogger(
-  std::string name, const std::vector<spdlog::sink_ptr>& sinks, spdlog::level::level_enum lvl)
-{
-  auto logger = std::make_shared<spdlog::logger>(std::move(name), begin(sinks), end(sinks));
-  spdlog::register_logger(logger);
-  logger->set_level(lvl);
-  logger->flush_on(spdlog::level::err);
-  return logger;
+#include <filesystem>
+
+#define SP_HAS_CONSOLE !SP_DIST
+
+namespace Seraph {
+
+	std::shared_ptr<spdlog::logger> Log::s_CoreLogger;
+	std::shared_ptr<spdlog::logger> Log::s_ClientLogger;
+	std::shared_ptr<spdlog::logger> Log::s_EditorConsoleLogger;
+
+	std::map<std::string, Log::TagDetails> Log::s_DefaultTagDetails = {
+		{ "Animation",         TagDetails{  true, Level::Warn  } },
+		{ "Asset Pack",        TagDetails{  true, Level::Warn  } },
+		{ "AssetManager",      TagDetails{  true, Level::Info  } },
+		{ "AssetSystem",       TagDetails{  true, Level::Info  } },
+		{ "Assimp",            TagDetails{  true, Level::Error } },
+		{ "Audio",             TagDetails{  true, Level::Error } },
+		{ "Core",              TagDetails{  true, Level::Trace } },
+		{ "GLFW",              TagDetails{  true, Level::Error } },
+		{ "Memory",            TagDetails{  true, Level::Error } },
+		{ "Mesh",              TagDetails{  true, Level::Warn  } },
+		{ "Physics",           TagDetails{  true, Level::Warn  } },
+		{ "Project",           TagDetails{  true, Level::Warn  } },
+		{ "Renderer",          TagDetails{  true, Level::Info  } },
+		{ "Scene",             TagDetails{  true, Level::Info  } },
+		{ "Scripting",         TagDetails{  true, Level::Warn  } },
+		{ "Sound Spatializer", TagDetails{  true, Level::Warn  } },
+		{ "Timer",             TagDetails{ false, Level::Trace } },
+		{ "miniaudio",         TagDetails{  true, Level::Error } },
+	};
+
+	void Log::Init()
+	{
+		// Create "logs" directory if doesn't exist
+		std::string logsDirectory = "logs";
+		if (!std::filesystem::exists(logsDirectory))
+			std::filesystem::create_directories(logsDirectory);
+
+		std::vector<spdlog::sink_ptr> seraphSinks =
+		{
+			std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/SERAPH.log", true),
+#if SP_HAS_CONSOLE
+			std::make_shared<spdlog::sinks::stdout_color_sink_mt>()
+#endif
+		};
+
+		std::vector<spdlog::sink_ptr> appSinks =
+		{
+			std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/APP.log", true),
+#if SP_HAS_CONSOLE
+			std::make_shared<spdlog::sinks::stdout_color_sink_mt>()
+#endif
+		};
+
+		std::vector<spdlog::sink_ptr> editorConsoleSinks =
+		{
+			std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/APP.log", true),
+#if SP_HAS_CONSOLE
+// #ifndef SP_HEADLESS
+// 			std::make_shared<EditorConsoleSink>(1),
+// #endif
+			std::make_shared<spdlog::sinks::stdout_color_sink_mt>()
+#endif
+		};
+
+		seraphSinks[0]->set_pattern("[%T] [%l] %n: %v");
+		appSinks[0]->set_pattern("[%T] [%l] %n: %v");
+
+#if SP_HAS_CONSOLE
+		seraphSinks[1]->set_pattern("%^[%T] %n: %v%$");
+		appSinks[1]->set_pattern("%^[%T] %n: %v%$");
+		for (auto sink : editorConsoleSinks)
+			sink->set_pattern("%^%v%$");
+#endif
+
+		s_CoreLogger = std::make_shared<spdlog::logger>("SERAPH", seraphSinks.begin(), seraphSinks.end());
+		s_CoreLogger->set_level(spdlog::level::trace);
+
+		s_ClientLogger = std::make_shared<spdlog::logger>("APP", appSinks.begin(), appSinks.end());
+		s_ClientLogger->set_level(spdlog::level::trace);
+
+		s_EditorConsoleLogger = std::make_shared<spdlog::logger>("Console", editorConsoleSinks.begin(), editorConsoleSinks.end());
+		s_EditorConsoleLogger->set_level(spdlog::level::trace);
+
+		SetDefaultTagSettings();
+	}
+
+	void Log::Shutdown()
+	{
+		s_EditorConsoleLogger.reset();
+		s_ClientLogger.reset();
+		s_CoreLogger.reset();
+		spdlog::drop_all();
+	}
+
+	void Log::SetDefaultTagSettings()
+	{
+		s_EnabledTags = s_DefaultTagDetails;
+	}
+
 }
-
-void Log::Init()
-{
-    std::vector<spdlog::sink_ptr> logSinks;
-    logSinks.emplace_back(
-        std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-    logSinks.emplace_back(
-        std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-            "logs/Seraph.log", Megabytes(10), 10));
-
-    logSinks[0]->set_pattern("%^[%T] %n: %v%$");
-    logSinks[1]->set_pattern("[%T] [%l] %n: %v");
-    spdlog::flush_every(std::chrono::seconds(2));
-
-    core_logger = MakeLogger("SP", logSinks, spdlog::level::trace);
-    app_logger = MakeLogger("APP", logSinks, spdlog::level::trace);
-}
-
-void Log::Shutdown()
-{
-    spdlog::shutdown();
-}
-
-} // namespace Core
