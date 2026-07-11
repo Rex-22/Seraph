@@ -9,8 +9,8 @@
 #include "Components/MeshComponent.h"
 #include "Components/TagComponent.h"
 #include "Components/TransformComponent.h"
-#include "Seraph/Events/WindowEvent.h"
 #include "Seraph/Graphics/Renderer.h"
+#include "Seraph/Graphics/SceneRenderer.h"
 #include "Seraph/Scene/Entity.h"
 
 namespace Seraph {
@@ -46,8 +46,29 @@ void Scene::OnUpdate([[maybe_unused]] f64 dt)
         m_Registry.destroy(handle);
         m_DestroyQueue.pop();
     }
+}
 
-    RenderScene();
+void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
+{
+    Camera* activeCamera = nullptr;
+    for (auto [e, cc] : m_Registry.view<CameraComponent>().each()) {
+        if (cc.IsPrimary) {
+            activeCamera = &cc.Camera;
+            break;
+        }
+    }
+
+    if (!activeCamera) {
+        SP_CORE_WARN_TAG("Scene", "Scene::RenderScene — no primary camera");
+        return;
+    }
+
+    sceneRenderer->BeginScene(*activeCamera);
+    for (auto [e, tc, mc] : m_Registry.view<TransformComponent, MeshComponent>().each()) {
+        auto transform = tc.ToTransform();
+        sceneRenderer->SubmitMesh(0, *mc.Mesh, transform);
+    }
+    sceneRenderer->EndScene();
 }
 
 void Scene::OnViewportResize(u32 width, u32 height)
@@ -63,33 +84,6 @@ void Scene::OnViewportResize(u32 width, u32 height)
         auto& cameraComponent = view.get<CameraComponent>(entity);
         cameraComponent.Camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
     }
-}
-
-void Scene::RenderScene()
-{
-    Camera* activeCamera = nullptr;
-    for (auto [e, cc] : m_Registry.view<CameraComponent>().each()) {
-        if (cc.IsPrimary) {
-            activeCamera = &cc.Camera;
-            break;
-        }
-    }
-
-    if (!activeCamera) {
-        CORE_WARN("Scene::RenderScene — no primary camera");
-        return;
-    }
-
-    Renderer::SetCamera(activeCamera);
-    Renderer::Begin(0);
-    Renderer::Clear(ClearColor);
-
-    for (auto [e, tc, mc] : m_Registry.view<TransformComponent, MeshComponent>().each()) {
-        auto transform = tc.ToTransform();
-        Renderer::SubmitMesh(*mc.Mesh, transform);
-    }
-
-    Renderer::End();
 }
 
 template<typename T>

@@ -5,21 +5,23 @@
 #pragma once
 
 #include "Seraph/Core/Base.h"
+#include "Seraph/Core/Ref.h"
 #include "Seraph/Core/UUID.h"
 #include "Seraph/Events/Seraph.h"
 
 #include <entt/entt.hpp>
-#include <glm/vec3.hpp>
 #include <queue>
 
 namespace Seraph
 {
+class SceneRenderer;
 class Entity;
 
-class Scene
+class Scene: public RefCounted
 {
 public:
-    virtual ~Scene() = default;
+
+    
 
     Entity CreateEntity(const std::string& name = std::string());
     Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
@@ -27,17 +29,19 @@ public:
 
     virtual void OnLoaded() {}
     virtual void OnUpdate([[maybe_unused]] f64 dt);
+    virtual void OnRenderRuntime(Ref<SceneRenderer> sceneRenderer);
     virtual void OnDestroy() {}
     virtual void OnEvent([[maybe_unused]] Event& e) {}
 
-    entt::registry& Registry() { return m_Registry; }
-
     void OnViewportResize(u32 width, u32 height);
 
-    glm::vec3 ClearColor{0.3f, 0.3f, 0.3f};
+    template<typename... Components>
+    auto GetAllEntitiesWith()
+    {
+        return m_Registry.view<Components...>();
+    }
 
-private:
-    void RenderScene();
+
 private:
     template<typename T>
     void OnComponentAdded(Entity entity, T& component);
