@@ -28,7 +28,7 @@ public:
     virtual void OnLoaded() {}
     virtual void OnUpdate([[maybe_unused]] f64 dt);
     virtual void OnDestroy() {}
-    virtual void OnEvent(Event& e) {}
+    virtual void OnEvent([[maybe_unused]] Event& e) {}
 
     entt::registry& Registry() { return m_Registry; }
 

@@ -38,7 +38,7 @@ void Scene::DestroyEntity(Entity entity)
     m_DestroyQueue.push(entity);
 }
 
-void Scene::OnUpdate(f64 dt)
+void Scene::OnUpdate([[maybe_unused]] f64 dt)
 {
     while (!m_DestroyQueue.empty()) {
         auto handle = m_DestroyQueue.front();
