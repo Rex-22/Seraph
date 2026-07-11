@@ -9,6 +9,7 @@
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
+#include "Seraph/Graphics/MeshFactory.h"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
@@ -101,7 +102,10 @@ static bool BeginComponentSection(const char* label, [[maybe_unused]] Entity ent
     return open;
 }
 
-// -------------------------------------------------------------------------
+void EntityInspectorPanel::SetDefaultMaterial(Ref<Material> material)
+{
+    { m_DefaultMaterial = material; }
+}
 
 void EntityInspectorPanel::OnImGuiRender()
 {
@@ -243,10 +247,30 @@ void EntityInspectorPanel::DrawAddComponentMenu()
 
         if (!m_SelectedEntity.HasComponent<MeshComponent>())
         {
-            if (ImGui::MenuItem("Mesh"))
+            bool hasMaterial = m_DefaultMaterial != nullptr;
+
+            if (ImGui::BeginMenu("Mesh", hasMaterial))
             {
-                m_SelectedEntity.AddComponent<MeshComponent>();
-                ImGui::CloseCurrentPopup();
+                auto addMesh = [&](Ref<Mesh> mesh)
+                {
+                    auto& mc = m_SelectedEntity.AddComponent<MeshComponent>();
+                    mc.Mesh = mesh;
+                    ImGui::CloseCurrentPopup();
+                };
+
+                if (ImGui::MenuItem("Cube"))
+                    addMesh(MeshFactory::CreateCube(*m_DefaultMaterial));
+
+                if (ImGui::MenuItem("Plane"))
+                    addMesh(MeshFactory::CreatePlane(*m_DefaultMaterial));
+
+                ImGui::EndMenu();
+            }
+
+            if (!hasMaterial)
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled("(set default material first)");
             }
         }
 

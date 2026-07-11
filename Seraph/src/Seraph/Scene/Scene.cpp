@@ -103,8 +103,11 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
     sceneRenderer->BeginScene(0, *activeCamera);
     sceneRenderer->Clear();
 
-    for (auto [e, tc, mc] : m_Registry.view<TransformComponent, MeshComponent>().each()) {
-        sceneRenderer->SubmitMesh(*mc.Mesh, tc.GetTransform());
+    for (auto [e, mc] : m_Registry.view<MeshComponent>().each()) {
+        if (mc.Mesh) {
+            Entity entity{ e, this };
+            sceneRenderer->SubmitMesh(*mc.Mesh, GetWorldSpaceTransformMatrix(entity));
+        }
     }
     sceneRenderer->EndScene();
 }

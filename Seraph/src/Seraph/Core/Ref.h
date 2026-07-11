@@ -54,7 +54,7 @@ namespace RefUtils {
 		{
 		}
 
-		Ref(std::nullptr_t n)
+		Ref([[maybe_unused]] std::nullptr_t n)
 			: m_Instance(nullptr)
 		{
 		}

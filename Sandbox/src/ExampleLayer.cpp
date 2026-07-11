@@ -107,6 +107,7 @@ void ExampleLayer::OnAttach()
     m_Scene = Seraph::Ref<ExampleScene>::Create(m_Mesh, m_Material);
     m_Scene->OnLoaded();
     m_EntityBrowser.SetScene(m_Scene);
+    m_EntityInspector.SetDefaultMaterial(m_Material);
 
     Seraph::SceneRendererSettings sceneSettings {
         glm::vec3(0.6f, 0.5f, 0.4f),

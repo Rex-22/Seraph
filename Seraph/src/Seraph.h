@@ -54,6 +54,7 @@
 // --- Editor ----------------------------------------------------------------
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
 #include "Seraph/Editor/Panels/EntityInspectorPanel.h"
+#include "Seraph/Graphics/MeshFactory.h"
 
 // --- Platform --------------------------------------------------------------
 #include "Platform/Window.h"
