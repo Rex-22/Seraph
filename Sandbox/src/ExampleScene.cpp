@@ -48,7 +48,7 @@ bool ExampleScene::OnKeyReleasedEvent(Seraph::KeyReleasedEvent& e)
     if (e.KeyCode() == SDLK_A) m_LeftPressed   = false;
     if (e.KeyCode() == SDLK_D) m_RightPressed  = false;
     if (e.KeyCode() == SDLK_F4)
-        m_CameraEntity.Component<Seraph::CameraComponent>().Camera.LookAt(glm::vec3(0, 10, 0));
+        m_CameraEntity.GetComponent<Seraph::CameraComponent>().Camera.LookAt(glm::vec3(0, 10, 0));
 
     return false;
 }
@@ -68,7 +68,7 @@ void ExampleScene::OnUpdate(f64 dt)
     Scene::OnUpdate(dt);
 
     auto& app = Seraph::Application::Instance();
-    auto& cam = m_CameraEntity.Component<Seraph::CameraComponent>().Camera;
+    auto& cam = m_CameraEntity.GetComponent<Seraph::CameraComponent>().Camera;
 
     if (app.IsMouseCaptured()) {
         f32 delta_x, delta_y;
