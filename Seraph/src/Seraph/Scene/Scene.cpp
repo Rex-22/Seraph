@@ -49,7 +49,9 @@ Entity Scene::CreateEntityWithUUID(UUID uuid, const std::string& name)
     auto& tag = entity.AddComponent<TagComponent>();
     tag.Tag = name.empty() ? "Entity" : name;
 
-    m_EntityMap[uuid] = entity;
+    entity.AddComponent<RelationshipComponent>();
+
+    m_EntityIDMap[uuid] = entity;
 
     return entity;
 }
@@ -63,7 +65,7 @@ void Scene::OnUpdate([[maybe_unused]] f64 dt)
 {
     while (!m_DestroyQueue.empty()) {
         auto handle = m_DestroyQueue.front();
-        m_EntityMap.erase(m_Registry.get<IDComponent>(handle).ID);
+        m_EntityIDMap.erase(m_Registry.get<IDComponent>(handle).ID);
         m_Registry.destroy(handle);
         m_DestroyQueue.pop();
     }
@@ -71,13 +73,13 @@ void Scene::OnUpdate([[maybe_unused]] f64 dt)
 
 Entity Scene::GetEntityWithUUID(UUID id) const
 {
-    SP_CORE_VERIFY(m_EntityMap.contains(id), "Invalid entity ID or entity doesn't exist in scene!");
-    return m_EntityMap.at(id);
+    SP_CORE_VERIFY(m_EntityIDMap.contains(id), "Invalid entity ID or entity doesn't exist in scene!");
+    return m_EntityIDMap.at(id);
 }
 
 Entity Scene::TryGetEntityWithUUID(UUID id) const
 {
-    if (const auto iter = m_EntityMap.find(id); iter != m_EntityMap.end())
+    if (const auto iter = m_EntityIDMap.find(id); iter != m_EntityIDMap.end())
         return iter->second;
     return Entity{};
 }

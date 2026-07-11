@@ -65,7 +65,7 @@ private:
 
     entt::registry m_Registry;
     std::queue<entt::entity> m_DestroyQueue;
-    EntityMap m_EntityMap;
+    EntityMap m_EntityIDMap;
 
     u32 m_ViewportWidth  = 0;
     u32 m_ViewportHeight = 0;
