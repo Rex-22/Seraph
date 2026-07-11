@@ -51,8 +51,7 @@ public:
     [[nodiscard]] bgfx::IndexBufferHandle IndexBuffer() const { return m_IndexBuffer; }
     [[nodiscard]] const std::string& Name() const { return m_Name; }
 
-
-    void Submit(uint16_t viewId, Seraph::Transform& transform) const;
+    void Submit(uint16_t viewId, const glm::mat4& transform = glm::mat4(1.0f)) const;
 
 private:
     const bgfx::VertexLayout* m_Layout = nullptr;

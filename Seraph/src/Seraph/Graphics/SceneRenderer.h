@@ -6,7 +6,6 @@
 #include "Camera.h"
 #include "Mesh.h"
 #include "Seraph/Core/Ref.h"
-#include "Seraph/Scene/Components/TransformComponent.h"
 
 namespace Seraph
 {
@@ -28,7 +27,7 @@ public:
 
     void SetScene(Ref<Scene> scene);
 
-    void SubmitMesh(u8 view, const Mesh& mesh, Transform& transform);
+    void SubmitMesh(u16 view, const Mesh& mesh, const glm::mat4& transform = glm::mat4(1.0f));
 
 private:
     Ref<Scene> m_Scene;

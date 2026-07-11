@@ -5,14 +5,9 @@
 #pragma once
 #include "Seraph/Core/Base.h"
 #include "bgfx/defines.h"
-#include "glm/vec3.hpp"
 
 #include <cstdint>
 
-namespace Seraph
-{
-class Transform;
-}
 namespace Seraph
 {
 class Camera;
@@ -24,7 +19,7 @@ struct Renderer
     static void Init();
     static void Cleanup();
 
-    static void SubmitMesh(const Mesh& mesh, Transform& transform);
+    static void SubmitMesh(const Mesh& mesh, const glm::mat4& transform = glm::mat4(1.0f));
 
     static void Begin(uint16_t viewId);
     static void End();

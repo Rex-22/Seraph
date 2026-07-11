@@ -16,9 +16,7 @@ struct TransformComponent;
 
 SceneRenderer::SceneRenderer(
     Ref<Scene> scene, const SceneRendererSettings& settings) : m_Scene(scene), m_Settings(settings)
-{
-
-}
+{}
 
 void SceneRenderer::BeginScene(Camera& camera)
 {
@@ -35,7 +33,7 @@ void SceneRenderer::SetScene(Ref<Scene> scene)
     m_Scene = scene;
 }
 
-void SceneRenderer::SubmitMesh(u8 view, const Mesh& mesh, Transform& transform)
+void SceneRenderer::SubmitMesh(u16 view, const Mesh& mesh, const glm::mat4& transform)
 {
     bgfx::setViewTransform(view, glm::value_ptr(m_SceneRenderData.SceneCamera.ViewMatrix()), glm::value_ptr(m_SceneRenderData.SceneCamera.ProjectionMatrix()));
     Renderer::SubmitMesh(mesh, transform);

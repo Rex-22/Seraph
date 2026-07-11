@@ -9,6 +9,7 @@
 #include "Components/MeshComponent.h"
 #include "Components/TagComponent.h"
 #include "Components/TransformComponent.h"
+#include "Seraph/Core/Assert.h"
 #include "Seraph/Graphics/Renderer.h"
 #include "Seraph/Graphics/SceneRenderer.h"
 #include "Seraph/Scene/Entity.h"
@@ -48,6 +49,20 @@ void Scene::OnUpdate([[maybe_unused]] f64 dt)
     }
 }
 
+Entity Scene::GetEntityWithUUID(UUID id) const
+{
+    SP_CORE_VERIFY(m_EntityMap.contains(id), "Invalid entity ID or entity doesn't exist in scene!");
+    return m_EntityMap.at(id);
+}
+
+Entity Scene::TryGetEntityWithUUID(UUID id) const
+{
+    if (const auto iter = m_EntityMap.find(id); iter != m_EntityMap.end())
+        return iter->second;
+    return Entity{};
+}
+
+
 void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
 {
     Camera* activeCamera = nullptr;
@@ -65,11 +80,70 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
 
     sceneRenderer->BeginScene(*activeCamera);
     for (auto [e, tc, mc] : m_Registry.view<TransformComponent, MeshComponent>().each()) {
-        auto transform = tc.ToTransform();
-        sceneRenderer->SubmitMesh(0, *mc.Mesh, transform);
+        sceneRenderer->SubmitMesh(0, *mc.Mesh, tc.GetTransform());
     }
     sceneRenderer->EndScene();
 }
+
+    void Scene::ConvertToLocalSpace(Entity entity)
+	{
+		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+
+		if (!parent)
+			return;
+
+		auto& transform = entity.Transform();
+		glm::mat4 parentTransform = GetWorldSpaceTransformMatrix(parent);
+		glm::mat4 localTransform = glm::inverse(parentTransform) * transform.GetTransform();
+		transform.SetTransform(localTransform);
+	}
+
+	void Scene::ConvertToWorldSpace(Entity entity)
+	{
+		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+
+		if (!parent)
+			return;
+
+		glm::mat4 transform = GetWorldSpaceTransformMatrix(entity);
+		auto& entityTransform = entity.Transform();
+		entityTransform.SetTransform(transform);
+	}
+
+	glm::mat4 Scene::GetWorldSpaceTransformMatrix(Entity entity)
+	{
+		glm::mat4 transform(1.0f);
+
+		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+		if (parent)
+			transform = GetWorldSpaceTransformMatrix(parent);
+
+		return transform * entity.Transform().GetTransform();
+	}
+
+	void Scene::SetWorldSpaceTransformMatrix(Entity entity, const glm::mat4& transform)
+	{
+		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+		glm::mat4 parentTransform = parent ? GetWorldSpaceTransformMatrix(parent) : glm::mat4(1.0f);
+		glm::mat4 localTransform = glm::inverse(parentTransform) * transform;
+		entity.Transform().SetTransform(localTransform);
+	}
+
+	TransformComponent Scene::GetWorldSpaceTransform(Entity entity)
+	{
+		glm::mat4 transform = GetWorldSpaceTransformMatrix(entity);
+		TransformComponent transformComponent;
+		transformComponent.SetTransform(transform);
+		return transformComponent;
+	}
+
+	void Scene::SetWorldSpaceTransform(Entity entity, const TransformComponent& transform)
+	{
+		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+		glm::mat4 parentTransform = parent ? GetWorldSpaceTransformMatrix(parent) : glm::mat4(1.0f);
+		glm::mat4 localTransform = glm::inverse(parentTransform) * transform.GetTransform();
+		entity.Transform().SetTransform(localTransform);
+	}
 
 void Scene::OnViewportResize(u32 width, u32 height)
 {

@@ -197,9 +197,9 @@ void Renderer::Cleanup()
     bgfx::shutdown();
 }
 
-void Renderer::SubmitMesh(const Mesh& mesh, Transform& transform)
+void Renderer::SubmitMesh(const Mesh& mesh, const glm::mat4& transform)
 {
-    mesh.Submit(s_RenderData.currentViewId,  transform);
+    mesh.Submit(s_RenderData.currentViewId, transform);
 }
 
 void Renderer::Begin(uint16_t viewId)

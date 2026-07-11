@@ -5,7 +5,6 @@
 #include "Mesh.h"
 
 #include "Seraph/Core/Log.h"
-#include "Seraph/Core/Transform.h"
 #include "Seraph/Graphics/Material/Material.h"
 #include "glm/gtc/type_ptr.hpp"
 
@@ -54,9 +53,9 @@ void Mesh::SetIndexData(const uint16_t* indices, const size_t size)
     m_IndexBuffer = bgfx::createIndexBuffer(bgfx::makeRef(indices, size));
 }
 
-void Mesh::Submit(uint16_t viewId, Seraph::Transform& transform) const
+void Mesh::Submit(u16 viewId, const glm::mat4& transform) const
 {
-    bgfx::setTransform(glm::value_ptr(transform.TransformMatrix()));
+    bgfx::setTransform(glm::value_ptr(transform));
 
     bgfx::setVertexBuffer(0, VertexBuffer());
     bgfx::setIndexBuffer(IndexBuffer());

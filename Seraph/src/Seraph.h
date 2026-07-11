@@ -17,7 +17,6 @@
 #include "Seraph/Core/Layer.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Core/Math.h"
-#include "Seraph/Core/Transform.h"
 
 // --- Graphics --------------------------------------------------------------
 #include "Seraph/Graphics/Camera.h"
@@ -45,11 +44,12 @@
 // --- Scene -----------------------------------------------------------------
 #include "Seraph/Scene/Scene.h"
 #include "Seraph/Scene/Entity.h"
+#include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Components/IDComponent.h"
+#include "Seraph/Scene/Components/MeshComponent.h"
+#include "Seraph/Scene/Components/RelationshipComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
-#include "Seraph/Scene/Components/MeshComponent.h"
-#include "Seraph/Scene/Components/CameraComponent.h"
 
 // --- Platform --------------------------------------------------------------
 #include "Platform/Window.h"
