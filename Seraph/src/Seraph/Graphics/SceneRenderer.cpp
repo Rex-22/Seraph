@@ -18,14 +18,17 @@ SceneRenderer::SceneRenderer(
     Ref<Scene> scene, const SceneRendererSettings& settings) : m_Scene(scene), m_Settings(settings)
 {}
 
-void SceneRenderer::BeginScene(Camera& camera)
+void SceneRenderer::BeginScene(u16 view, Camera& camera)
 {
+    Renderer::Begin(view);
     m_SceneRenderData.SceneCamera = camera;
+    bgfx::setViewTransform(view, glm::value_ptr(m_SceneRenderData.SceneCamera.ViewMatrix()), glm::value_ptr(m_SceneRenderData.SceneCamera.ProjectionMatrix()));
 }
 
 void SceneRenderer::EndScene()
 {
     m_SceneRenderData = {};
+    Renderer::End();
 }
 
 void SceneRenderer::SetScene(Ref<Scene> scene)
@@ -33,10 +36,13 @@ void SceneRenderer::SetScene(Ref<Scene> scene)
     m_Scene = scene;
 }
 
-void SceneRenderer::SubmitMesh(u16 view, const Mesh& mesh, const glm::mat4& transform)
+void SceneRenderer::SubmitMesh(const Mesh& mesh, const glm::mat4& transform)
 {
-    bgfx::setViewTransform(view, glm::value_ptr(m_SceneRenderData.SceneCamera.ViewMatrix()), glm::value_ptr(m_SceneRenderData.SceneCamera.ProjectionMatrix()));
     Renderer::SubmitMesh(mesh, transform);
+}
+void SceneRenderer::Clear(u16 flags)
+{
+    Renderer::Clear(m_Settings.ClearColor, flags);
 }
 
 } // namespace Seraph

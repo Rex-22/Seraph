@@ -78,9 +78,11 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
         return;
     }
 
-    sceneRenderer->BeginScene(*activeCamera);
+    sceneRenderer->BeginScene(0, *activeCamera);
+    sceneRenderer->Clear();
+
     for (auto [e, tc, mc] : m_Registry.view<TransformComponent, MeshComponent>().each()) {
-        sceneRenderer->SubmitMesh(0, *mc.Mesh, tc.GetTransform());
+        sceneRenderer->SubmitMesh(*mc.Mesh, tc.GetTransform());
     }
     sceneRenderer->EndScene();
 }
