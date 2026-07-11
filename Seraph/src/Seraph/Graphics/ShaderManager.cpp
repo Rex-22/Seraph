@@ -49,7 +49,7 @@ bgfx::ProgramHandle ShaderManager::Get(const std::string& name)
 
     const auto src = Registry().find(name);
     if (src == Registry().end()) {
-        CORE_ERROR("[ShaderManager] Unknown shader '{}'", name);
+        SP_CORE_ERROR_TAG("[ShaderManager] Unknown shader '{}'", name);
         return BGFX_INVALID_HANDLE;
     }
 
@@ -60,8 +60,8 @@ bgfx::ProgramHandle ShaderManager::Get(const std::string& name)
         src->second.shaders, type, src->second.fragmentName.c_str());
 
     if (!bgfx::isValid(vs) || !bgfx::isValid(fs)) {
-        CORE_ERROR(
-            "[ShaderManager] Could not create embedded shaders for '{}' "
+        SP_CORE_ERROR_TAG("ShaderManager",
+            "Could not create embedded shaders for '{}' "
             "(vs '{}', fs '{}') — not embedded for the active renderer?",
             name, src->second.vertexName, src->second.fragmentName);
         return BGFX_INVALID_HANDLE;

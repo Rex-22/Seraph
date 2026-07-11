@@ -29,7 +29,6 @@ struct Renderer
     static void Begin(uint16_t viewId);
     static void End();
 
-    static void SetCamera(Camera* camera);
     static void Clear(glm::vec3 clearColor, uint16_t flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
     static void OnWindowResize(u32 width, u32 height);
 

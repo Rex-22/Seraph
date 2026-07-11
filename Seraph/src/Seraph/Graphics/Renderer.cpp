@@ -6,6 +6,7 @@
 
 #include "Platform/Window.h"
 #include "Seraph/Core/Application.h"
+#include "Seraph/Core/Assert.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Graphics/Camera.h"
@@ -37,15 +38,15 @@ public:
         const char* filePath, uint16_t line, bgfx::Fatal::Enum code,
         const char* str) override
     {
-        CORE_ERROR(
-            "bgfx fatal [{}:{}] (code {}): {}", filePath, line,
+        SP_CORE_ERROR_TAG("BGFX",
+            "fatal [{}:{}] (code {}): {}", filePath, line,
             static_cast<int>(code), str);
 
         // bgfx considers everything but DebugCheck unrecoverable. Break into
         // the debugger here; promote to a hard abort if you want release
         // builds to stop rather than limp on with a broken context.
         if (code != bgfx::Fatal::DebugCheck) {
-            SP_DEBUGBREAK();
+            SP_DEBUG_BREAK;
         }
     }
 
@@ -76,7 +77,7 @@ public:
         }
         buffer[length] = '\0';
 
-        CORE_TRACE("[bgfx] {}", buffer);
+        SP_CORE_TRACE_TAG("BGFX", " {}", buffer);
     }
 
     void profilerBegin(
@@ -125,8 +126,6 @@ BgfxCallback s_BgfxCallback;
 
 struct RenderData
 {
-    Camera* camera;
-
     u16 currentViewId;
     u32 windowWidth;
     u32 windowHeight;
@@ -189,7 +188,7 @@ void Renderer::Init()
         0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x6495EDFF, 1.0f, 0);
     bgfx::setViewRect(0, 0, 0, window.Width(), window.Height());
 
-    CORE_INFO("[Renderer]: Backend: {}", bgfx::getRendererName(bgfx::getRendererType()));
+    SP_CORE_INFO_TAG("Renderer", "Backend: {}", bgfx::getRendererName(bgfx::getRendererType()));
 }
 
 void Renderer::Cleanup()
@@ -205,26 +204,14 @@ void Renderer::SubmitMesh(const Mesh& mesh, Transform& transform)
 
 void Renderer::Begin(uint16_t viewId)
 {
-    if (s_RenderData.camera == nullptr) {
-        CORE_WARN("No camera set for Renderer");
-        return;
-    }
     s_RenderData.currentViewId = viewId;
 
     bgfx::touch(s_RenderData.currentViewId);
-    bgfx::setViewTransform(
-        s_RenderData.currentViewId, glm::value_ptr(s_RenderData.camera->ViewMatrix()),
-        glm::value_ptr(s_RenderData.camera->ProjectionMatrix()));
 }
 
 void Renderer::End()
 {
     s_RenderData.EndFrame();
-}
-
-void Renderer::SetCamera(Camera* camera)
-{
-    s_RenderData.camera = camera;
 }
 
 void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)

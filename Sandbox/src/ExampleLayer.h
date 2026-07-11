@@ -25,12 +25,13 @@ public:
 private:
 
     // Scene owns all entities
-    Seraph::Scene* m_Scene;
+    Seraph::Ref<Seraph::Scene> m_Scene;
+    Seraph::Ref<Seraph::SceneRenderer> m_SceneRenderer;
 
     // Raw resources — owned by the layer, referenced by MeshComponent
-    Seraph::Mesh*      m_Mesh     = nullptr;
-    Seraph::Texture2D* m_Texture  = nullptr;
-    Seraph::Material*  m_Material = nullptr;
+    Seraph::Ref<Seraph::Mesh>      m_Mesh;
+    Seraph::Ref<Seraph::Texture2D> m_Texture;
+    Seraph::Ref<Seraph::Material>  m_Material;
 };
 
 } // namespace Sandbox

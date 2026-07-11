@@ -10,8 +10,8 @@ class ExampleScene : public Seraph::Scene
 {
 public:
     ExampleScene(
-        Seraph::Mesh* mesh,
-        Seraph::Material* material)
+        const Seraph::Ref<Seraph::Mesh>& mesh,
+        const Seraph::Ref<Seraph::Material>& material)
         : m_Mesh(mesh), m_Material(material)
     {}
 
@@ -36,6 +36,6 @@ private:
     Seraph::Entity m_CubeEntity;
 
     // Raw resources — owned by the layer
-    Seraph::Mesh* m_Mesh = nullptr;
-    Seraph::Material* m_Material = nullptr;
+    Seraph::Ref<Seraph::Mesh> m_Mesh;
+    Seraph::Ref<Seraph::Material> m_Material;
 };

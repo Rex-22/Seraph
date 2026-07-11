@@ -3,9 +3,8 @@
 //
 
 #include "ExampleLayer.h"
+#include <imgui.h>
 #include "ExampleScene.h"
-
-#include <imgui_internal.h>
 
 namespace Sandbox
 {
@@ -89,38 +88,36 @@ ExampleLayer::ExampleLayer() : Layer("ExampleLayer"), m_Scene(nullptr)
 
 void ExampleLayer::OnAttach()
 {
-    APP_INFO("ExampleLayer attached");
+    SP_INFO_TAG("ExampleLayer", "ExampleLayer attached");
     // Resources (owned by the layer)
     u32 data[] = { 0xffff00ff };
     m_Texture = Seraph::Texture2D::Create("Test", data, 1, 1);
 
-    m_Material = new Seraph::Material(Seraph::ShaderManager::Get("simple"));
+    m_Material = Seraph::Ref<Seraph::Material>::Create(Seraph::ShaderManager::Get("simple"));
     m_Material->AddProperty<Seraph::ColorProperty>(
         "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-    m_Material->AddProperty<Seraph::TextureProperty>("s_texColor", *m_Texture, 0);
+    m_Material->AddProperty<Seraph::TextureProperty>("s_texColor", m_Texture, 0);
 
-    m_Mesh = new Seraph::Mesh(*m_Material);
+    m_Mesh = Seraph::Ref<Seraph::Mesh>::Create(*m_Material);
     m_Mesh->SetVertexLayout<PosColorVertex>();
     m_Mesh->SetVertexData(s_cubeVertices, sizeof(s_cubeVertices));
     m_Mesh->SetIndexData(s_cubeTriList, sizeof(s_cubeTriList));
 
-    m_Scene = new ExampleScene(m_Mesh, m_Material);
+
+    m_Scene = Seraph::Ref<ExampleScene>::Create(m_Mesh, m_Material);
     m_Scene->OnLoaded();
+    m_SceneRenderer = Seraph::Ref<Seraph::SceneRenderer>::Create(m_Scene, Seraph::SceneRendererSettings());
 }
 
 void ExampleLayer::OnDetach()
 {
-    delete m_Mesh;
-    delete m_Material;
-    delete m_Texture;
-
-    m_Scene->OnDestroy();
-    delete m_Scene;
 }
 
 void ExampleLayer::OnUpdate(f64 deltaTime)
 {
     m_Scene->OnUpdate(deltaTime);
+
+    m_Scene->OnRenderRuntime(m_SceneRenderer);
 }
 
 void ExampleLayer::OnEvent(Seraph::Event& e)
@@ -132,6 +129,11 @@ void ExampleLayer::OnEvent(Seraph::Event& e)
 
 void ExampleLayer::OnImGuiRender()
 {
+    ImGui::Begin("Settings");
+
+    ImGui::LabelText("Test",  "Hello");
+
+    ImGui::End();
 }
 
 bool ExampleLayer::OnWindowResizeEvent(Seraph::WindowResizeEvent& e)
