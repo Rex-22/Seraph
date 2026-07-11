@@ -120,6 +120,9 @@ public:
         return false;
     }
 
+    bool IsAncestorOf(Entity entity) const;
+    bool IsDescendantOf(Entity entity) const { return entity.IsAncestorOf(*this); }
+
 private:
     entt::entity m_Handle { entt::null };
     Scene* m_Scene = nullptr;

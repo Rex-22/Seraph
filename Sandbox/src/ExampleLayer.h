@@ -32,6 +32,8 @@ private:
     Seraph::Ref<Seraph::Mesh>      m_Mesh;
     Seraph::Ref<Seraph::Texture2D> m_Texture;
     Seraph::Ref<Seraph::Material>  m_Material;
+
+    Seraph::EntityBrowserPanel m_EntityBrowser;
 };
 
 } // namespace Sandbox

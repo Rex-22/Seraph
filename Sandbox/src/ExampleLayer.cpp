@@ -106,6 +106,7 @@ void ExampleLayer::OnAttach()
 
     m_Scene = Seraph::Ref<ExampleScene>::Create(m_Mesh, m_Material);
     m_Scene->OnLoaded();
+    m_EntityBrowser.SetScene(m_Scene);
 
     Seraph::SceneRendererSettings sceneSettings {
         glm::vec3(0.6f, 0.5f, 0.4f),
@@ -133,11 +134,7 @@ void ExampleLayer::OnEvent(Seraph::Event& e)
 
 void ExampleLayer::OnImGuiRender()
 {
-    ImGui::Begin("Settings");
-
-    ImGui::LabelText("Test", "Hello");
-
-    ImGui::End();
+    m_EntityBrowser.OnImGuiRender();
 }
 
 bool ExampleLayer::OnWindowResizeEvent(Seraph::WindowResizeEvent& e)

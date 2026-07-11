@@ -51,5 +51,8 @@
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
 
+// --- Editor ----------------------------------------------------------------
+#include "Seraph/Editor/Panels/EntityBrowserPanel.h"
+
 // --- Platform --------------------------------------------------------------
 #include "Platform/Window.h"
