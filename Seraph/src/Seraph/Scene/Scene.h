@@ -54,6 +54,8 @@ public:
     TransformComponent GetWorldSpaceTransform(Entity entity);
     void SetWorldSpaceTransform(Entity entity, const TransformComponent& transform);
 
+    UUID GetUUID() const { return m_SceneID; }
+
 private:
     template<typename T>
     void OnComponentAdded(Entity entity, T& component);
