@@ -4,30 +4,15 @@
 
 #pragma once
 
-#include <bx/platform.h>
 #include <cstdint>
-
-// Debug utils
-#ifdef SP_DEBUG
-    #if BX_PLATFORM_WINDOWS
-        #define SP_DEBUGBREAK() __debugbreak()
-    #elif BX_PLATFORM_LINUX
-        #include <csignal>
-        #define SP_DEBUGBREAK() raise(SIGTRAP)
-    #elif BX_PLATFORM_OSX
-        #define SP_DEBUGBREAK() __builtin_debugtrap()
-    #else
-        #error "Platform doesn't support debugbreak yet!"
-    #endif
-    #define SP_ENABLE_ASSERTS
-#else
-    #define SP_DEBUGBREAK()
-#endif
 
 // Macro utils
 #define BIT(x) (1 << x)
 
 #define SP_BIND_EVENT_FN(fn) [this](auto&&... args) -> decltype(auto) { return this->fn(std::forward<decltype(args)>(args)...); }
+
+#define SP_STRINGIFY_IMPL(x) #x
+#define SP_STRINGIFY(x) SP_STRINGIFY_IMPL(x)
 
 
 // Types
