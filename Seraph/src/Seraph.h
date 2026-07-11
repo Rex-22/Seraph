@@ -53,6 +53,7 @@
 
 // --- Editor ----------------------------------------------------------------
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
+#include "Seraph/Editor/Panels/EntityInspectorPanel.h"
 
 // --- Platform --------------------------------------------------------------
 #include "Platform/Window.h"

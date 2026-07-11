@@ -135,6 +135,8 @@ void ExampleLayer::OnEvent(Seraph::Event& e)
 void ExampleLayer::OnImGuiRender()
 {
     m_EntityBrowser.OnImGuiRender();
+    m_EntityInspector.SetSelectedEntity(m_EntityBrowser.GetSelectedEntity());
+    m_EntityInspector.OnImGuiRender();
 }
 
 bool ExampleLayer::OnWindowResizeEvent(Seraph::WindowResizeEvent& e)

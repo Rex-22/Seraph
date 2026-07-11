@@ -34,6 +34,7 @@ private:
     Seraph::Ref<Seraph::Material>  m_Material;
 
     Seraph::EntityBrowserPanel m_EntityBrowser;
+    Seraph::EntityInspectorPanel m_EntityInspector;
 };
 
 } // namespace Sandbox
