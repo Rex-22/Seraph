@@ -18,7 +18,27 @@ namespace Seraph {
 
 Entity Scene::CreateEntity(const std::string& name)
 {
-    return CreateEntityWithUUID(UUID(), name);
+    return CreateChildEntity({}, name);
+}
+
+Entity Scene::CreateChildEntity(Entity parent, const std::string& name)
+{
+    auto entity = Entity{ m_Registry.create(), this };
+    auto& idComponent = entity.AddComponent<IDComponent>();
+    idComponent.ID = {};
+
+    entity.AddComponent<TransformComponent>();
+    if (!name.empty())
+        entity.AddComponent<TagComponent>(name);
+
+    entity.AddComponent<RelationshipComponent>();
+
+    if (parent)
+        entity.SetParent(parent);
+
+    m_EntityIDMap[idComponent.ID] = entity;
+
+    return entity;
 }
 
 Entity Scene::CreateEntityWithUUID(UUID uuid, const std::string& name)
