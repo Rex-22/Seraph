@@ -18,17 +18,11 @@ Window::Window(const WindowProperties& window_properties) : m_Handle(nullptr)
         SDL_WINDOW_RESIZABLE);
 
     if (m_Handle == nullptr) {
-        CORE_ERROR(
-            "Window could not be created. SDL_Error: %s\n", SDL_GetError());
+        SP_CORE_ERROR_TAG("SDL", "Window could not be created. SDL_Error: %s\n", SDL_GetError());
         exit(0);
     }
 
     SDL_SetWindowSurfaceVSync(m_Handle, window_properties.VSync);
-}
-
-Window::~Window()
-{
-    Cleanup();
 }
 
 int Window::Width() const
@@ -52,7 +46,7 @@ SDL_Window* Window::Handle() const
     return m_Handle;
 }
 
-void Window::Cleanup()
+void Window::Shutdown()
 {
     SDL_DestroyWindow(m_Handle);
     m_Handle = nullptr;

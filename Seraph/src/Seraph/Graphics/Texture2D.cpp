@@ -4,6 +4,7 @@
 
 #include "Texture2D.h"
 #include "Seraph/Core/Core.h"
+#include "Seraph/Core/Ref.h"
 
 #include <bgfx/bgfx.h>
 #include <bimg/bimg.h>
@@ -64,10 +65,10 @@ bool Texture2D::IsValid() const
     return bgfx::isValid(m_TextureHandle);
 }
 
-Texture2D* Texture2D::Create(
+Ref<Texture2D> Texture2D::Create(
     const char* path, const Texture2DCreateInfo& createInfo)
 {
-    auto texture = new Texture2D();
+    auto texture = Ref<Texture2D>::Create();
     texture->m_DebugName = path;
     const u64 flags = createInfo.Flags();
 
@@ -124,11 +125,11 @@ Texture2D* Texture2D::Create(
     return texture;
 }
 
-Texture2D* Texture2D::Create(
+Ref<Texture2D> Texture2D::Create(
     const char* name, const void* data, u32 width, u32 height,
     const Texture2DCreateInfo& createInfo)
 {
-    auto texture = new Texture2D();
+    auto texture = Ref<Texture2D>::Create();
     texture->m_DebugName = name;
     texture->m_Width = width;
     texture->m_Height = height;

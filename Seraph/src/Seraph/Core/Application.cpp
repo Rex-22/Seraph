@@ -33,16 +33,16 @@ Application::Application()
     InitCore();
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
-        CORE_ERROR("SDL could not initialize. {}", SDL_GetError());
+        SP_CORE_ERROR_TAG("SDL", "could not initialize. {}", SDL_GetError());
         exit(1);
     }
 
-    m_Window = new Seraph::Window({1280, 720, "Seraph", false});
+    m_Window = Ref<Seraph::Window>::Create(WindowProperties { 1280, 720, "Seraph", false });
     s_Instance = this;
 
     Renderer::Init();
 
-    m_ImGuiLayer = new ImGuiLayer();
+    m_ImGuiLayer = ImGuiLayer::Create();
     PushOverlay(m_ImGuiLayer);
 }
 
@@ -52,7 +52,8 @@ Application::~Application()
     m_ImGuiLayer = nullptr;
 
     Renderer::Cleanup();
-    delete m_Window;
+    m_Window->Shutdown();
+
     CleanupCore();
     SDL_Quit();
 }
@@ -61,7 +62,7 @@ Application& Application::Instance()
 {
     std::lock_guard lock(s_Mutex);
     if (!s_Instance) {
-        CORE_ERROR("Application not initialized!");
+        SP_CORE_ERROR_TAG("Application", "Application not initialized!");
         exit(1);
     }
 

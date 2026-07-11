@@ -4,6 +4,7 @@
 #pragma once
 
 #include "MaterialProperty.h"
+#include "Seraph/Core/Ref.h"
 #include "bgfx/bgfx.h"
 
 #include <memory>
@@ -12,11 +13,11 @@
 namespace Seraph
 {
 
-class Material
+class Material: public RefCounted
 {
 public:
     explicit Material(bgfx::ProgramHandle program);
-    ~Material() = default;
+    ~Material() override = default;
 
     // Disable copy operations
     Material(const Material&) = delete;

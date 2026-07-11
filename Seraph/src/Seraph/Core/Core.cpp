@@ -30,7 +30,7 @@ void* Load(
     const bx::FilePath& filePath, uint32_t* _size)
 {
     if (!bx::open(reader, filePath)) {
-        CORE_ERROR("Failed to open: {}.", filePath.getCPtr());
+        SP_CORE_ERROR_TAG("Core", "Failed to open: {}.", filePath.getCPtr());
         if (_size != nullptr) {
             *_size = 0;
         }

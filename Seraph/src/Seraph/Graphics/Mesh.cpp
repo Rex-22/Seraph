@@ -38,7 +38,7 @@ void Mesh::SetVertexData(const void* data, const uint32_t size)
     }
 
     if (m_Layout == nullptr) {
-        CORE_ERROR("Vertex layout for mesh '{}' has no layout", m_Name);
+        SP_CORE_ERROR_TAG("Vertex layout for mesh '{}' has no layout", m_Name);
         return;
     }
 

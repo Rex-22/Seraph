@@ -4,22 +4,21 @@
 #pragma once
 
 #include "Seraph/Core/Base.h"
+#include "Seraph/Core/Ref.h"
+#include "Seraph/Graphics/Texture2D.h"
 
 #include <string>
 
 namespace Seraph
 {
 
-class Texture2D;
-
-class TextureAtlas
+class TextureAtlas: public RefCounted
 {
-private:
-    TextureAtlas(Texture2D* texture, std::string path, uint32_t width,uint32_t height, uint32_t spriteSize);
 public:
-    ~TextureAtlas();
+    TextureAtlas(
+        Ref<Texture2D> texture, std::string path, uint32_t width,uint32_t height, uint32_t spriteSize);
 
-    static TextureAtlas* Create(const std::string& path, uint32_t spriteSize);
+    static Ref<TextureAtlas> Create(const std::string& path, uint32_t spriteSize);
 
     /**
      * Create a TextureAtlas from raw RGBA pixel data in memory.
@@ -37,7 +36,7 @@ public:
     //     uint32_t spriteSize,
     //     const std::string& name = "atlas_from_memory");
 
-    [[nodiscard]] Texture2D* Texture() const { return m_Texture;}
+    [[nodiscard]] Ref<Texture2D> Texture() const { return m_Texture;}
     [[nodiscard]] u32 Width() const { return m_Width; }
     [[nodiscard]] u32 Height() const { return m_Height; }
     [[nodiscard]] u32 SpriteSize() const { return m_SpriteSize; }
@@ -46,7 +45,7 @@ public:
     // bgfx::TextureHandle TextureByName(const std::string& textureName);
 private:
     // std::unordered_map<std::string, bgfx::TextureHandle> m_Textures;
-    Texture2D* m_Texture;
+    Ref<Texture2D> m_Texture;
 
     std::string m_Path;
     uint32_t m_Width, m_Height;

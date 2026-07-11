@@ -11,7 +11,7 @@ namespace Seraph
 
 struct MeshComponent
 {
-    Seraph::Mesh* Mesh;
+    Ref<Seraph::Mesh> Mesh;
 };
 
 }

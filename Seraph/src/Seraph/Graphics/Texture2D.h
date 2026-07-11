@@ -4,6 +4,7 @@
 
 #pragma once
 #include "Seraph/Core/Base.h"
+#include "Seraph/Core/Ref.h"
 #include "bgfx/bgfx.h"
 
 namespace Seraph
@@ -157,13 +158,11 @@ inline Texture2DCreateInfo::FilterMode operator|(
         static_cast<u64>(a) | static_cast<u64>(b));
 }
 
-class Texture2D
+class Texture2D: public RefCounted
 {
-private:
-    Texture2D();
-
 public:
-    ~Texture2D();
+    Texture2D();
+    ~Texture2D() override;
 
     [[nodiscard]] bgfx::TextureHandle Handle() const { return m_TextureHandle; }
     [[nodiscard]] u32 Width() const { return m_Width; }
@@ -173,10 +172,10 @@ public:
     [[nodiscard]] bool IsValid() const;
 
 public:
-    static Texture2D* Create(
+    static Ref<Texture2D> Create(
         const char* path, const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
 
-    static Texture2D* Create(
+    static Ref<Texture2D> Create(
         const char* name, const void* data, u32 width, u32 height,
         const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
 

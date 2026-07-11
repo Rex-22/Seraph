@@ -24,15 +24,15 @@ public:
     template<typename T, typename... Args>
     T& AddComponent(Args&&... args)
     {
-        T& c = m_Scene->Registry().emplace<T>(m_Handle, std::forward<Args>(args)...);
+        T& c = m_Scene->m_Registry.emplace<T>(m_Handle, std::forward<Args>(args)...);
         m_Scene->OnComponentAdded<T>(*this, c);
         return c;
     }
 
-    template<typename T> T& Component() { return m_Scene->Registry().get<T>(m_Handle); }
-    template<typename T> bool HasComponent() const { return m_Scene->Registry().all_of<T>(m_Handle); }
+    template<typename T> T& Component() { return m_Scene->m_Registry.get<T>(m_Handle); }
+    template<typename T> bool HasComponent() const { return m_Scene->m_Registry.all_of<T>(m_Handle); }
     template<typename T> void RemoveComponent() const
-    { m_Scene->Registry().remove<T>(m_Handle); }
+    { m_Scene->m_Registry.remove<T>(m_Handle); }
 
     operator bool() const {return m_Handle != entt::null;  }
     operator entt::entity() const { return m_Handle; }
@@ -53,6 +53,7 @@ public:
 private:
     entt::entity m_Handle { entt::null };
     Scene* m_Scene = nullptr;
+    friend class Scene;
 };
 
 } // namespace Seraph

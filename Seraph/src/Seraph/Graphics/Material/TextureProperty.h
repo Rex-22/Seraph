@@ -12,16 +12,16 @@ namespace Seraph
 class TextureProperty final: public MaterialProperty
 {
 public:
-    TextureProperty(const std::string& name, const Texture2D& texture, uint8_t samplerUniformIndex);
+    TextureProperty(const std::string& name, Ref<Texture2D> texture, uint8_t samplerUniformIndex);
     ~TextureProperty() override;
 
-    [[nodiscard]] bgfx::TextureHandle TextureHandle() const { return m_Texture.Handle(); }
-    [[nodiscard]] const Texture2D& Texture() const { return m_Texture; }
+    [[nodiscard]] bgfx::TextureHandle TextureHandle() const { return m_Texture->Handle(); }
+    [[nodiscard]] Ref<Texture2D> Texture() const { return m_Texture; }
 
     void Apply() const override;
 
 private:
-    Texture2D m_Texture;
+    Ref<Texture2D> m_Texture;
     uint8_t m_SamplerUniformIndex = 0;
 
     bgfx::UniformHandle m_UniformHandle {};

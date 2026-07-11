@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include "Seraph/Core/Ref.h"
 
 struct SDL_Window;
 
@@ -17,18 +18,16 @@ struct WindowProperties
     bool VSync;
 };
 
-class Window {
+class Window: public RefCounted {
 
 public:
-    explicit Window(const WindowProperties& window_properties);
-    ~Window();
+    Window(const WindowProperties& window_properties);
 
     [[nodiscard]] int Width() const;
     [[nodiscard]] int Height() const;
     [[nodiscard]] SDL_Window* Handle() const;
 
-private:
-    void Cleanup();
+    void Shutdown();
 private:
     SDL_Window* m_Handle;
 };

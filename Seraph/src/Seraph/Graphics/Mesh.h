@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include "Seraph/Core/Base.h"
 #include "Material/Material.h"
+#include "Seraph/Core/Base.h"
+#include "Seraph/Core/Ref.h"
 
 #include <bgfx/bgfx.h>
 #include <concepts>
@@ -26,11 +27,11 @@ concept HasVertexLayout = requires
     { TVertex::Layout() } -> std::convertible_to<const bgfx::VertexLayout*>;
 };
 
-class Mesh
+class Mesh: public RefCounted
 {
 public:
     explicit Mesh(const Material& material);
-    ~Mesh();
+    ~Mesh() override;
 
 public:
     void SetName(const std::string& name);
@@ -40,7 +41,7 @@ public:
     {
         m_Layout = TVertex::Layout();
         if (m_Layout->getStride() == 0)
-            CORE_WARN("Vertex layout for mesh '{}' has no attributes", m_Name);
+            SP_CORE_WARN_TAG("Mesh", "Vertex layout for mesh '{}' has no attributes", m_Name);
     }
     void SetVertexData(const void* data, uint32_t size);
     void SetIndexData(const uint16_t* indices, size_t size);

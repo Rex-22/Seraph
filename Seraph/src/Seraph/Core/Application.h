@@ -5,6 +5,7 @@
 #pragma once
 
 #include "LayerStack.h"
+#include "Ref.h"
 #include "Seraph/Events/Seraph.h"
 #include "Seraph/Events/WindowEvent.h"
 
@@ -53,7 +54,7 @@ private:
     LayerStack m_LayerStack;
     ImGuiLayer* m_ImGuiLayer;
 
-    Seraph::Window* m_Window = nullptr;
+    Ref<Seraph::Window> m_Window;
     int64_t m_LastFrameTime = 0;
 
     bool m_MouseCaptured = false;

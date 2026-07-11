@@ -11,10 +11,9 @@ namespace Seraph
 {
 
 TextureProperty::TextureProperty(
-    const std::string& name,
-    const Texture2D& texture,
+    const std::string& name, Ref<Texture2D> texture,
     uint8_t samplerUniformIndex)
-    : MaterialProperty(name, MaterialProperty::Texture),
+: MaterialProperty(name, MaterialProperty::Texture),
       m_Texture(texture), m_SamplerUniformIndex(samplerUniformIndex)
 {
     m_UniformHandle = bgfx::createUniform(m_Name.c_str(), bgfx::UniformType::Sampler);
@@ -29,8 +28,8 @@ TextureProperty::~TextureProperty()
 
 void TextureProperty::Apply() const
 {
-    if (bgfx::isValid(m_UniformHandle) && m_Texture.IsValid()) {
-        bgfx::setTexture(m_SamplerUniformIndex, m_UniformHandle, m_Texture.Handle());
+    if (bgfx::isValid(m_UniformHandle) && m_Texture->IsValid()) {
+        bgfx::setTexture(m_SamplerUniformIndex, m_UniformHandle, m_Texture->Handle());
     }
 }
 

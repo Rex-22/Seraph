@@ -8,6 +8,7 @@
 #include "Platform/Window.h"
 #include "Seraph/Graphics/ImGui/bgfx-imgui/imgui_impl_bgfx.h"
 #include "imgui_impl_sdl3.h"
+#include <bx/bx.h>
 
 namespace Seraph
 {
@@ -29,7 +30,9 @@ ImGuiLayer::ImGuiLayer(): Layer("ImGui")
     ImGui_ImplSDL3_InitForD3D(window.Handle());
 #elif BX_PLATFORM_OSX
     ImGui_ImplSDL3_InitForMetal(window.Handle());
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_EMSCRIPTEN
+#elif BX_PLATFORM_LINUX
+    ImGui_ImplSDL3_InitForVulkan(window.Handle());
+#elif BX_PLATFORM_EMSCRIPTEN
     ImGui_ImplSDL3_InitForOpenGL(window.Handle(), nullptr);
 #endif // BX_PLATFORM_WINDOWS ? BX_PLATFORM_OSX ? BX_PLATFORM_LINUX ?
     // BX_PLATFORM_EMSCRIPTEN

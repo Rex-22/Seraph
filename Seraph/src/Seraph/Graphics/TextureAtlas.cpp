@@ -9,26 +9,20 @@
 
 namespace Seraph
 {
+
 TextureAtlas::TextureAtlas(
-    Texture2D* texture, std::string path, uint32_t width,
-    uint32_t height, uint32_t spriteSize)
-    : m_Texture(texture), m_Path(std::move(path)), m_Width(width),
+    Ref<Texture2D> texture, std::string path, uint32_t width, uint32_t height,
+    uint32_t spriteSize): m_Texture(texture), m_Path(std::move(path)), m_Width(width),
       m_Height(height), m_SpriteSize(spriteSize)
 {
 }
-TextureAtlas::~TextureAtlas()
-{
-    delete m_Texture;
-}
 
-TextureAtlas* TextureAtlas::Create(const std::string& path, uint32_t spriteSize)
+Ref<TextureAtlas> TextureAtlas::Create(const std::string& path, uint32_t spriteSize)
 {
     auto texture = Texture2D::Create(
         path.c_str());
 
-    TextureAtlas* textureAtlas =
-        new TextureAtlas(texture, path, texture->Width(), texture->Height(), spriteSize);
-    return textureAtlas;
+    return Ref<TextureAtlas>::Create(texture, path, texture->Width(), texture->Height(), spriteSize);
 }
 
 // TextureAtlas* TextureAtlas::CreateFromMemory(
