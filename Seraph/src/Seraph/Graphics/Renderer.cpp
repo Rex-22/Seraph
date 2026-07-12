@@ -129,6 +129,7 @@ struct RenderData
     u16 currentViewId;
     u32 windowWidth;
     u32 windowHeight;
+    u32 resetFlags = BGFX_RESET_VSYNC;
 
     void EndFrame()
     {
@@ -179,7 +180,7 @@ void Renderer::Init()
     bgfx_init.type = bgfx::RendererType::Count; // auto choose renderer
     bgfx_init.resolution.width = window.Width();
     bgfx_init.resolution.height = window.Height();
-    bgfx_init.resolution.reset = BGFX_RESET_VSYNC;
+    bgfx_init.resolution.reset = s_RenderData.resetFlags;
     bgfx_init.platformData = pd;
     bgfx_init.callback = &s_BgfxCallback; // route bgfx logging to our logger
     bgfx::init(bgfx_init);
@@ -226,7 +227,7 @@ void Renderer::SetBackBufferSize(u32 width, u32 height)
 {
     s_RenderData.windowWidth = width;
     s_RenderData.windowHeight = height;
-    bgfx::reset(width, height);
+    bgfx::reset(width, height, s_RenderData.resetFlags);
 }
 
 void Renderer::FlushFrame()
