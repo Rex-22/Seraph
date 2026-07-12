@@ -26,6 +26,9 @@ namespace Seraph {
 		bool IsActive() const { return m_IsActive; }
 		void SetActive(bool active) { m_IsActive = active; }
 
+		bool IsViewportHovered() const { return m_IsViewportHovered; }
+		void SetViewportHovered(bool hovered) { m_IsViewportHovered = hovered; }
+
 		CameraMode GetCurrentMode() const { return m_CameraMode; }
 
 		inline f32 GetDistance() const { return m_Distance; }
@@ -95,6 +98,7 @@ namespace Seraph {
 		f32 m_VerticalFOV, m_AspectRatio, m_NearClip, m_FarClip;
 
 		bool m_IsActive = false;
+		bool m_IsViewportHovered = false;
 		bool m_Panning, m_Rotating;
 		glm::vec2 m_InitialMousePosition {};
 		glm::vec3 m_InitialFocalPoint, m_InitialRotation;

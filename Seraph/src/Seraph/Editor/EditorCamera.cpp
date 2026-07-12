@@ -56,7 +56,11 @@ void EditorCamera::OnUpdate(const f64 ts)
         return;
     }
 
-    if (Input::IsMouseButtonDown(Mouse::Right) && !Input::IsKeyDown(Key::LAlt))
+    // Allow camera activation only over the viewport; once captured, keep going
+    // until the triggering button is released (cursor is locked so it can't leave).
+    const bool canActivate = m_IsViewportHovered || Input::GetCursorMode() == CursorMode::Captured;
+
+    if (Input::IsMouseButtonDown(Mouse::Right) && !Input::IsKeyDown(Key::LAlt) && canActivate)
     {
         m_CameraMode = CameraMode::FLYCAM;
         DisableMouse();
@@ -91,7 +95,7 @@ void EditorCamera::OnUpdate(const f64 ts)
         m_FocalPoint = m_Position + GetForwardDirection() * distance;
         m_Distance   = distance;
     }
-    else if (Input::IsKeyDown(Key::LAlt))
+    else if (Input::IsKeyDown(Key::LAlt) && canActivate)
     {
         m_CameraMode = CameraMode::ARCBALL;
 

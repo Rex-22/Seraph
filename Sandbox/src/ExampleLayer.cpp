@@ -154,6 +154,7 @@ void ExampleLayer::OnUpdate(f64 deltaTime)
     } else {
         bgfx::setViewRect(SCENE_VIEW_ID, 0, 0,
             (u16)m_RenderTarget.width, (u16)m_RenderTarget.height);
+        m_EditorCamera.SetViewportHovered(m_ViewportPanel.IsHovered());
         m_EditorCamera.OnUpdate(deltaTime);
         m_Scene->OnRenderEditor(m_SceneRenderer, m_EditorCamera);
     }
