@@ -17,9 +17,10 @@
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
 #include <bx/platform.h>
+#include <bx/string.h>
 
 #include <cstdarg>
-#include <cstdio>
+#include <string_view>
 
 namespace Seraph
 {
@@ -56,10 +57,13 @@ public:
     {
         char buffer[2048];
 
+        // bgfx trace formats use bx's extended printf specifiers (e.g. %S for
+        // bx::StringView), so format with bx::vsnprintf rather than the C
+        // library's vsnprintf, which would misread %S as a wide string.
         va_list argListCopy;
         va_copy(argListCopy, argList);
-        const int written =
-            std::vsnprintf(buffer, sizeof(buffer), format, argListCopy);
+        const int written = bx::vsnprintf(
+            buffer, static_cast<int32_t>(sizeof(buffer)), format, argListCopy);
         va_end(argListCopy);
 
         if (written <= 0) {
@@ -75,9 +79,27 @@ public:
                (buffer[length - 1] == '\n' || buffer[length - 1] == '\r')) {
             --length;
         }
-        buffer[length] = '\0';
 
-        SP_CORE_TRACE_TAG("BGFX", " {}", buffer);
+
+        const std::string_view message(buffer, length);
+
+        // The Metal backend checks Metal object lifetimes with Apple's
+        // retainCount(), which Apple documents as unreliable (the driver and
+        // autorelease pools hold internal references). bgfx only trusts it
+        // when no GPU debugger is attached, so "RefCount is N (expected 0)" is
+        // benign noise on macOS. Drop it.
+        if (message.find("RefCount is ") != std::string_view::npos) {
+            return;
+        }
+
+        // bgfx routes warnings through this same trace channel, prefixed with
+        // "WARN ". Surface those at our warn level instead of burying them in
+        // trace output.
+        if (message.find("WARN ") != std::string_view::npos) {
+            SP_CORE_WARN_TAG("BGFX", " {}", message);
+        } else {
+            SP_CORE_TRACE_TAG("BGFX", " {}", message);
+        }
     }
 
     void profilerBegin(
