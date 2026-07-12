@@ -40,6 +40,8 @@ public:
 
     void Clear(u16 flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
 
+    const SceneRendererSettings& GetSettings() const { return m_Settings; }
+
 private:
     Ref<Scene> m_Scene;
     SceneRendererSettings m_Settings;

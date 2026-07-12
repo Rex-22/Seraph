@@ -4,10 +4,11 @@
 
 #include "EditorLayer.h"
 
+#include "Platform/Window.h"
 #include "Seraph/Core/Application.h"
+#include "Seraph/Core/Core.h"
 #include "Seraph/Core/Input.h"
 #include "Seraph/Events/KeyEvent.h"
-#include "Platform/Window.h"
 
 #include <bgfx/bgfx.h>
 #include <imgui.h>
@@ -45,8 +46,10 @@ void EditorLayer::OnAttach()
     m_EditorCamera.SetViewId(k_SceneViewId);
     m_EditorCamera.SetActive(true);
 
+    glm::vec3 clearColor = m_SceneRenderer->GetSettings().ClearColor;
+    u32 rgba = EncodeColorRgba8(clearColor.r, clearColor.g, clearColor.b, 1.0f);
     bgfx::setViewClear(k_SceneViewId,
-        BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x99887766, 0.0f, 0);
+        BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, rgba, 0.0f, 0);
 
     m_EntityBrowser.SetScene(m_Scene);
     m_Gizmo.SetScene(m_Scene);
@@ -59,20 +62,25 @@ void EditorLayer::OnDetach()
 
 void EditorLayer::OnUpdate(f64 dt)
 {
-    if (m_RenderTarget.IsValid())
-        bgfx::setViewFrameBuffer(k_SceneViewId, m_RenderTarget.fb);
-
     m_Scene->OnUpdate(dt);
-
-    bgfx::setViewRect(k_SceneViewId, 0, 0,
-        (u16)m_RenderTarget.width, (u16)m_RenderTarget.height);
 
     if (m_RuntimeMode)
     {
+        auto [w, h] = Application::Instance().Window().Size();
+        bgfx::setViewFrameBuffer(k_SceneViewId, BGFX_INVALID_HANDLE);
+        bgfx::setViewRect(k_SceneViewId, 0, 0, (u16)w, (u16)h);
+        m_Scene->SetViewportBounds(0, 0, w, h);
+
         m_Scene->OnRenderRuntime(m_SceneRenderer);
     }
     else
     {
+        if (m_RenderTarget.IsValid())
+            bgfx::setViewFrameBuffer(k_SceneViewId, m_RenderTarget.fb);
+
+        bgfx::setViewRect(k_SceneViewId, 0, 0,
+            (u16)m_RenderTarget.width, (u16)m_RenderTarget.height);
+
         m_EditorCamera.SetViewportHovered(m_ViewportPanel.IsHovered());
         m_EditorCamera.OnUpdate(dt);
         m_Scene->OnRenderEditor(m_SceneRenderer, m_EditorCamera);
@@ -141,26 +149,24 @@ void EditorLayer::OnImGuiRender()
                           m_EditorCamera.GetUnReversedProjectionMatrix());
     }
 
-    if (m_ViewportPanel.Begin(m_RenderTarget))
+    if (!m_RuntimeMode)
     {
-        if (!m_RuntimeMode)
+        if (m_ViewportPanel.Begin(m_RenderTarget))
         {
             m_Gizmo.SetViewportRect(m_ViewportPanel.GetContentPos(),
                                     m_ViewportPanel.GetContentSize());
             m_Gizmo.OnImGuiRender();
         }
-    }
-    m_ViewportPanel.End();
+        m_ViewportPanel.End();
 
-    // Resize the offscreen RT whenever the viewport panel changes size.
-    {
         const ImVec2 sz = m_ViewportPanel.GetContentSize();
         if (sz.x > 0.0f && sz.y > 0.0f &&
-            ((u32)sz.x != m_RenderTarget.width || (u32)sz.y != m_RenderTarget.height))
+            (static_cast<u32>(sz.x) != m_RenderTarget.width || static_cast<u32>(sz.y) != m_RenderTarget.height))
         {
-            m_RenderTarget.Resize((u32)sz.x, (u32)sz.y);
-            m_EditorCamera.SetViewportBounds(0, 0, (u32)sz.x, (u32)sz.y);
-            m_Scene->SetViewportBounds(0, 0, (u32)sz.x, (u32)sz.y);
+            m_RenderTarget.Resize(
+                static_cast<u32>(sz.x), static_cast<u32>(sz.y));
+            m_EditorCamera.SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
+            m_Scene->SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
         }
     }
 }
@@ -170,7 +176,9 @@ void EditorLayer::EnterRuntime()
     m_RuntimeMode = true;
     m_EditorCamera.SetActive(false);
     Input::SetCursorMode(CursorMode::Normal);
-    m_Scene->SetViewportBounds(0, 0, m_RenderTarget.width, m_RenderTarget.height);
+
+    auto [w, h] = Application::Instance().Window().Size();
+    m_Scene->SetViewportBounds(0, 0, w, h);
 }
 
 void EditorLayer::ExitRuntime()
