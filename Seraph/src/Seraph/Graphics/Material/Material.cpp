@@ -13,33 +13,22 @@
 namespace Seraph
 {
 
-Material::Material(bgfx::ProgramHandle program) : m_Program(program)
-{
-}
-
 Material::Material(AssetHandle shader) : m_Shader(shader)
 {
 }
 
 Material::Material(Material&& other) noexcept
-    : m_Program(other.m_Program)
-    , m_Properties(std::move(other.m_Properties))
+    : m_Properties(std::move(other.m_Properties))
     , m_Shader(other.m_Shader)
 {
-    // Invalidate the moved-from handles.
-    other.m_Program.idx = bgfx::kInvalidHandle;
     other.m_Shader = c_NullAssetHandle;
 }
 
 Material& Material::operator=(Material&& other) noexcept
 {
     if (this != &other) {
-        m_Program = other.m_Program;
         m_Properties = std::move(other.m_Properties);
         m_Shader = other.m_Shader;
-
-        // Invalidate the moved-from handles.
-        other.m_Program.idx = bgfx::kInvalidHandle;
         other.m_Shader = c_NullAssetHandle;
     }
     return *this;
@@ -47,15 +36,9 @@ Material& Material::operator=(Material&& other) noexcept
 
 bgfx::ProgramHandle Material::Program() const
 {
-    // Asset-backed shader (migration target): resolve through the AssetManager.
-    if (static_cast<u64>(m_Shader) != c_NullAssetHandle) {
-        if (Ref<ShaderAsset> shader =
-                AssetManager::GetAsset<ShaderAsset>(m_Shader))
-            return shader->Program();
-        return BGFX_INVALID_HANDLE;
-    }
-    // Legacy: directly-supplied program handle.
-    return m_Program;
+    if (Ref<ShaderAsset> shader = AssetManager::GetAsset<ShaderAsset>(m_Shader))
+        return shader->Program();
+    return BGFX_INVALID_HANDLE;
 }
 
 MaterialProperty* Material::GetProperty(const std::string& name) const

@@ -21,10 +21,8 @@ class Material: public Asset
 public:
     ASSET_CLASS_TYPE(Material)
 
-    // Legacy: wraps a program handle directly. Retained during migration.
-    explicit Material(bgfx::ProgramHandle program);
-    // Asset-backed: references a ShaderAsset by handle; the program is resolved
-    // lazily through the AssetManager (see Program()).
+    // References a ShaderAsset by handle; the program is resolved lazily
+    // through the AssetManager (see Program()).
     explicit Material(AssetHandle shader);
     ~Material() override = default;
 
@@ -58,15 +56,13 @@ public:
 
     void Apply(u16 viewId, u64 flags = k_ReversedZStateDefault) const;
 
-    // Resolves to the asset-backed shader program when constructed from an
-    // AssetHandle, otherwise returns the directly-supplied legacy program.
+    // Resolves the shader program through the AssetManager.
     [[nodiscard]] bgfx::ProgramHandle Program() const;
 
     void SetState(const u64 state) { m_State = state; }
     [[nodiscard]] uint64_t State() const { return m_State;}
 
 private:
-    bgfx::ProgramHandle m_Program = BGFX_INVALID_HANDLE;
     std::unordered_map<std::string, std::unique_ptr<MaterialProperty>>
         m_Properties;
     AssetHandle m_Shader = c_NullAssetHandle;

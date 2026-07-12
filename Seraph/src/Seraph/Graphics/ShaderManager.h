@@ -46,10 +46,6 @@ public:
     // is unknown or the program could not be created.
     [[nodiscard]] static AssetHandle GetHandle(const std::string& name);
 
-    // Resolve a named shader to its linked program (builds the backing asset on
-    // first use). Returns BGFX_INVALID_HANDLE if unknown.
-    [[nodiscard]] static bgfx::ProgramHandle Get(const std::string& name);
-
     [[nodiscard]] static bool Has(const std::string& name);
 
     // Programs are owned by their ShaderAsset and released via

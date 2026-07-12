@@ -77,18 +77,6 @@ AssetHandle ShaderManager::GetHandle(const std::string& name)
     return handle;
 }
 
-bgfx::ProgramHandle ShaderManager::Get(const std::string& name)
-{
-    const AssetHandle handle = GetHandle(name);
-    if (static_cast<u64>(handle) == c_NullAssetHandle)
-        return BGFX_INVALID_HANDLE;
-
-    Ref<ShaderAsset> shader = AssetManager::GetAsset<ShaderAsset>(handle);
-    if (!shader)
-        return BGFX_INVALID_HANDLE;
-    return shader->Program();
-}
-
 bool ShaderManager::Has(const std::string& name)
 {
     return Registry().contains(name);
