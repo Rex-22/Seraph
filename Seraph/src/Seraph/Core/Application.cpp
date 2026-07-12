@@ -5,6 +5,7 @@
 #include "Application.h"
 
 #include "ImGuiLayer.h"
+#include "Input.h"
 #include "Layer.h"
 #include "LayerStack.h"
 #include "Log.h"
@@ -117,6 +118,12 @@ void Application::Loop()
     const auto freq = static_cast<double>(bx::getHPFrequency());
     const auto deltaTime = static_cast<double>(frameTime) / freq;
 
+    // Advance Pressed → Held before processing this frame's events.
+    Input::TransitionPressedKeys();
+    Input::TransitionPressedButtons();
+
+    // Poll joystick state and process window events (also feeds Input state).
+    Input::Update();
     ProcessEvents();
 
     if (!m_Minimized) {
@@ -132,6 +139,9 @@ void Application::Loop()
     }
 
     Renderer::FlushFrame();
+
+    // Clear Released → None after layers have had a chance to query them.
+    Input::ClearReleasedKeys();
 }
 
 void Application::SetMouseCaptured(bool captured)
@@ -167,21 +177,26 @@ void Application::ProcessEvents()
                 break;
             }
             case SDL_EVENT_KEY_DOWN: {
+                if (!sdlEvent.key.repeat)
+                    Input::UpdateKeyState(sdlEvent.key.key, KeyState::Pressed);
                 auto e = KeyPressedEvent(sdlEvent.key.key, sdlEvent.key.repeat);
                 OnEvent(e);
                 break;
             }
             case SDL_EVENT_KEY_UP: {
+                Input::UpdateKeyState(sdlEvent.key.key, KeyState::Released);
                 auto e = KeyReleasedEvent(sdlEvent.key.key);
                 OnEvent(e);
                 break;
             }
             case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                Input::UpdateButtonState(sdlEvent.button.button, KeyState::Pressed);
                 auto e = MouseButtonPressedEvent(sdlEvent.button.button);
                 OnEvent(e);
                 break;
             }
             case SDL_EVENT_MOUSE_BUTTON_UP: {
+                Input::UpdateButtonState(sdlEvent.button.button, KeyState::Released);
                 auto e = MouseButtonReleasedEvent(sdlEvent.button.button);
                 OnEvent(e);
                 break;

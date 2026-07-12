@@ -2,7 +2,7 @@
 // Sandbox client application entry point.
 //
 
-#include <Seraph.h>
+#include <Events.h>
 
 // EntryPoint.h defines main() and must be included in exactly ONE translation
 // unit — this one. It calls CreateApplication(), implemented below.

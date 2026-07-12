@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <Seraph.h>
+#include <Events.h>
 
 class ExampleScene : public Seraph::Scene
 {

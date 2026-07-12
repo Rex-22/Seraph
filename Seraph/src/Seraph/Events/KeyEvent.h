@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include "Events.h"
 #include "SDL3/SDL_keycode.h"
-#include "Seraph.h"
 
 namespace Seraph
 {
