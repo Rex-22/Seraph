@@ -201,7 +201,7 @@ bool Application::OnWindowResize(WindowResizeEvent& e)
     }
 
     m_Minimized = false;
-    Renderer::OnWindowResize(e.Width(), e.Height());
+    Renderer::SetBackBufferSize(e.Width(), e.Height());
 
     return false;
 }

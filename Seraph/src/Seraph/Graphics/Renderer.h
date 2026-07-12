@@ -25,7 +25,7 @@ struct Renderer
     static void End();
 
     static void Clear(glm::vec3 clearColor, uint16_t flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
-    static void OnWindowResize(u32 width, u32 height);
+    static void SetBackBufferSize(u32 width, u32 height);
 
     static void FlushFrame();
 };

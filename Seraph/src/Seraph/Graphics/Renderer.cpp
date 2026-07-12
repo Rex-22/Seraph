@@ -185,7 +185,7 @@ void Renderer::Init()
     bgfx::init(bgfx_init);
 
     bgfx::setViewClear(
-        0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x6495EDFF, 1.0f, 0);
+        0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x6495EDFF, 0.0f, 0);
     bgfx::setViewRect(0, 0, 0, window.Width(), window.Height());
 
     SP_CORE_INFO_TAG("Renderer", "Backend: {}", bgfx::getRendererName(bgfx::getRendererType()));
@@ -219,15 +219,14 @@ void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)
     bgfx::setViewClear(
         s_RenderData.currentViewId, flags,
         EncodeColorRgba8(clearColor.r, clearColor.g, clearColor.b, 1.0f),
-        1.0f, 0);
+        0.0f, 0);
 }
-void Renderer::OnWindowResize(u32 width, u32 height)
+
+void Renderer::SetBackBufferSize(u32 width, u32 height)
 {
     s_RenderData.windowWidth = width;
     s_RenderData.windowHeight = height;
     bgfx::reset(width, height);
-    bgfx::setViewRect(
-        0, 0, 0, width, height);
 }
 
 void Renderer::FlushFrame()
