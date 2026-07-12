@@ -16,6 +16,7 @@
 #include "imgui.h"
 
 // BGFX/BX
+#include "Seraph/Core/Base.h"
 #include "bgfx/bgfx.h"
 #include "bgfx/embedded_shader.h"
 #include "bx/math.h"
@@ -197,7 +198,7 @@ void ImGui_Implbgfx_InvalidateDeviceObjects()
 
 void ImGui_Implbgfx_Init(int view)
 {
-    g_View = (uint8_t)(view & 0xff);
+    g_View = static_cast<u16>(view & 0xff);
 }
 
 void ImGui_Implbgfx_Shutdown()

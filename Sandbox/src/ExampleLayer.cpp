@@ -3,7 +3,6 @@
 //
 
 #include "ExampleLayer.h"
-#include <imgui.h>
 #include "ExampleScene.h"
 
 namespace Sandbox
@@ -108,6 +107,7 @@ void ExampleLayer::OnAttach()
     m_Scene->OnLoaded();
     m_EntityBrowser.SetScene(m_Scene);
     m_EntityInspector.SetDefaultMaterial(m_Material);
+    m_Gizmo.SetScene(m_Scene);
 
     Seraph::SceneRendererSettings sceneSettings {
         glm::vec3(0.6f, 0.5f, 0.4f),
@@ -121,6 +121,11 @@ void ExampleLayer::OnDetach()
 
 void ExampleLayer::OnUpdate(f64 deltaTime)
 {
+	auto& app = Seraph::Application::Instance();
+    auto [width, height] = app.Window().Size();
+
+    m_Scene->SetViewportBounds(0, 0, width, height);
+
     m_Scene->OnUpdate(deltaTime);
 
     m_Scene->OnRenderRuntime(m_SceneRenderer);
@@ -128,8 +133,6 @@ void ExampleLayer::OnUpdate(f64 deltaTime)
 
 void ExampleLayer::OnEvent(Seraph::Event& e)
 {
-    Seraph::EventDispatcher dispatcher(e);
-    dispatcher.Dispatch<Seraph::WindowResizeEvent>(SP_BIND_EVENT_FN(ExampleLayer::OnWindowResizeEvent));
     m_Scene->OnEvent(e);
 }
 
@@ -138,12 +141,6 @@ void ExampleLayer::OnImGuiRender()
     m_EntityBrowser.OnImGuiRender();
     m_EntityInspector.SetSelectedEntity(m_EntityBrowser.GetSelectedEntity());
     m_EntityInspector.OnImGuiRender();
-}
-
-bool ExampleLayer::OnWindowResizeEvent(Seraph::WindowResizeEvent& e)
-{
-    m_Scene->OnViewportResize(e.Width(), e.Height());
-    return false;
 }
 
 } // namespace Sandbox

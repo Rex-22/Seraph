@@ -12,8 +12,9 @@ public:
     ExampleScene(
         const Seraph::Ref<Seraph::Mesh>& mesh,
         const Seraph::Ref<Seraph::Material>& material)
-        : m_Mesh(mesh), m_Material(material)
-    {}
+        : Scene("Example Scene"), m_Mesh(mesh), m_Material(material)
+    {
+    }
 
     void OnLoaded() override;
     void OnUpdate(f64 dt) override;

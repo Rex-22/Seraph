@@ -3,6 +3,8 @@
 //
 
 #pragma once
+
+#include "Seraph/Core/Base.h"
 #include "Seraph/Core/Ref.h"
 
 struct SDL_Window;
@@ -25,6 +27,8 @@ public:
 
     [[nodiscard]] int Width() const;
     [[nodiscard]] int Height() const;
+    [[nodiscard]] std::pair<u32, u32> Size() const;
+
     [[nodiscard]] SDL_Window* Handle() const;
 
     void Shutdown();

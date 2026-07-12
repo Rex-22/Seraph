@@ -9,6 +9,7 @@
 
 namespace Seraph
 {
+class SceneCamera;
 
 class Scene;
 
@@ -17,12 +18,20 @@ struct SceneRendererSettings
     glm::vec3 ClearColor{0.3f, 0.3f, 0.3f};
 };
 
+struct SceneRendererCamera
+{
+    Seraph::Camera Camera;
+    glm::mat4 ViewMatrix;
+    f32 Near, Far; //Non-reversed
+    f32 FOV;
+};
+
 class SceneRenderer: public RefCounted
 {
 public:
     SceneRenderer(Ref<Scene> scene, const SceneRendererSettings& settings);
 
-    void BeginScene(u16 view, Camera& camera);
+    void BeginScene(const SceneRendererCamera& camera);
     void EndScene();
 
     void SetScene(Ref<Scene> scene);
@@ -37,8 +46,8 @@ private:
 
     struct SceneRenderData
     {
-        Camera SceneCamera;
-    } m_SceneRenderData;
+        SceneRendererCamera SceneCamera;
+    } m_SceneRenderData {};
 
 
 };

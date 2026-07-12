@@ -21,7 +21,6 @@ public:
     void OnEvent(Seraph::Event &e) override;
     void OnImGuiRender() override;
 
-    bool OnWindowResizeEvent(Seraph::WindowResizeEvent& e);
 private:
 
     // Scene owns all entities
@@ -33,8 +32,9 @@ private:
     Seraph::Ref<Seraph::Texture2D> m_Texture;
     Seraph::Ref<Seraph::Material>  m_Material;
 
-    Seraph::EntityBrowserPanel m_EntityBrowser;
+    Seraph::EntityBrowserPanel   m_EntityBrowser;
     Seraph::EntityInspectorPanel m_EntityInspector;
+    Seraph::EditorGizmo          m_Gizmo;
 };
 
 } // namespace Sandbox

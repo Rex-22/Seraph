@@ -15,11 +15,10 @@ void ExampleScene::OnLoaded()
     auto& window = app.Window();
 
     m_CameraEntity = CreateEntity("Camera");
+    m_CameraEntity.Transform().Translation = { 0.0f, 0.0f, 10.0f };
     auto& cc = m_CameraEntity.AddComponent<Seraph::CameraComponent>();
-    cc.Camera = Seraph::Camera(
-        60.0f,
-        static_cast<float>(window.Width()) / static_cast<float>(window.Height()),
-        0.01f, 1000.0f);
+    cc.Camera.SetPerspective(60.0f, 0.01f, 1000.0f);
+    cc.ProjectionType = Seraph::CameraComponent::Type::Perspective;
     cc.IsPrimary = true;
 
     // Cube entity
@@ -47,8 +46,6 @@ bool ExampleScene::OnKeyReleasedEvent(Seraph::KeyReleasedEvent& e)
     if (e.KeyCode() == SDLK_S) m_DownPressed   = false;
     if (e.KeyCode() == SDLK_A) m_LeftPressed   = false;
     if (e.KeyCode() == SDLK_D) m_RightPressed  = false;
-    if (e.KeyCode() == SDLK_F4)
-        m_CameraEntity.GetComponent<Seraph::CameraComponent>().Camera.LookAt(glm::vec3(0, 10, 0));
 
     return false;
 }
@@ -68,27 +65,31 @@ void ExampleScene::OnUpdate(f64 dt)
     Scene::OnUpdate(dt);
 
     auto& app = Seraph::Application::Instance();
-    auto& cam = m_CameraEntity.GetComponent<Seraph::CameraComponent>().Camera;
+    auto& tc = m_CameraEntity.Transform();
 
     if (app.IsMouseCaptured()) {
         f32 delta_x, delta_y;
         SDL_GetRelativeMouseState(&delta_x, &delta_y);
-        cam.RotatePitch(-delta_y * m_RotScale);
-        cam.RotateYaw(-delta_x * m_RotScale);
+        glm::vec3 euler = tc.GetRotationEuler();
+        euler.x = glm::clamp(euler.x + (-delta_y * m_RotScale), glm::radians(-89.0f), glm::radians(89.0f));
+        euler.y += -delta_x * m_RotScale;
+        tc.SetRotationEuler(euler);
     }
 
     const f32 speed = 10;
+    glm::vec3 forward = tc.Forward();
+    glm::vec3 right   = tc.Right();
     glm::vec3 moveDir{0.0f};
 
-    if (m_UpPressed)    moveDir += cam.Forward();
-    if (m_DownPressed)  moveDir -= cam.Forward();
-    if (m_LeftPressed)  moveDir -= cam.Right();
-    if (m_RightPressed) moveDir += cam.Right();
+    if (m_UpPressed)    moveDir += forward;
+    if (m_DownPressed)  moveDir -= forward;
+    if (m_LeftPressed)  moveDir -= right;
+    if (m_RightPressed) moveDir += right;
 
     const float lengthSq = glm::dot(moveDir, moveDir);
     if (lengthSq > 0.0f) {
         moveDir *= 1.0f / bx::sqrt(lengthSq);
-        cam.SetPosition(cam.Position() + moveDir * speed * static_cast<f32>(dt));
+        tc.Translation += moveDir * speed * static_cast<f32>(dt);
     }
 
 }

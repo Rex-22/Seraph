@@ -41,6 +41,14 @@ int Window::Height() const
     return height;
 }
 
+std::pair<u32, u32> Window::Size() const
+{
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(m_Handle, &width, &height);
+    return { width, height };
+}
+
 SDL_Window* Window::Handle() const
 {
     return m_Handle;

@@ -14,7 +14,12 @@
 #include "Seraph/Graphics/SceneRenderer.h"
 #include "Seraph/Scene/Entity.h"
 
-namespace Seraph {
+namespace Seraph
+{
+
+Scene::Scene(const std::string& name) : m_Name(name)
+{
+}
 
 Entity Scene::CreateEntity(const std::string& name)
 {
@@ -23,7 +28,7 @@ Entity Scene::CreateEntity(const std::string& name)
 
 Entity Scene::CreateChildEntity(Entity parent, const std::string& name)
 {
-    auto entity = Entity{ m_Registry.create(), this };
+    auto entity = Entity{m_Registry.create(), this};
     auto& idComponent = entity.AddComponent<IDComponent>();
     idComponent.ID = {};
 
@@ -43,7 +48,7 @@ Entity Scene::CreateChildEntity(Entity parent, const std::string& name)
 
 Entity Scene::CreateEntityWithUUID(UUID uuid, const std::string& name)
 {
-    Entity entity = { m_Registry.create(), this };
+    Entity entity = {m_Registry.create(), this};
     entity.AddComponent<IDComponent>(uuid);
     entity.AddComponent<TransformComponent>();
     auto& tag = entity.AddComponent<TagComponent>();
@@ -73,7 +78,9 @@ void Scene::OnUpdate([[maybe_unused]] f64 dt)
 
 Entity Scene::GetEntityWithUUID(UUID id) const
 {
-    SP_CORE_VERIFY(m_EntityIDMap.contains(id), "Invalid entity ID or entity doesn't exist in scene!");
+    SP_CORE_VERIFY(
+        m_EntityIDMap.contains(id),
+        "Invalid entity ID or entity doesn't exist in scene!");
     return m_EntityIDMap.at(id);
 }
 
@@ -84,140 +91,125 @@ Entity Scene::TryGetEntityWithUUID(UUID id) const
     return Entity{};
 }
 
-
 void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
 {
-    Camera* activeCamera = nullptr;
-    for (auto [e, cc] : m_Registry.view<CameraComponent>().each()) {
-        if (cc.IsPrimary) {
-            activeCamera = &cc.Camera;
-            break;
-        }
-    }
-
-    if (!activeCamera) {
-        SP_CORE_WARN_TAG("Scene", "Scene::RenderScene — no primary camera");
+    Entity cameraEntity = GetMainCameraEntity();
+    if (!cameraEntity) {
+        SP_CORE_WARN_TAG("Scene", "Scene {} has no active camera", m_Name);
         return;
     }
 
-    sceneRenderer->BeginScene(0, *activeCamera);
+    glm::mat4 cameraViewMatrix =
+        glm::inverse(GetWorldSpaceTransformMatrix(cameraEntity));
+
+    SceneCamera& camera = cameraEntity.GetComponent<CameraComponent>();
+    camera.SetViewportBounds(m_ViewportLeft, m_ViewportTop, m_ViewportRight, m_ViewportBottom);
+
+    sceneRenderer->SetScene(this);
+    sceneRenderer->BeginScene({static_cast<Camera>(camera), cameraViewMatrix,
+            camera.GetPerspectiveNearClip(), camera.GetPerspectiveFarClip(),
+            camera.GetRadPerspectiveVerticalFOV()});
     sceneRenderer->Clear();
 
     for (auto [e, mc] : m_Registry.view<MeshComponent>().each()) {
         if (mc.Mesh) {
-            Entity entity{ e, this };
-            sceneRenderer->SubmitMesh(*mc.Mesh, GetWorldSpaceTransformMatrix(entity));
+            Entity entity{e, this};
+            sceneRenderer->SubmitMesh(
+                *mc.Mesh, GetWorldSpaceTransformMatrix(entity));
         }
     }
     sceneRenderer->EndScene();
 }
 
-    void Scene::ConvertToLocalSpace(Entity entity)
-	{
-		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
-
-		if (!parent)
-			return;
-
-		auto& transform = entity.Transform();
-		glm::mat4 parentTransform = GetWorldSpaceTransformMatrix(parent);
-		glm::mat4 localTransform = glm::inverse(parentTransform) * transform.GetTransform();
-		transform.SetTransform(localTransform);
-	}
-
-	void Scene::ConvertToWorldSpace(Entity entity)
-	{
-		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
-
-		if (!parent)
-			return;
-
-		glm::mat4 transform = GetWorldSpaceTransformMatrix(entity);
-		auto& entityTransform = entity.Transform();
-		entityTransform.SetTransform(transform);
-	}
-
-	glm::mat4 Scene::GetWorldSpaceTransformMatrix(Entity entity)
-	{
-		glm::mat4 transform(1.0f);
-
-		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
-		if (parent)
-			transform = GetWorldSpaceTransformMatrix(parent);
-
-		return transform * entity.Transform().GetTransform();
-	}
-
-	void Scene::SetWorldSpaceTransformMatrix(Entity entity, const glm::mat4& transform)
-	{
-		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
-		glm::mat4 parentTransform = parent ? GetWorldSpaceTransformMatrix(parent) : glm::mat4(1.0f);
-		glm::mat4 localTransform = glm::inverse(parentTransform) * transform;
-		entity.Transform().SetTransform(localTransform);
-	}
-
-	TransformComponent Scene::GetWorldSpaceTransform(Entity entity)
-	{
-		glm::mat4 transform = GetWorldSpaceTransformMatrix(entity);
-		TransformComponent transformComponent;
-		transformComponent.SetTransform(transform);
-		return transformComponent;
-	}
-
-	void Scene::SetWorldSpaceTransform(Entity entity, const TransformComponent& transform)
-	{
-		Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
-		glm::mat4 parentTransform = parent ? GetWorldSpaceTransformMatrix(parent) : glm::mat4(1.0f);
-		glm::mat4 localTransform = glm::inverse(parentTransform) * transform.GetTransform();
-		entity.Transform().SetTransform(localTransform);
-	}
-
-void Scene::OnViewportResize(u32 width, u32 height)
+void Scene::ConvertToLocalSpace(Entity entity)
 {
-    if (m_ViewportWidth == width && m_ViewportHeight == height)
+    Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+
+    if (!parent)
         return;
 
-    m_ViewportWidth = width;
-    m_ViewportHeight = height;
+    auto& transform = entity.Transform();
+    glm::mat4 parentTransform = GetWorldSpaceTransformMatrix(parent);
+    glm::mat4 localTransform =
+        glm::inverse(parentTransform) * transform.GetTransform();
+    transform.SetTransform(localTransform);
+}
 
+void Scene::ConvertToWorldSpace(Entity entity)
+{
+    Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+
+    if (!parent)
+        return;
+
+    glm::mat4 transform = GetWorldSpaceTransformMatrix(entity);
+    auto& entityTransform = entity.Transform();
+    entityTransform.SetTransform(transform);
+}
+
+glm::mat4 Scene::GetWorldSpaceTransformMatrix(Entity entity)
+{
+    glm::mat4 transform(1.0f);
+
+    Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+    if (parent)
+        transform = GetWorldSpaceTransformMatrix(parent);
+
+    return transform * entity.Transform().GetTransform();
+}
+
+void Scene::SetWorldSpaceTransformMatrix(
+    Entity entity, const glm::mat4& transform)
+{
+    Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+    glm::mat4 parentTransform =
+        parent ? GetWorldSpaceTransformMatrix(parent) : glm::mat4(1.0f);
+    glm::mat4 localTransform = glm::inverse(parentTransform) * transform;
+    entity.Transform().SetTransform(localTransform);
+}
+
+TransformComponent Scene::GetWorldSpaceTransform(Entity entity)
+{
+    glm::mat4 transform = GetWorldSpaceTransformMatrix(entity);
+    TransformComponent transformComponent;
+    transformComponent.SetTransform(transform);
+    return transformComponent;
+}
+
+void Scene::SetWorldSpaceTransform(
+    Entity entity, const TransformComponent& transform)
+{
+    Entity parent = TryGetEntityWithUUID(entity.GetParentUUID());
+    glm::mat4 parentTransform =
+        parent ? GetWorldSpaceTransformMatrix(parent) : glm::mat4(1.0f);
+    glm::mat4 localTransform =
+        glm::inverse(parentTransform) * transform.GetTransform();
+    entity.Transform().SetTransform(localTransform);
+}
+
+Entity Scene::GetMainCameraEntity()
+{
     auto view = m_Registry.view<CameraComponent>();
     for (auto entity : view) {
-        auto& cameraComponent = view.get<CameraComponent>(entity);
-        cameraComponent.Camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+        auto& comp = view.get<CameraComponent>(entity);
+        if (comp.IsPrimary) {
+            SP_CORE_ASSERT(
+                comp.Camera.GetOrthographicSize() ||
+                    comp.Camera.GetDegPerspectiveVerticalFOV(),
+                "Camera is not fully initialized");
+            return {entity, this};
+        }
     }
+    return {};
 }
 
-template<typename T>
-void Scene::OnComponentAdded([[maybe_unused]] Entity entity, [[maybe_unused]] T& component)
+void Scene::SetViewportBounds(
+    uint32_t left, uint32_t top, uint32_t right, uint32_t bottom)
 {
-    static_assert(sizeof(T) == 0);
+    m_ViewportLeft = left;
+    m_ViewportTop = top;
+    m_ViewportRight = right;
+    m_ViewportBottom = bottom;
 }
 
-template<>
-void Scene::OnComponentAdded<IDComponent>(
-    [[maybe_unused]] Entity entity, [[maybe_unused]] IDComponent& component) {}
-
-
-template<>
-void Scene::OnComponentAdded<TagComponent>(
-    [[maybe_unused]] Entity entity, [[maybe_unused]] TagComponent& component) {}
-
-template<>
-void Scene::OnComponentAdded<MeshComponent>(
-    [[maybe_unused]] Entity entity, [[maybe_unused]] MeshComponent& component) {}
-
-template<>
-void Scene::OnComponentAdded<TransformComponent>(
-    [[maybe_unused]] Entity entity, [[maybe_unused]] TransformComponent& component) {}
-
-template<>
-void Scene::OnComponentAdded<CameraComponent>(
-    [[maybe_unused]] Entity entity, [[maybe_unused]] CameraComponent& component) {
-
-    if (m_ViewportWidth > 0 && m_ViewportHeight > 0) {
-        component.Camera.SetAspectRatio(static_cast<float>(m_ViewportWidth) / static_cast<float>(m_ViewportHeight));
-    }
-
-}
-
-} // Seraph
+} // namespace Seraph

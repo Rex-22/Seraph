@@ -4,8 +4,10 @@
 #pragma once
 
 #include "MaterialProperty.h"
+#include "Seraph/Core/Base.h"
 #include "Seraph/Core/Ref.h"
-#include "bgfx/bgfx.h"
+
+#include <bgfx/bgfx.h>
 
 #include <memory>
 #include <unordered_map>
@@ -41,11 +43,17 @@ public:
 
     [[nodiscard]] MaterialProperty* GetProperty(const std::string& name) const;
 
-    void Apply(uint8_t viewId, uint64_t flags = BGFX_STATE_DEFAULT) const;
+    // Like BGFX_STATE_DEFAULT but with a reversed-Z depth test (GREATER instead
+    // of LESS), matching the [0,1] reversed-Z projection the camera produces.
+    static constexpr u64 k_ReversedZStateDefault =
+        BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
+        BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_CULL_CW | BGFX_STATE_MSAA;
+
+    void Apply(u16 viewId, u64 flags = k_ReversedZStateDefault) const;
 
     [[nodiscard]] bgfx::ProgramHandle Program() const { return m_Program; }
 
-    void SetState(const uint64_t state) { m_State = state; }
+    void SetState(const u64 state) { m_State = state; }
     [[nodiscard]] uint64_t State() const { return m_State;}
 
 private:
@@ -53,6 +61,6 @@ private:
     std::unordered_map<std::string, std::unique_ptr<MaterialProperty>>
         m_Properties;
 
-    uint64_t m_State = BGFX_STATE_DEFAULT;
+    u64 m_State = k_ReversedZStateDefault;
 };
 } // namespace Graphics

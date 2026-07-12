@@ -4,8 +4,10 @@
 
 #include "EntityInspectorPanel.h"
 
+#include "Seraph/Core/Base.h"
 #include "Seraph/Scene/Scene.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
+#include "Seraph/Graphics/SceneCamera.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
@@ -189,14 +191,41 @@ void EntityInspectorPanel::DrawCameraComponent()
     {
         ImGui::Checkbox("Primary", &cc->IsPrimary);
 
-        glm::vec3 pos = cc->Camera.Position();
-        if (DrawVec3Control("Position", pos, 0.0f, 0.1f))
-            cc->Camera.SetPosition(pos);
+        // Projection type
+        const char* projTypes[] = { "Perspective", "Orthographic" };
+        int projIndex = (cc->Camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic) ? 1 : 0;
+        if (ImGui::Combo("Projection", &projIndex, projTypes, 2))
+            cc->Camera.SetProjectionType(projIndex == 0 ? SceneCamera::ProjectionType::Perspective
+                                                        : SceneCamera::ProjectionType::Orthographic);
 
-        glm::vec3 euler = glm::degrees(cc->Camera.EulerAngles());
-        ImGui::BeginDisabled(true);
-        DrawVec3Control("Euler Angles", euler);
-        ImGui::EndDisabled();
+        if (cc->Camera.GetProjectionType() == SceneCamera::ProjectionType::Perspective)
+        {
+            float fov = cc->Camera.GetDegPerspectiveVerticalFOV();
+            if (ImGui::DragFloat("FOV", &fov, 0.5f, 1.0f, 179.0f))
+                cc->Camera.SetDegPerspectiveVerticalFOV(fov);
+
+            float nearClip = cc->Camera.GetPerspectiveNearClip();
+            if (ImGui::DragFloat("Near", &nearClip, 0.001f, 0.001f, 10.0f))
+                cc->Camera.SetPerspectiveNearClip(nearClip);
+
+            float farClip = cc->Camera.GetPerspectiveFarClip();
+            if (ImGui::DragFloat("Far", &farClip, 1.0f, 1.0f, 100000.0f))
+                cc->Camera.SetPerspectiveFarClip(farClip);
+        }
+        else
+        {
+            float size = cc->Camera.GetOrthographicSize();
+            if (ImGui::DragFloat("Size", &size, 0.1f, 0.1f, 1000.0f))
+                cc->Camera.SetOrthographicSize(size);
+
+            float nearClip = cc->Camera.GetOrthographicNearClip();
+            if (ImGui::DragFloat("Near", &nearClip, 0.01f))
+                cc->Camera.SetOrthographicNearClip(nearClip);
+
+            float farClip = cc->Camera.GetOrthographicFarClip();
+            if (ImGui::DragFloat("Far", &farClip, 0.01f))
+                cc->Camera.SetOrthographicFarClip(farClip);
+        }
 
         ImGui::TreePop();
     }

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "Seraph/Core/Base.h"
+
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
 
@@ -12,67 +14,45 @@ namespace Seraph
 class Camera
 {
 public:
-    Camera();
-    Camera(float fov, float aspectRatio, float nearPlane, float farPlane);
-    Camera(
-        const glm::vec3& position, const glm::vec3& eulerAnglesRadians,
-        float fov, float aspectRatio, float nearPlane, float farPlane);
+    Camera() = default;
+    Camera(const glm::mat4& projection, const glm::mat4& unReversedProjection);
+    Camera(const f32 degFov, const f32 width, const f32 height, const f32 nearP, const f32 farP);
+    virtual ~Camera() = default;
 
-    void SetPosition(const glm::vec3& position);
-    [[nodiscard]] const glm::vec3& Position() const;
+    const glm::mat4& GetProjectionMatrix() const { return m_ProjectionMatrix; }
+    const glm::mat4& GetUnReversedProjectionMatrix() const { return m_UnReversedProjectionMatrix; }
 
-    [[nodiscard]] glm::vec3 EulerAngles() const;
+    void SetProjectionMatrix(const glm::mat4 projection, const glm::mat4 unReversedProjection)
+    {
+        m_ProjectionMatrix = projection;
+        m_UnReversedProjectionMatrix = unReversedProjection;
+    }
 
-    void RotateYaw(float angleRadians);
-    void RotatePitch(float angleRadians);
-    void RotateRoll(float angleRadians);
+    void SetPerspectiveProjectionMatrix(const f32 radFov, const f32 width, const f32 height, const f32 nearP, const f32 farP)
+    {
+        m_ProjectionMatrix = glm::perspectiveFov(radFov, width, height, farP, nearP);
+        m_UnReversedProjectionMatrix = glm::perspectiveFov(radFov, width, height, nearP, farP);
+    }
 
-    void LookAt(const glm::vec3& target);
+    void SetOrthoProjectionMatrix(const f32 width, const f32 height, const f32 nearP, const f32 farP)
+    {
+        m_ProjectionMatrix = glm::ortho(-width * 0.5f, width * 0.5f, -height * 0.5f, height * 0.5f, farP, nearP);
+        m_UnReversedProjectionMatrix = glm::ortho(-width * 0.5f, width * 0.5f, -height * 0.5f, height * 0.5f, nearP, farP);
+    }
 
-    void SetPitchLimits(float minPitchRadians, float maxPitchRadians);
-    [[nodiscard]] float MinPitchRadians() const;
-    [[nodiscard]] float MaxPitchRadians() const;
+    f32 GetExposure() const { return m_Exposure; }
+    f32& GetExposure() { return m_Exposure; }
 
-    void SetAspectRatio(float aspectRatio);
+    void SetViewId(const u16 view) { m_View = view; }
+    u16 GetViewId() const { return m_View; }
 
-    glm::mat4 ViewMatrix();
-    [[nodiscard]] glm::mat4 ProjectionMatrix() const;
-
-    [[nodiscard]] glm::vec3 Forward() const;
-    [[nodiscard]] glm::vec3 Right() const;
-    [[nodiscard]] glm::vec3 Up() const;
-
+protected:
+    f32 m_Exposure = 0.8f;
+    u16 m_View = 0;
 private:
-    void UpdateViewMatrix();
-    void UpdateComponentQuaternions();
-
-private:
-    // Removed: Core::Transform m_Transform;
-    glm::vec3 m_Position;
-
-    // Orientation represented by individual angles and derived quaternions
-    float m_PitchAngle; // Radians
-    float m_YawAngle; // Radians
-    float m_RollAngle; // Radians
-
-    glm::quat m_PitchQuat{};
-    glm::quat m_YawQuat{};
-    glm::quat m_RollQuat{};
-
-    float m_FOV; // Degrees
-    float m_AspectRatio;
-    float m_NearPlane;
-    float m_FarPlane;
-
-    float m_MinPitch =
-        glm::radians(-89.0f); // Radians, slightly less than 90 to avoid gimbal
-                              // lock issues with lookAt logic
-    float m_MaxPitch = glm::radians(89.0f); // Radians
-
-    glm::mat4 m_ProjectionMatrix{};
-    glm::mat4 m_ViewMatrix{};
-
-    bool m_ViewDirty = true;
+    glm::mat4 m_ProjectionMatrix = glm::mat4(1.0f);
+    //Currently only needed for shadow maps and ImGuizmo
+    glm::mat4 m_UnReversedProjectionMatrix = glm::mat4(1.0f);
 };
 
 } // namespace Graphics

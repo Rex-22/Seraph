@@ -14,13 +14,16 @@
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Core.h"
+#include "Seraph/Core/GlmCustomFormatters.h"
 #include "Seraph/Core/Layer.h"
 #include "Seraph/Core/Log.h"
-#include "Seraph/Core/Math.h"
+#include "Seraph/Core/LogCustomFormatters.h"
 
 // --- Graphics --------------------------------------------------------------
 #include "Seraph/Graphics/Camera.h"
+#include "Seraph/Graphics/SceneCamera.h"
 #include "Seraph/Graphics/Mesh.h"
+#include "Seraph/Graphics/MeshFactory.h"
 #include "Seraph/Graphics/Renderer.h"
 #include "Seraph/Graphics/SceneRenderer.h"
 #include "Seraph/Graphics/ShaderManager.h"
@@ -54,7 +57,7 @@
 // --- Editor ----------------------------------------------------------------
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
 #include "Seraph/Editor/Panels/EntityInspectorPanel.h"
-#include "Seraph/Graphics/MeshFactory.h"
+#include "Seraph/Editor/Panels/EditorGizmo.h"
 
 // --- Platform --------------------------------------------------------------
 #include "Platform/Window.h"

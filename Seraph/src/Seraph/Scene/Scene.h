@@ -23,6 +23,8 @@ using EntityMap = std::unordered_map<UUID, Entity>;
 class Scene: public RefCounted
 {
 public:
+    Scene(const std::string& name);
+
     Entity CreateEntity(const std::string& name = std::string());
 	Entity CreateChildEntity(Entity parent, const std::string& name);
     Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
@@ -40,7 +42,9 @@ public:
     virtual void OnDestroy() {}
     virtual void OnEvent([[maybe_unused]] Event& e) {}
 
-    void OnViewportResize(u32 width, u32 height);
+    void SetViewportBounds(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom);
+
+    Entity GetMainCameraEntity();
 
     template<typename... Components>
     auto GetAllEntitiesWith()
@@ -57,18 +61,20 @@ public:
 
     UUID GetUUID() const { return m_SceneID; }
 
-private:
-    template<typename T>
-    void OnComponentAdded(Entity entity, T& component);
+    const std::string& GetName() const { return m_Name; }
+    void SetName(const std::string& name) { m_Name = name; }
 private:
 	UUID m_SceneID;
+	std::string m_Name;
 
     entt::registry m_Registry;
     std::queue<entt::entity> m_DestroyQueue;
     EntityMap m_EntityIDMap;
 
-    u32 m_ViewportWidth  = 0;
-    u32 m_ViewportHeight = 0;
+    u32 m_ViewportLeft  = 0;
+    u32 m_ViewportTop = 0;
+    u32 m_ViewportRight = 0;
+    u32 m_ViewportBottom = 0;
 
     friend class Entity;
 };

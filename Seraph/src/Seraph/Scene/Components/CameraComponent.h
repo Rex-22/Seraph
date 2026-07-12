@@ -4,15 +4,20 @@
 
 #pragma once
 
-#include "Seraph/Graphics/Camera.h"
+#include "Seraph/Graphics/SceneCamera.h"
 
 namespace Seraph
 {
 
 struct CameraComponent
 {
-    Seraph::Camera Camera;
+    enum class Type { None = -1, Perspective, Orthographic };
+    Type ProjectionType;
+    Seraph::SceneCamera Camera;
     bool IsPrimary = true;
+
+    operator SceneCamera& () { return Camera; }
+    operator const SceneCamera& () const { return Camera; }
 };
 
 }

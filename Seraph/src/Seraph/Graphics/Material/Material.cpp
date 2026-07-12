@@ -42,7 +42,7 @@ MaterialProperty* Material::GetProperty(const std::string& name) const
     return nullptr;
 }
 
-void Material::Apply(uint8_t viewId, uint64_t flags) const
+void Material::Apply(u16 viewId, uint64_t flags) const
 {
     bgfx::setState(m_State);
 
