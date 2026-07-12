@@ -68,7 +68,7 @@ void EditorLayer::OnUpdate(f64 dt)
     {
         auto [w, h] = Application::Instance().Window().Size();
         bgfx::setViewFrameBuffer(k_SceneViewId, BGFX_INVALID_HANDLE);
-        bgfx::setViewRect(k_SceneViewId, 0, 0, (u16)w, (u16)h);
+        bgfx::setViewRect(k_SceneViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
         m_Scene->SetViewportBounds(0, 0, w, h);
 
         m_Scene->OnRenderRuntime(m_SceneRenderer);
@@ -79,7 +79,7 @@ void EditorLayer::OnUpdate(f64 dt)
             bgfx::setViewFrameBuffer(k_SceneViewId, m_RenderTarget.fb);
 
         bgfx::setViewRect(k_SceneViewId, 0, 0,
-            (u16)m_RenderTarget.width, (u16)m_RenderTarget.height);
+            static_cast<u16>(m_RenderTarget.width), static_cast<u16>(m_RenderTarget.height));
 
         m_EditorCamera.SetViewportHovered(m_ViewportPanel.IsHovered());
         m_EditorCamera.OnUpdate(dt);
@@ -147,10 +147,7 @@ void EditorLayer::OnImGuiRender()
         m_Gizmo.SetSelectedEntity(selected);
         m_Gizmo.SetCamera(m_EditorCamera.GetViewMatrix(),
                           m_EditorCamera.GetUnReversedProjectionMatrix());
-    }
 
-    if (!m_RuntimeMode)
-    {
         if (m_ViewportPanel.Begin(m_RenderTarget))
         {
             m_Gizmo.SetViewportRect(m_ViewportPanel.GetContentPos(),
