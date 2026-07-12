@@ -15,6 +15,8 @@
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Core/GlmCustomFormatters.h"
+#include "Seraph/Core/Input.h"
+#include "Seraph/Core/KeyCodes.h"
 #include "Seraph/Core/Layer.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Core/LogCustomFormatters.h"
@@ -39,10 +41,10 @@
 #include "Seraph/Graphics/Material/Vector4Property.h"
 
 // --- Events ----------------------------------------------------------------
+#include "Seraph/Events/Events.h"
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Events/MouseEvent.h"
 #include "Seraph/Events/WindowEvent.h"
-#include "Seraph/Events/Seraph.h"
 
 // --- Scene -----------------------------------------------------------------
 #include "Seraph/Scene/Scene.h"
@@ -55,9 +57,14 @@
 #include "Seraph/Scene/Components/TransformComponent.h"
 
 // --- Editor ----------------------------------------------------------------
+#include "Seraph/Editor/EditorCamera.h"
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
 #include "Seraph/Editor/Panels/EntityInspectorPanel.h"
 #include "Seraph/Editor/Panels/EditorGizmo.h"
+#include "Seraph/Editor/Panels/ViewportPanel.h"
+
+// --- Graphics (render target) ----------------------------------------------
+#include "Seraph/Graphics/RenderTarget.h"
 
 // --- Platform --------------------------------------------------------------
 #include "Platform/Window.h"

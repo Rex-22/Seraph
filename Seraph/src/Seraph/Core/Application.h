@@ -6,7 +6,7 @@
 
 #include "LayerStack.h"
 #include "Ref.h"
-#include "Seraph/Events/Seraph.h"
+#include "Seraph/Events/Events.h"
 #include "Seraph/Events/WindowEvent.h"
 
 #include <mutex>
