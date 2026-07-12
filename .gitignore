@@ -9,3 +9,5 @@ cmake-build-*
 .idea/
 
 *.log
+
+*.pack
