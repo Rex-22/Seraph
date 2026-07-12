@@ -63,7 +63,7 @@ void ExampleScene::OnLoaded()
 {
     Scene::OnLoaded();
 
-    // ── Resources ────────────────────────────────────────────────────────────
+    // Resources
     u32 texel = 0xffff00ff;
     m_Texture  = Seraph::Texture2D::Create("DemoTex", &texel, 1, 1);
 
@@ -79,7 +79,7 @@ void ExampleScene::OnLoaded()
     m_Mesh->SetVertexData(s_CubeVerts,   sizeof(s_CubeVerts));
     m_Mesh->SetIndexData (s_CubeIndices, sizeof(s_CubeIndices));
 
-    // ── Entities ─────────────────────────────────────────────────────────────
+    // Entities
     m_CameraEntity = CreateEntity("Camera");
     m_CameraEntity.Transform().Translation = { 0.0f, 0.0f, 10.0f };
     auto& cc = m_CameraEntity.AddComponent<Seraph::CameraComponent>();
@@ -95,10 +95,7 @@ void ExampleScene::OnUpdate(f64 dt)
 {
     Scene::OnUpdate(dt);
 
-    auto [mx, my] = Seraph::Input::GetMousePosition();
-    const glm::vec2 mouse{ mx, my };
-    const glm::vec2 delta = (mouse - m_LastMousePos) * 0.002f;
-    m_LastMousePos = mouse;
+    auto [dx, dy]= Seraph::Input::GetMouseDelta();
 
     const bool captured = Seraph::Input::GetCursorMode() == Seraph::CursorMode::Captured;
 
@@ -113,8 +110,8 @@ void ExampleScene::OnUpdate(f64 dt)
     {
         auto& t = m_CameraEntity.Transform();
 
-        m_CameraYaw   -= delta.x * 0.3f;
-        m_CameraPitch -= delta.y * 0.3f;
+        m_CameraYaw   -= dx * 0.01f;
+        m_CameraPitch -= dy * 0.01f;
         m_CameraPitch  = glm::clamp(m_CameraPitch,
             -glm::half_pi<float>() + 0.01f,
              glm::half_pi<float>() - 0.01f);

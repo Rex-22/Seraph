@@ -4,17 +4,18 @@
 
 #pragma once
 #include "Base.h"
+#include "Ref.h"
 
 namespace Seraph
 {
 
 class Event;
 
-class Layer
+class Layer: public RefCounted
 {
 public:
-    Layer(std::string name = "Layer");
-    virtual ~Layer() = default;
+    explicit Layer(std::string name = "Layer");
+    ~Layer() override = default;
 
     virtual void OnAttach() {}
     virtual void OnDetach() {}

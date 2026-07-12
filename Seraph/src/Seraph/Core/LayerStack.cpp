@@ -13,18 +13,18 @@ LayerStack::~LayerStack()
     Shutdown();
 }
 
-void LayerStack::PushLayer(Layer* layer)
+void LayerStack::PushLayer(const Ref<Layer>& layer)
 {
     m_Layers.emplace(m_Layers.begin() + m_LayerInsertIndex, layer);
     m_LayerInsertIndex++;
 }
 
-void LayerStack::PushOverlay(Layer* overlay)
+void LayerStack::PushOverlay(const Ref<Layer>& overlay)
 {
     m_Layers.emplace_back(overlay);
 }
 
-void LayerStack::PopLayer(Layer* layer)
+void LayerStack::PopLayer(Ref<Layer> layer)
 {
     auto it = std::find(m_Layers.begin(), m_Layers.begin() + m_LayerInsertIndex, layer);
     if (it != m_Layers.begin() + m_LayerInsertIndex) {
@@ -34,7 +34,7 @@ void LayerStack::PopLayer(Layer* layer)
     }
 }
 
-void LayerStack::PopOverlay(Layer* overlay)
+void LayerStack::PopOverlay(Ref<Layer> overlay)
 {
     auto it = std::find(m_Layers.begin() + m_LayerInsertIndex, m_Layers.end(), overlay);
     if (it != m_Layers.end()) {
@@ -44,9 +44,8 @@ void LayerStack::PopOverlay(Layer* overlay)
 }
 void LayerStack::Shutdown()
 {
-    for (Layer* layer: m_Layers) {
+    for (Ref<Layer> layer: m_Layers) {
         layer->OnDetach();
-        delete layer;
     }
     m_Layers.clear();
     m_LayerInsertIndex = 0;

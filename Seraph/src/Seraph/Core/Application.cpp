@@ -84,13 +84,13 @@ void Application::Run()
     }
 }
 
-void Application::PushLayer(Layer* layer)
+void Application::PushLayer(Ref<Layer> layer)
 {
     m_LayerStack.PushLayer(layer);
     layer->OnAttach();
 }
 
-void Application::PushOverlay(Layer* overlay)
+void Application::PushOverlay(Ref<Layer> overlay)
 {
     m_LayerStack.PushOverlay(overlay);
     overlay->OnAttach();
@@ -102,7 +102,7 @@ void Application::OnEvent(Event& e)
     dispatcher.Dispatch<WindowCloseEvent>(SP_BIND_EVENT_FN(Application::OnWindowClose));
     dispatcher.Dispatch<WindowResizeEvent>(SP_BIND_EVENT_FN(Application::OnWindowResize));
 
-    for (const auto & it : std::views::reverse(m_LayerStack))
+    for (auto & it : std::views::reverse(m_LayerStack))
     {
         if (e.Handled)
             break;
@@ -127,12 +127,12 @@ void Application::Loop()
     ProcessEvents();
 
     if (!m_Minimized) {
-        for (Layer* layer : m_LayerStack) {
+        for (Ref layer : m_LayerStack) {
             layer->OnUpdate(deltaTime);
         }
 
         m_ImGuiLayer->Begin();
-        for (Layer* layer : m_LayerStack) {
+        for (Ref layer : m_LayerStack) {
             layer->OnImGuiRender();
         }
         m_ImGuiLayer->End();

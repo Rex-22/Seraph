@@ -26,7 +26,7 @@ public:
         Seraph::SceneRendererSettings settings{ glm::vec3(0.6f, 0.5f, 0.4f) };
         auto renderer = Seraph::Ref<Seraph::SceneRenderer>::Create(scene, settings);
 
-        auto* editor = new Seraph::EditorLayer(scene, renderer);
+        auto editor = Seraph::Ref<Seraph::EditorLayer>::Create(scene, renderer);
         editor->SetDefaultMaterial(scene->GetMaterial());
         PushLayer(editor);
     }
