@@ -38,6 +38,7 @@ target_include_directories(${PROJECT} SYSTEM PUBLIC
         ${GLM_INCLUDE_DIR}
         ${JSON_INCLUDE_DIR}
         ${ENTT_INCLUDE_DIR}
+        ${IMGUIZMO_INCLUDE_DIR}
 )
 
 # PUBLIC so the static library's dependencies propagate to consumers at link time.
@@ -49,4 +50,5 @@ target_link_libraries(${PROJECT} PUBLIC
         ${GLM_LIBRARIES}
         ${JSON_LIBRARIES}
         ${ENTT_LIBRARIES}
+        ${IMGUIZMO_LIBRARIES}
 )

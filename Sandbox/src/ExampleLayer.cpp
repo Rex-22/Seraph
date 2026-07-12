@@ -139,8 +139,13 @@ void ExampleLayer::OnEvent(Seraph::Event& e)
 void ExampleLayer::OnImGuiRender()
 {
     m_EntityBrowser.OnImGuiRender();
-    m_EntityInspector.SetSelectedEntity(m_EntityBrowser.GetSelectedEntity());
+
+    Seraph::Entity selected = m_EntityBrowser.GetSelectedEntity();
+    m_EntityInspector.SetSelectedEntity(selected);
     m_EntityInspector.OnImGuiRender();
+
+    m_Gizmo.SetSelectedEntity(selected);
+    m_Gizmo.OnImGuiRender();
 }
 
 } // namespace Sandbox
