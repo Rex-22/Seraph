@@ -18,6 +18,7 @@ void ExampleScene::OnLoaded()
     m_CameraEntity.Transform().Translation = { 0.0f, 0.0f, 10.0f };
     auto& cc = m_CameraEntity.AddComponent<Seraph::CameraComponent>();
     cc.Camera.SetPerspective(60.0f, 0.01f, 1000.0f);
+    cc.Camera.SetViewId(1); // Route scene geometry to the offscreen framebuffer (view 1).
     cc.ProjectionType = Seraph::CameraComponent::Type::Perspective;
     cc.IsPrimary = true;
 
@@ -54,7 +55,9 @@ bool ExampleScene::OnMouseButtonReleasedEvent(Seraph::MouseButtonReleasedEvent& 
 {
     auto& app = Seraph::Application::Instance();
 
-    if (e.MouseButton() == SDL_BUTTON_LEFT && !ImGui::GetIO().WantCaptureMouse && !app.IsMouseCaptured())
+    // ExampleLayer gates this event to only fire when the viewport is hovered,
+    // so no ImGui WantCaptureMouse check is needed here.
+    if (e.MouseButton() == SDL_BUTTON_LEFT && !app.IsMouseCaptured())
         app.SetMouseCaptured(true);
 
     return false;

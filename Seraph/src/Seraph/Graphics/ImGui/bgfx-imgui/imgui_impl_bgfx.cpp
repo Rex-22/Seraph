@@ -29,24 +29,6 @@ static bgfx::ProgramHandle g_ShaderHandle = BGFX_INVALID_HANDLE;
 static bgfx::UniformHandle g_AttribLocationTex = BGFX_INVALID_HANDLE;
 static bgfx::VertexLayout g_VertexLayout;
 
-inline ImTextureID toId(
-    bgfx::TextureHandle _handle, uint8_t _flags, uint8_t _mip)
-{
-    union {
-        struct
-        {
-            bgfx::TextureHandle handle;
-            uint8_t flags;
-            uint8_t mip;
-        } s;
-        ImTextureID id;
-    } tex;
-    tex.s.handle = _handle;
-    tex.s.flags = _flags;
-    tex.s.mip = _mip;
-    return tex.id;
-}
-
 // This is the main rendering function that you have to implement and call after
 // ImGui::Render(). Pass ImGui::GetDrawData() to this function.
 // Note: If text or lines are blurry when integrating ImGui into your engine,

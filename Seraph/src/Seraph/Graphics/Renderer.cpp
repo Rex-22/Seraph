@@ -185,9 +185,13 @@ void Renderer::Init()
     bgfx_init.callback = &s_BgfxCallback; // route bgfx logging to our logger
     bgfx::init(bgfx_init);
 
-    bgfx::setViewClear(
-        0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x6495EDFF, 0.0f, 0);
-    bgfx::setViewRect(0, 0, 0, window.Width(), window.Height());
+    s_RenderData.windowWidth  = (u32)window.Width();
+    s_RenderData.windowHeight = (u32)window.Height();
+
+    // View 0 is reserved for the backbuffer clear. No scene geometry goes here;
+    // scene geometry uses view 1 (offscreen framebuffer via RenderTarget).
+    bgfx::setViewClear(0, BGFX_CLEAR_COLOR, 0x1A1C23FF, 0.0f, 0);
+    bgfx::setViewRect(0, 0, 0, (u16)s_RenderData.windowWidth, (u16)s_RenderData.windowHeight);
 
     SP_CORE_INFO_TAG("Renderer", "Backend: {}", bgfx::getRendererName(bgfx::getRendererType()));
 }
@@ -225,13 +229,16 @@ void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)
 
 void Renderer::SetBackBufferSize(u32 width, u32 height)
 {
-    s_RenderData.windowWidth = width;
+    s_RenderData.windowWidth  = width;
     s_RenderData.windowHeight = height;
     bgfx::reset(width, height, s_RenderData.resetFlags);
+    bgfx::setViewRect(0, 0, 0, (u16)width, (u16)height);
 }
 
 void Renderer::FlushFrame()
 {
+    // Ensure view 0 (backbuffer clear) fires even with no draw calls.
+    bgfx::touch(0);
     bgfx::frame(false);
 }
 

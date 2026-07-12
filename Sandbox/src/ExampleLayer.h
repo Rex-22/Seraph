@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <Seraph.h>
+#include <Events.h>
 
 namespace Sandbox
 {
@@ -35,6 +35,11 @@ private:
     Seraph::EntityBrowserPanel   m_EntityBrowser;
     Seraph::EntityInspectorPanel m_EntityInspector;
     Seraph::EditorGizmo          m_Gizmo;
+    Seraph::ViewportPanel        m_ViewportPanel;
+    Seraph::RenderTarget         m_RenderTarget;
+    Seraph::EditorCamera         m_EditorCamera;
+
+    bool m_RuntimeMode = false;
 };
 
 } // namespace Sandbox

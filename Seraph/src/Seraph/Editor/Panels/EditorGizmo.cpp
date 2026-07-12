@@ -46,15 +46,21 @@ void EditorGizmo::OnImGuiRender()
         return;
 
     glm::mat4 view, proj;
-    if (!FindPrimaryCamera(view, proj))
+    if (m_HasCamera) {
+        view = m_View;
+        proj = m_Proj;
+    } else if (!FindPrimaryCamera(view, proj)) {
         return;
-
-    ImGuiIO& io = ImGui::GetIO();
+    }
 
     ImGuizmo::SetImGuiContext(ImGui::GetCurrentContext());
     ImGuizmo::SetOrthographic(false);
-    ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
-    ImGuizmo::SetRect(0.0f, 0.0f, io.DisplaySize.x, io.DisplaySize.y);
+    // Use the viewport window's drawlist so ImGuizmo::IsHoveringWindow() resolves
+    // to the "Viewport" window and mouse hit-testing works correctly.
+    ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
+    ImGuizmo::SetRect(
+        m_ViewportPos.x,  m_ViewportPos.y,
+        m_ViewportSize.x, m_ViewportSize.y);
 
     if (m_SelectedEntity && m_Operation != Operation::None)
     {
@@ -86,10 +92,12 @@ void EditorGizmo::DrawToolbar()
         ImGuiWindowFlags_NoScrollWithMouse |
         ImGuiWindowFlags_AlwaysAutoResize  |
         ImGuiWindowFlags_NoSavedSettings   |
-        ImGuiWindowFlags_NoBringToFrontOnFocus;
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoDocking;
 
     ImGui::SetNextWindowBgAlpha(0.75f);
-    ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(
+        ImVec2(m_ViewportPos.x + 8.0f, m_ViewportPos.y + 8.0f), ImGuiCond_Always);
     ImGui::Begin("##gizmo_toolbar", nullptr, k_ToolbarFlags);
 
     auto opButton = [&](const char* label, Operation op)

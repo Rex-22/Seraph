@@ -5,11 +5,11 @@
 #pragma once
 
 #include "Components/TransformComponent.h"
+#include "Entity.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Core/UUID.h"
-#include "Seraph/Events/Seraph.h"
-#include "Entity.h"
+#include "Seraph/Events/Events.h"
 
 #include <entt/entt.hpp>
 #include <queue>
@@ -17,6 +17,7 @@
 namespace Seraph
 {
 class SceneRenderer;
+class EditorCamera;
 
 using EntityMap = std::unordered_map<UUID, Entity>;
 
@@ -38,7 +39,11 @@ public:
 
     virtual void OnLoaded() {}
     virtual void OnUpdate([[maybe_unused]] f64 dt);
+    // Render using the primary CameraComponent entity (runtime/play mode).
     virtual void OnRenderRuntime(Ref<SceneRenderer> sceneRenderer);
+    // Render using an external editor camera (editor mode). Caller is
+    // responsible for setting the correct bgfx view and framebuffer.
+    virtual void OnRenderEditor(Ref<SceneRenderer> sceneRenderer, const EditorCamera& editorCamera);
     virtual void OnDestroy() {}
     virtual void OnEvent([[maybe_unused]] Event& e) {}
 

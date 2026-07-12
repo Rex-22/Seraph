@@ -10,6 +10,7 @@
 #include "Components/TagComponent.h"
 #include "Components/TransformComponent.h"
 #include "Seraph/Core/Assert.h"
+#include "Seraph/Editor/EditorCamera.h"
 #include "Seraph/Graphics/Renderer.h"
 #include "Seraph/Graphics/SceneRenderer.h"
 #include "Seraph/Scene/Entity.h"
@@ -116,6 +117,27 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
             Entity entity{e, this};
             sceneRenderer->SubmitMesh(
                 *mc.Mesh, GetWorldSpaceTransformMatrix(entity));
+        }
+    }
+    sceneRenderer->EndScene();
+}
+
+void Scene::OnRenderEditor(Ref<SceneRenderer> sceneRenderer, const EditorCamera& editorCamera)
+{
+    sceneRenderer->SetScene(this);
+    sceneRenderer->BeginScene({
+        static_cast<const Camera&>(editorCamera),
+        editorCamera.GetViewMatrix(),
+        editorCamera.GetNearClip(),
+        editorCamera.GetFarClip(),
+        editorCamera.GetVerticalFOV()
+    });
+    sceneRenderer->Clear();
+
+    for (auto [e, mc] : m_Registry.view<MeshComponent>().each()) {
+        if (mc.Mesh) {
+            Entity entity{e, this};
+            sceneRenderer->SubmitMesh(*mc.Mesh, GetWorldSpaceTransformMatrix(entity));
         }
     }
     sceneRenderer->EndScene();

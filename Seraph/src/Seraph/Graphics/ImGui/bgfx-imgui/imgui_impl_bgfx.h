@@ -10,6 +10,30 @@
 // examples/README.txt and documentation at the top of imgui.cpp.
 // https://github.com/ocornut/imgui
 
+#include <bgfx/bgfx.h>
+#include <cstdint>
+#include <imgui.h>
+
+// Pack a bgfx texture handle (+ optional sampler flags and mip) into an
+// ImTextureID. The render loop only reads the lower 16 bits (handle index),
+// so flags/mip are stored but not currently applied during draw — the texture's
+// own creation-time sampler flags are used instead.
+inline ImTextureID toId(bgfx::TextureHandle handle, uint8_t flags, uint8_t mip)
+{
+    union {
+        struct {
+            bgfx::TextureHandle handle;
+            uint8_t flags;
+            uint8_t mip;
+        } s;
+        ImTextureID id;
+    } tex;
+    tex.s.handle = handle;
+    tex.s.flags  = flags;
+    tex.s.mip    = mip;
+    return tex.id;
+}
+
 void ImGui_Implbgfx_Init(int view);
 void ImGui_Implbgfx_Shutdown();
 void ImGui_Implbgfx_NewFrame();
