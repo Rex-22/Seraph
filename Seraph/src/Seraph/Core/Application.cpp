@@ -12,13 +12,16 @@
 #include "Platform/Window.h"
 #include "Seraph/Asset/AssetImporter.h"
 #include "Seraph/Asset/AssetManager.h"
+#include "Seraph/Asset/AssetManagerBase.h"
 #include "Seraph/Asset/EditorAssetManager.h"
+#include "Seraph/Asset/Pack/RuntimeAssetManager.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Events/MouseEvent.h"
 #include "Seraph/Events/WindowEvent.h"
 #include "Seraph/Graphics/Renderer.h"
 
+#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
 #include <bx/timer.h>
@@ -32,7 +35,8 @@ namespace Seraph
 std::mutex Application::s_Mutex;
 Application* Application::s_Instance{nullptr};
 
-Application::Application()
+Application::Application(const ApplicationSpecification& specification)
+    : m_Specification(specification)
 {
     InitCore();
 
@@ -41,18 +45,38 @@ Application::Application()
         exit(1);
     }
 
-    m_Window = Ref<Seraph::Window>::Create(WindowProperties { 1280, 720, "Seraph", false });
+    m_Window = Ref<Seraph::Window>::Create(m_Specification.Window);
     s_Instance = this;
 
     Renderer::Init();
 
     // Asset system: register serializers (needs the renderer up), then install
-    // the editor asset manager (loose files + registry) as the active manager.
+    // the manager the specification asks for — loose files (editor) or a pack
+    // (runtime). Every AssetManager::GetAsset call site is identical either way.
     AssetImporter::Init();
-    AssetManager::Init(Ref<EditorAssetManager>::Create());
+    AssetManager::Init(CreateAssetManager());
 
     m_ImGuiLayer = ImGuiLayer::Create();
     PushOverlay(m_ImGuiLayer);
+}
+
+Ref<AssetManagerBase> Application::CreateAssetManager() const
+{
+    if (m_Specification.Assets == ApplicationSpecification::AssetMode::Runtime) {
+        // A shipped game has no source tree — resolve the pack next to the
+        // executable unless an absolute path was given.
+        std::filesystem::path packPath = m_Specification.AssetPack;
+        if (!packPath.is_absolute()) {
+            if (const char* base = SDL_GetBasePath()) // owned by SDL; do not free
+                packPath = std::filesystem::path(base) / packPath;
+        }
+        SP_CORE_INFO_TAG(
+            "Application", "Runtime asset mode — pack '{}'", packPath.string());
+        return Ref<RuntimeAssetManager>::Create(packPath);
+    }
+
+    SP_CORE_INFO_TAG("Application", "Editor asset mode — loose files");
+    return Ref<EditorAssetManager>::Create();
 }
 
 Application::~Application()

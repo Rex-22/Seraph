@@ -19,6 +19,14 @@ class SandboxApp : public Seraph::Application
 {
 public:
     SandboxApp()
+        : Seraph::Application(Seraph::ApplicationSpecification{
+              .Name = "Sandbox",
+              .Window = { 1280, 720, "Seraph Sandbox", false },
+              // Editor mode: loose files under ASSET_PATH. To run against a
+              // built pack instead, set:
+              //   .Assets = Seraph::ApplicationSpecification::AssetMode::Runtime,
+              //   .AssetPack = "assets.pack",
+          })
     {
         auto scene = Seraph::Ref<ExampleScene>::Create();
         scene->OnLoaded();
