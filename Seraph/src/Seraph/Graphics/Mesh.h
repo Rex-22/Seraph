@@ -30,7 +30,7 @@ concept HasVertexLayout = requires
 class Mesh: public RefCounted
 {
 public:
-    explicit Mesh(const Material& material);
+    explicit Mesh(const Ref<Material>& material);
     ~Mesh() override;
 
 public:
@@ -55,7 +55,7 @@ public:
 
 private:
     const bgfx::VertexLayout* m_Layout = nullptr;
-    const Material* m_Material = nullptr;
+    Ref<Material> m_Material;
 
     bgfx::VertexBufferHandle m_VertexBuffer { bgfx::kInvalidHandle };
     bgfx::IndexBufferHandle m_IndexBuffer { bgfx::kInvalidHandle };

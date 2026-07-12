@@ -288,10 +288,10 @@ void EntityInspectorPanel::DrawAddComponentMenu()
                 };
 
                 if (ImGui::MenuItem("Cube"))
-                    addMesh(MeshFactory::CreateCube(*m_DefaultMaterial));
+                    addMesh(MeshFactory::CreateCube(m_DefaultMaterial));
 
                 if (ImGui::MenuItem("Plane"))
-                    addMesh(MeshFactory::CreatePlane(*m_DefaultMaterial));
+                    addMesh(MeshFactory::CreatePlane(m_DefaultMaterial));
 
                 ImGui::EndMenu();
             }

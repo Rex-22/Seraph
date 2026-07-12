@@ -1,14 +1,16 @@
 //
 // Sandbox client application entry point.
 //
+// Minimal integration pattern:
+//   1. Create your scene and call OnLoaded().
+//   2. Create a SceneRenderer with your desired render settings.
+//   3. Push EditorLayer (or your own layer) and run.
+//
 
-#include <Events.h>
-
-// EntryPoint.h defines main() and must be included in exactly ONE translation
-// unit — this one. It calls CreateApplication(), implemented below.
+#include <Seraph.h>
 #include <Seraph/Core/EntryPoint.h>
 
-#include "ExampleLayer.h"
+#include "ExampleScene.h"
 
 namespace Sandbox
 {
@@ -16,7 +18,19 @@ namespace Sandbox
 class SandboxApp : public Seraph::Application
 {
 public:
-    SandboxApp() { PushLayer(new ExampleLayer()); }
+    SandboxApp()
+    {
+        auto scene = Seraph::Ref<ExampleScene>::Create();
+        scene->OnLoaded();
+
+        Seraph::SceneRendererSettings settings{ glm::vec3(0.6f, 0.5f, 0.4f) };
+        auto renderer = Seraph::Ref<Seraph::SceneRenderer>::Create(scene, settings);
+
+        auto* editor = new Seraph::EditorLayer(scene, renderer);
+        editor->SetDefaultMaterial(scene->GetMaterial());
+        PushLayer(editor);
+    }
+
     ~SandboxApp() override = default;
 };
 

@@ -34,8 +34,6 @@ public:
     void PushLayer(Layer* layer);
     void PushOverlay(Layer* overlay);
 
-    [[nodiscard]] bool IsMouseCaptured() const { return m_MouseCaptured; }
-    void SetMouseCaptured(bool captured);
 
     void OnEvent(Event& e);
 
@@ -57,8 +55,6 @@ private:
     Ref<Seraph::Window> m_Window;
     int64_t m_LastFrameTime = 0;
 
-    bool m_MouseCaptured = false;
-    bool m_ShouldCaptureMouse = false;
 
     bool m_Minimized = false;
 };

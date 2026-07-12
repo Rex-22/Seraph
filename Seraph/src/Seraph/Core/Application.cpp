@@ -144,21 +144,6 @@ void Application::Loop()
     Input::ClearReleasedKeys();
 }
 
-void Application::SetMouseCaptured(bool captured)
-{
-    if (captured == m_MouseCaptured)
-        return;
-
-    m_MouseCaptured = captured;
-
-    if (captured) {
-        SDL_SetWindowRelativeMouseMode(m_Window->Handle(), true);
-        float dummy_x, dummy_y;
-        SDL_GetRelativeMouseState(&dummy_x, &dummy_y);
-    } else {
-        SDL_SetWindowRelativeMouseMode(m_Window->Handle(), false);
-    }
-}
 
 void Application::ProcessEvents()
 {

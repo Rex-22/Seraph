@@ -60,7 +60,7 @@ static const uint16_t s_CubeIndices[] =
     22, 21, 20,  22, 23, 21,  // -Y
 };
 
-Ref<Mesh> MeshFactory::CreateCube(const Material& material)
+Ref<Mesh> MeshFactory::CreateCube(const Ref<Material>& material)
 {
     auto mesh = Ref<Mesh>::Create(material);
     mesh->SetName("Cube");
@@ -87,7 +87,7 @@ static const uint16_t s_PlaneIndices[] =
     2, 3, 1,
 };
 
-Ref<Mesh> MeshFactory::CreatePlane(const Material& material)
+Ref<Mesh> MeshFactory::CreatePlane(const Ref<Material>& material)
 {
     auto mesh = Ref<Mesh>::Create(material);
     mesh->SetName("Plane");

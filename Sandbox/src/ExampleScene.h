@@ -1,42 +1,31 @@
 //
-// Created by Ruben on 2026/06/29.
+// Example scene: demonstrates how to populate a Seraph scene with entities
+// and assets. Resources are created in OnLoaded and owned by the scene.
 //
 
 #pragma once
 
-#include <Events.h>
+#include <Seraph.h>
 
 class ExampleScene : public Seraph::Scene
 {
 public:
-    ExampleScene(
-        const Seraph::Ref<Seraph::Mesh>& mesh,
-        const Seraph::Ref<Seraph::Material>& material)
-        : Scene("Example Scene"), m_Mesh(mesh), m_Material(material)
-    {
-    }
+    ExampleScene() : Scene("Example Scene") {}
 
     void OnLoaded() override;
     void OnUpdate(f64 dt) override;
-    void OnEvent(Seraph::Event& e) override;
 
-    bool OnKeyPressedEvent(Seraph::KeyPressedEvent& e);
-    bool OnKeyReleasedEvent(Seraph::KeyReleasedEvent& e);
-    bool OnMouseButtonReleasedEvent(Seraph::MouseButtonReleasedEvent& e);
+    Seraph::Ref<Seraph::Material> GetMaterial() const { return m_Material; }
 
 private:
-    float m_RotScale = 0.01f;
-
-    bool m_UpPressed    = false;
-    bool m_DownPressed  = false;
-    bool m_LeftPressed  = false;
-    bool m_RightPressed = false;
-
-    // Entity handles — valid for the lifetime of the scene
     Seraph::Entity m_CameraEntity;
     Seraph::Entity m_CubeEntity;
 
-    // Raw resources — owned by the layer
-    Seraph::Ref<Seraph::Mesh> m_Mesh;
-    Seraph::Ref<Seraph::Material> m_Material;
+    Seraph::Ref<Seraph::Mesh>      m_Mesh;
+    Seraph::Ref<Seraph::Texture2D> m_Texture;
+    Seraph::Ref<Seraph::Material>  m_Material;
+
+    glm::vec2 m_LastMousePos = { 0.0f, 0.0f };
+    float     m_CameraYaw   = 0.0f;
+    float     m_CameraPitch = 0.0f;
 };

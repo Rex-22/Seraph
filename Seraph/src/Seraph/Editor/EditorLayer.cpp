@@ -1,0 +1,183 @@
+//
+// Created by ruben on 2026/07/12.
+//
+
+#include "EditorLayer.h"
+
+#include "Seraph/Core/Application.h"
+#include "Seraph/Core/Input.h"
+#include "Seraph/Events/KeyEvent.h"
+#include "Platform/Window.h"
+
+#include <bgfx/bgfx.h>
+#include <imgui.h>
+#include <imgui_internal.h>
+
+namespace Seraph
+{
+
+EditorLayer::EditorLayer(Ref<Scene> scene, Ref<SceneRenderer> sceneRenderer)
+    : Layer("EditorLayer")
+    , m_Scene(std::move(scene))
+    , m_SceneRenderer(std::move(sceneRenderer))
+    , m_EditorCamera(60.0f, 1280.0f, 720.0f, 0.01f, 1000.0f)
+{
+}
+
+void EditorLayer::SetScene(Ref<Scene> scene)
+{
+    m_Scene = std::move(scene);
+    m_EntityBrowser.SetScene(m_Scene);
+    m_Gizmo.SetScene(m_Scene);
+}
+
+void EditorLayer::SetDefaultMaterial(Ref<Material> material)
+{
+    m_EntityInspector.SetDefaultMaterial(std::move(material));
+}
+
+void EditorLayer::OnAttach()
+{
+    auto [w, h] = Application::Instance().Window().Size();
+    m_RenderTarget.Create(w, h);
+
+    m_EditorCamera.SetViewportBounds(0, 0, w, h);
+    m_EditorCamera.SetViewId(k_SceneViewId);
+    m_EditorCamera.SetActive(true);
+
+    bgfx::setViewClear(k_SceneViewId,
+        BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x99887766, 0.0f, 0);
+
+    m_EntityBrowser.SetScene(m_Scene);
+    m_Gizmo.SetScene(m_Scene);
+}
+
+void EditorLayer::OnDetach()
+{
+    m_RenderTarget.Destroy();
+}
+
+void EditorLayer::OnUpdate(f64 dt)
+{
+    if (m_RenderTarget.IsValid())
+        bgfx::setViewFrameBuffer(k_SceneViewId, m_RenderTarget.fb);
+
+    m_Scene->OnUpdate(dt);
+
+    bgfx::setViewRect(k_SceneViewId, 0, 0,
+        (u16)m_RenderTarget.width, (u16)m_RenderTarget.height);
+
+    if (m_RuntimeMode)
+    {
+        m_Scene->OnRenderRuntime(m_SceneRenderer);
+    }
+    else
+    {
+        m_EditorCamera.SetViewportHovered(m_ViewportPanel.IsHovered());
+        m_EditorCamera.OnUpdate(dt);
+        m_Scene->OnRenderEditor(m_SceneRenderer, m_EditorCamera);
+    }
+}
+
+void EditorLayer::OnEvent(Event& e)
+{
+    EventDispatcher dispatcher(e);
+    dispatcher.Dispatch<KeyPressedEvent>([this](KeyPressedEvent& key) -> bool
+    {
+        if (!key.IsRepeat() && key.KeyCode() == Key::F5)
+        {
+            m_RuntimeMode ? ExitRuntime() : EnterRuntime();
+            return true;
+        }
+        return false;
+    });
+
+    if (m_RuntimeMode)
+        m_Scene->OnEvent(e);
+    else
+        m_EditorCamera.OnEvent(e);
+}
+
+void EditorLayer::OnImGuiRender()
+{
+    // Full-window dockspace — must be the first Begin/End after any menu bar.
+    {
+        ImGuiViewport* vp = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(vp->WorkPos);
+        ImGui::SetNextWindowSize(vp->WorkSize);
+        ImGui::SetNextWindowViewport(vp->ID);
+
+        constexpr ImGuiWindowFlags k_DockFlags =
+            ImGuiWindowFlags_NoDocking          |
+            ImGuiWindowFlags_NoTitleBar         |
+            ImGuiWindowFlags_NoCollapse         |
+            ImGuiWindowFlags_NoResize           |
+            ImGuiWindowFlags_NoMove             |
+            ImGuiWindowFlags_NoBringToFrontOnFocus |
+            ImGuiWindowFlags_NoNavFocus         |
+            ImGuiWindowFlags_NoBackground;
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,  0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,   ImVec2(0.0f, 0.0f));
+        ImGui::Begin("##DockSpace", nullptr, k_DockFlags);
+        ImGui::PopStyleVar(3);
+
+        ImGui::DockSpace(ImGui::GetID("MainDockSpace"), ImVec2(0.0f, 0.0f),
+            ImGuiDockNodeFlags_PassthruCentralNode);
+        ImGui::End();
+    }
+
+    if (!m_RuntimeMode)
+    {
+        m_EntityBrowser.OnImGuiRender();
+
+        Entity selected = m_EntityBrowser.GetSelectedEntity();
+        m_EntityInspector.SetSelectedEntity(selected);
+        m_EntityInspector.OnImGuiRender();
+
+        m_Gizmo.SetSelectedEntity(selected);
+        m_Gizmo.SetCamera(m_EditorCamera.GetViewMatrix(),
+                          m_EditorCamera.GetUnReversedProjectionMatrix());
+    }
+
+    if (m_ViewportPanel.Begin(m_RenderTarget))
+    {
+        if (!m_RuntimeMode)
+        {
+            m_Gizmo.SetViewportRect(m_ViewportPanel.GetContentPos(),
+                                    m_ViewportPanel.GetContentSize());
+            m_Gizmo.OnImGuiRender();
+        }
+    }
+    m_ViewportPanel.End();
+
+    // Resize the offscreen RT whenever the viewport panel changes size.
+    {
+        const ImVec2 sz = m_ViewportPanel.GetContentSize();
+        if (sz.x > 0.0f && sz.y > 0.0f &&
+            ((u32)sz.x != m_RenderTarget.width || (u32)sz.y != m_RenderTarget.height))
+        {
+            m_RenderTarget.Resize((u32)sz.x, (u32)sz.y);
+            m_EditorCamera.SetViewportBounds(0, 0, (u32)sz.x, (u32)sz.y);
+            m_Scene->SetViewportBounds(0, 0, (u32)sz.x, (u32)sz.y);
+        }
+    }
+}
+
+void EditorLayer::EnterRuntime()
+{
+    m_RuntimeMode = true;
+    m_EditorCamera.SetActive(false);
+    Input::SetCursorMode(CursorMode::Normal);
+    m_Scene->SetViewportBounds(0, 0, m_RenderTarget.width, m_RenderTarget.height);
+}
+
+void EditorLayer::ExitRuntime()
+{
+    m_RuntimeMode = false;
+    m_EditorCamera.SetActive(true);
+    Input::SetCursorMode(CursorMode::Normal);
+}
+
+} // namespace Seraph

@@ -40,8 +40,8 @@ struct PrimitiveVertex
 class MeshFactory
 {
 public:
-    static Ref<Mesh> CreateCube(const Material& material);
-    static Ref<Mesh> CreatePlane(const Material& material);
+    static Ref<Mesh> CreateCube(const Ref<Material>& material);
+    static Ref<Mesh> CreatePlane(const Ref<Material>& material);
 };
 
 } // namespace Seraph

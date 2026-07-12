@@ -11,7 +11,7 @@
 namespace Seraph
 {
 
-Mesh::Mesh(const Material& material) : m_Material(&material)
+Mesh::Mesh(const Ref<Material>& material) : m_Material(material)
 {
     m_Name = "NoName";
 }

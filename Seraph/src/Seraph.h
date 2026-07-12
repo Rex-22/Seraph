@@ -58,6 +58,7 @@
 
 // --- Editor ----------------------------------------------------------------
 #include "Seraph/Editor/EditorCamera.h"
+#include "Seraph/Editor/EditorLayer.h"
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
 #include "Seraph/Editor/Panels/EntityInspectorPanel.h"
 #include "Seraph/Editor/Panels/EditorGizmo.h"
