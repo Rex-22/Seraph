@@ -4,6 +4,7 @@
 #pragma once
 
 #include "MaterialProperty.h"
+#include "Seraph/Asset/Asset.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Ref.h"
 
@@ -15,9 +16,11 @@
 namespace Seraph
 {
 
-class Material: public RefCounted
+class Material: public Asset
 {
 public:
+    ASSET_CLASS_TYPE(Material)
+
     explicit Material(bgfx::ProgramHandle program);
     ~Material() override = default;
 

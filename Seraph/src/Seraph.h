@@ -13,6 +13,7 @@
 // --- Core ------------------------------------------------------------------
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Base.h"
+#include "Seraph/Core/Buffer.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Core/GlmCustomFormatters.h"
 #include "Seraph/Core/Input.h"
@@ -39,6 +40,16 @@
 #include "Seraph/Graphics/Material/Vector3Property.h"
 #include "Seraph/Graphics/Material/Vector4ArrayProperty.h"
 #include "Seraph/Graphics/Material/Vector4Property.h"
+
+// --- Asset -----------------------------------------------------------------
+#include "Seraph/Asset/Asset.h"
+#include "Seraph/Asset/AssetHandle.h"
+#include "Seraph/Asset/AssetManager.h"
+#include "Seraph/Asset/AssetRef.h"
+#include "Seraph/Asset/EditorAssetManager.h"
+#include "Seraph/Asset/Pack/AssetPack.h"
+#include "Seraph/Asset/Pack/AssetPackBuilder.h"
+#include "Seraph/Asset/Pack/RuntimeAssetManager.h"
 
 // --- Events ----------------------------------------------------------------
 #include "Seraph/Events/Events.h"

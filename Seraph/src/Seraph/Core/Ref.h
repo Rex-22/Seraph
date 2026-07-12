@@ -35,9 +35,12 @@ namespace RefUtils {
 		{
 			++m_RefCount;
 		}
-		void DecRefCount() const
+		// Returns the post-decrement value. Atomic, so the caller that observes
+		// a return of 0 is the unique owner responsible for destruction — this
+		// avoids the double-free race of decrementing then re-loading the count.
+		uint32_t DecRefCount() const
 		{
-			--m_RefCount;
+			return --m_RefCount;
 		}
 
 		uint32_t GetRefCount() const { return m_RefCount.load(); }
@@ -204,9 +207,9 @@ namespace RefUtils {
 		{
 			if (m_Instance)
 			{
-				m_Instance->DecRefCount();
-
-				if (m_Instance->GetRefCount() == 0)
+				// Delete only when *this* decrement drove the count to 0, so
+				// two threads dropping the last two refs can't both delete.
+				if (m_Instance->DecRefCount() == 0)
 				{
 					delete m_Instance;
 					m_Instance = nullptr;

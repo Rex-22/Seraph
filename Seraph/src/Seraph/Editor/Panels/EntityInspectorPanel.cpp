@@ -4,6 +4,8 @@
 
 #include "EntityInspectorPanel.h"
 
+#include "Seraph/Asset/AssetManager.h"
+#include "Seraph/Asset/AssetRef.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Scene/Scene.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
@@ -246,9 +248,17 @@ void EntityInspectorPanel::DrawMeshComponent()
     if (open)
     {
         if (mc->Mesh)
-            ImGui::TextUnformatted("Mesh assigned");
+        {
+            ImGui::Text("Mesh: %llu",
+                static_cast<unsigned long long>(mc->Mesh.Handle()));
+            ImGui::TextUnformatted(
+                AssetManager::IsAssetLoaded(mc->Mesh.Handle()) ? "Loaded"
+                                                               : "Loading...");
+        }
         else
+        {
             ImGui::TextDisabled("No mesh assigned");
+        }
 
         ImGui::TreePop();
     }
@@ -282,8 +292,11 @@ void EntityInspectorPanel::DrawAddComponentMenu()
             {
                 auto addMesh = [&](Ref<Mesh> mesh)
                 {
+                    // Procedural meshes are registered as in-memory assets; the
+                    // component stores only the resulting handle.
+                    AssetHandle handle = AssetManager::AddMemoryAsset(mesh);
                     auto& mc = m_SelectedEntity.AddComponent<MeshComponent>();
-                    mc.Mesh = mesh;
+                    mc.Mesh = AssetRef{handle};
                     ImGui::CloseCurrentPopup();
                 };
 

@@ -49,6 +49,9 @@ private:
     void EnterRuntime();
     void ExitRuntime();
 
+    void DrawMenuBar();
+    void BuildAssetPack();
+
     // bgfx view 0 = backbuffer clear, view 255 = ImGui overlay.
     // View 1 is reserved for the offscreen scene render target.
     static constexpr u16 k_SceneViewId = 1;

@@ -63,9 +63,14 @@ void ExampleScene::OnLoaded()
 {
     Scene::OnLoaded();
 
-    // Resources
-    u32 texel = 0xffff00ff;
-    m_Texture  = Seraph::Texture2D::Create("DemoTex", &texel, 1, 1);
+    auto assetManager =
+        Seraph::AssetManager::Get().As<Seraph::EditorAssetManager>();
+
+    // Texture as a real file-loaded asset (imported from ASSET_PATH, decoded and
+    // uploaded through the TextureSerializer on first resolve).
+    Seraph::AssetHandle textureHandle =
+        assetManager->ImportAsset("textures/test_texture.png");
+    m_Texture = Seraph::AssetManager::GetAsset<Seraph::Texture2D>(textureHandle);
 
     m_Material = Seraph::Ref<Seraph::Material>::Create(
         Seraph::ShaderManager::Get("simple"));
@@ -74,10 +79,13 @@ void ExampleScene::OnLoaded()
     m_Material->AddProperty<Seraph::TextureProperty>(
         "s_texColor", m_Texture, 0);
 
+    // Procedural cube, registered as an in-memory asset. The component stores
+    // only the handle — identical to how a file-backed mesh is referenced.
     m_Mesh = Seraph::Ref<Seraph::Mesh>::Create(m_Material);
     m_Mesh->SetVertexLayout<PosColorVertex>();
     m_Mesh->SetVertexData(s_CubeVerts,   sizeof(s_CubeVerts));
     m_Mesh->SetIndexData (s_CubeIndices, sizeof(s_CubeIndices));
+    Seraph::AssetHandle cubeHandle = Seraph::AssetManager::AddMemoryAsset(m_Mesh);
 
     // Entities
     m_CameraEntity = CreateEntity("Camera");
@@ -88,7 +96,17 @@ void ExampleScene::OnLoaded()
     cc.IsPrimary = true;
 
     m_CubeEntity = CreateEntity("Cube");
-    m_CubeEntity.AddComponent<Seraph::MeshComponent>(m_Mesh);
+    m_CubeEntity.AddComponent<Seraph::MeshComponent>().Mesh =
+        Seraph::AssetRef{cubeHandle};
+
+    // Mesh imported from a file via Assimp, placed beside the cube.
+    Seraph::AssetHandle modelHandle = assetManager->ImportAsset("meshes/cube.obj");
+    if (modelHandle) {
+        m_ModelEntity = CreateEntity("ImportedModel");
+        m_ModelEntity.Transform().Translation = { 3.0f, 0.0f, 0.0f };
+        m_ModelEntity.AddComponent<Seraph::MeshComponent>().Mesh =
+            Seraph::AssetRef{modelHandle};
+    }
 }
 
 void ExampleScene::OnUpdate(f64 dt)

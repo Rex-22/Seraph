@@ -10,6 +10,9 @@
 #include "LayerStack.h"
 #include "Log.h"
 #include "Platform/Window.h"
+#include "Seraph/Asset/AssetImporter.h"
+#include "Seraph/Asset/AssetManager.h"
+#include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Events/MouseEvent.h"
@@ -43,6 +46,11 @@ Application::Application()
 
     Renderer::Init();
 
+    // Asset system: register serializers (needs the renderer up), then install
+    // the editor asset manager (loose files + registry) as the active manager.
+    AssetImporter::Init();
+    AssetManager::Init(Ref<EditorAssetManager>::Create());
+
     m_ImGuiLayer = ImGuiLayer::Create();
     PushOverlay(m_ImGuiLayer);
 }
@@ -51,6 +59,11 @@ Application::~Application()
 {
     m_LayerStack.Shutdown();
     m_ImGuiLayer = nullptr;
+
+    // Release all asset-owned GPU resources before bgfx is shut down in
+    // Renderer::Cleanup (assets hold bgfx textures/buffers).
+    AssetManager::Shutdown();
+    AssetImporter::Shutdown();
 
     Renderer::Cleanup();
     m_Window->Shutdown();
@@ -137,6 +150,10 @@ void Application::Loop()
         }
         m_ImGuiLayer->End();
     }
+
+    // Promote any async loads that finished this frame (runs GPU finalize on
+    // the main thread). No-op when async loading is disabled.
+    AssetManager::SyncFinalizeMainThread();
 
     Renderer::FlushFrame();
 

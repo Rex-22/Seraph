@@ -33,6 +33,7 @@ void RemoveFromLiveReferences(void* instance)
 bool IsLive(void* instance)
 {
     SP_CORE_ASSERT(instance);
+    std::scoped_lock<std::mutex> lock(s_LiveReferenceMutex);
     return s_LiveReferences.find(instance) != s_LiveReferences.end();
 }
 }

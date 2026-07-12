@@ -4,14 +4,14 @@
 
 #pragma once
 
-#include "Seraph/Graphics/Mesh.h"
+#include "Seraph/Asset/AssetRef.h"
 
 namespace Seraph
 {
 
 struct MeshComponent
 {
-    Ref<Seraph::Mesh> Mesh;
+    AssetRef Mesh;
 };
 
 }

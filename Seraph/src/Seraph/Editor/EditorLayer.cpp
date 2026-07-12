@@ -5,14 +5,21 @@
 #include "EditorLayer.h"
 
 #include "Platform/Window.h"
+#include "Seraph/Asset/AssetManager.h"
+#include "Seraph/Asset/EditorAssetManager.h"
+#include "Seraph/Asset/Pack/AssetPackBuilder.h"
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Core/Input.h"
+#include "Seraph/Core/Log.h"
 #include "Seraph/Events/KeyEvent.h"
 
 #include <bgfx/bgfx.h>
+#include <config.h>
 #include <imgui.h>
 #include <imgui_internal.h>
+
+#include <filesystem>
 
 namespace Seraph
 {
@@ -106,8 +113,42 @@ void EditorLayer::OnEvent(Event& e)
         m_EditorCamera.OnEvent(e);
 }
 
+void EditorLayer::DrawMenuBar()
+{
+    if (!ImGui::BeginMainMenuBar())
+        return;
+
+    if (ImGui::BeginMenu("Assets"))
+    {
+        if (ImGui::MenuItem("Build Asset Pack"))
+            BuildAssetPack();
+        ImGui::EndMenu();
+    }
+
+    ImGui::EndMainMenuBar();
+}
+
+void EditorLayer::BuildAssetPack()
+{
+    Ref<EditorAssetManager> manager =
+        AssetManager::Get().As<EditorAssetManager>();
+    if (!manager)
+    {
+        SP_CORE_ERROR_TAG(
+            "Asset Pack", "Active asset manager is not an EditorAssetManager");
+        return;
+    }
+
+    const std::filesystem::path outPath =
+        std::filesystem::path(ASSET_PATH) / "assets.pack";
+    AssetPackBuilder::Build(*manager, outPath);
+}
+
 void EditorLayer::OnImGuiRender()
 {
+    if (!m_RuntimeMode)
+        DrawMenuBar();
+
     // Full-window dockspace — must be the first Begin/End after any menu bar.
     {
         ImGuiViewport* vp = ImGui::GetMainViewport();

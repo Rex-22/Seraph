@@ -1,0 +1,8 @@
+Version: 1
+Assets:
+  - Handle: 13105379251745083445
+    Type: Mesh
+    FilePath: meshes/cube.obj
+  - Handle: 15782833944256588489
+    Type: Texture2D
+    FilePath: textures/test_texture.png

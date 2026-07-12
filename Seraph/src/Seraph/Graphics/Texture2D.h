@@ -3,9 +3,17 @@
 //
 
 #pragma once
+#include "Seraph/Asset/Asset.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Ref.h"
 #include "bgfx/bgfx.h"
+
+#include <string>
+
+namespace bimg
+{
+struct ImageContainer;
+}
 
 namespace Seraph
 {
@@ -158,9 +166,11 @@ inline Texture2DCreateInfo::FilterMode operator|(
         static_cast<u64>(a) | static_cast<u64>(b));
 }
 
-class Texture2D: public RefCounted
+class Texture2D: public Asset
 {
 public:
+    ASSET_CLASS_TYPE(Texture2D)
+
     Texture2D();
     ~Texture2D() override;
 
@@ -171,6 +181,11 @@ public:
 
     [[nodiscard]] bool IsValid() const;
 
+    // Phase 2 (main thread): create the bgfx texture from the CPU image parsed
+    // in Phase 1. No-op if there is no parked image or the texture already
+    // exists. Returns true if a valid texture is present afterwards.
+    bool Upload();
+
 public:
     static Ref<Texture2D> Create(
         const char* path, const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
@@ -179,10 +194,29 @@ public:
         const char* name, const void* data, u32 width, u32 height,
         const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
 
+    // Phase 1 (worker-safe): parse encoded image bytes (png/jpg/dds/...) into a
+    // CPU image container parked on the texture. Call Upload() to create the GPU
+    // texture. No bgfx calls happen here.
+    static Ref<Texture2D> ParseEncoded(
+        const char* name, const void* data, u64 size,
+        const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
+
+    // Convenience: ParseEncoded + Upload in one call (main thread). Used by the
+    // path-based Create and any synchronous loader.
+    static Ref<Texture2D> CreateFromEncoded(
+        const char* name, const void* data, u64 size,
+        const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
+
 private:
     const char* m_DebugName{};
+    std::string m_NameStorage;
 
     bgfx::TextureHandle m_TextureHandle{};
+
+    // CPU image parked between ParseEncoded (Phase 1) and Upload (Phase 2).
+    // Owned here until handed to bgfx in Upload (freed via its release callback).
+    bimg::ImageContainer* m_ImageContainer = nullptr;
+    u64 m_CreateFlags = 0;
 
     u32 m_Width;
     u32 m_Height;

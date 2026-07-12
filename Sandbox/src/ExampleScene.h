@@ -20,6 +20,7 @@ public:
 private:
     Seraph::Entity m_CameraEntity;
     Seraph::Entity m_CubeEntity;
+    Seraph::Entity m_ModelEntity;
 
     Seraph::Ref<Seraph::Mesh>      m_Mesh;
     Seraph::Ref<Seraph::Texture2D> m_Texture;

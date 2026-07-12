@@ -36,9 +36,10 @@ target_include_directories(${PROJECT} SYSTEM PUBLIC
         ${BIMG_INCLUDE_DIR}
         ${SPDLOG_INCLUDE_DIR}
         ${GLM_INCLUDE_DIR}
-        ${JSON_INCLUDE_DIR}
+        ${YAML_INCLUDE_DIR}
         ${ENTT_INCLUDE_DIR}
         ${IMGUIZMO_INCLUDE_DIR}
+        ${ASSIMP_INCLUDE_DIR}
 )
 
 # PUBLIC so the static library's dependencies propagate to consumers at link time.
@@ -48,7 +49,8 @@ target_link_libraries(${PROJECT} PUBLIC
         ${BGFX_LIBRARIES}
         ${SPDLOG_LIBRARIES}
         ${GLM_LIBRARIES}
-        ${JSON_LIBRARIES}
+        ${YAML_LIBRARIES}
         ${ENTT_LIBRARIES}
         ${IMGUIZMO_LIBRARIES}
+        ${ASSIMP_LIBRARIES}
 )

@@ -58,6 +58,11 @@ Texture2D::~Texture2D()
     if (bgfx::isValid(m_TextureHandle)) {
         bgfx::destroy(m_TextureHandle);
     }
+    // Never uploaded (e.g. failed load) — free the parked CPU image ourselves.
+    if (m_ImageContainer != nullptr) {
+        bimg::imageFree(m_ImageContainer);
+        m_ImageContainer = nullptr;
+    }
 }
 
 bool Texture2D::IsValid() const
@@ -65,35 +70,50 @@ bool Texture2D::IsValid() const
     return bgfx::isValid(m_TextureHandle);
 }
 
-Ref<Texture2D> Texture2D::Create(
-    const char* path, const Texture2DCreateInfo& createInfo)
+Ref<Texture2D> Texture2D::ParseEncoded(
+    const char* name, const void* data, u64 size,
+    const Texture2DCreateInfo& createInfo)
 {
     auto texture = Ref<Texture2D>::Create();
-    texture->m_DebugName = path;
-    const u64 flags = createInfo.Flags();
+    texture->m_NameStorage = name != nullptr ? name : "Texture2D";
+    texture->m_DebugName = texture->m_NameStorage.c_str();
+    texture->m_CreateFlags = createInfo.Flags();
 
-    uint32_t size = 0;
-    void* data =
-        Load(GetFileReader(), GetAllocator(), bx::FilePath(path), &size);
-    if (data == nullptr) {
+    if (data == nullptr || size == 0)
         return texture;
-    }
 
+    // CPU-only parse — safe on a worker thread.
     bimg::ImageContainer* imageContainer = bimg::imageParse(
-        GetAllocator(), data, size, bimg::TextureFormat::RGBA8);
-    bx::free(GetAllocator(), data);
-    if (imageContainer == nullptr) {
+        GetAllocator(), data, static_cast<uint32_t>(size),
+        bimg::TextureFormat::RGBA8);
+    if (imageContainer == nullptr)
         return texture;
-    }
 
+    texture->m_ImageContainer = imageContainer;
+    texture->m_Width = imageContainer->m_width;
+    texture->m_Height = imageContainer->m_height;
+    return texture;
+}
+
+bool Texture2D::Upload()
+{
+    if (bgfx::isValid(m_TextureHandle))
+        return true;
+    if (m_ImageContainer == nullptr)
+        return false;
+
+    bimg::ImageContainer* imageContainer = m_ImageContainer;
+    const u64 flags = m_CreateFlags;
+
+    // Hand the CPU image to bgfx; the release callback frees it once bgfx is
+    // done, so clear our pointer to avoid a double free in the destructor.
     const bgfx::Memory* mem = bgfx::makeRef(
         imageContainer->m_data, imageContainer->m_size, ImageReleaseCb,
         imageContainer);
+    m_ImageContainer = nullptr;
+
     const auto format =
         static_cast<bgfx::TextureFormat::Enum>(imageContainer->m_format);
-
-    texture->m_Width = imageContainer->m_width;
-    texture->m_Height = imageContainer->m_height;
 
     bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
     if (imageContainer->m_cubeMap) {
@@ -117,11 +137,38 @@ Ref<Texture2D> Texture2D::Create(
     }
 
     if (bgfx::isValid(handle)) {
-        texture->m_TextureHandle = handle;
-        const bx::StringView name(path);
+        m_TextureHandle = handle;
+        const bx::StringView name(m_DebugName);
         bgfx::setName(handle, name.getPtr(), name.getLength());
+        return true;
+    }
+    return false;
+}
+
+Ref<Texture2D> Texture2D::CreateFromEncoded(
+    const char* name, const void* data, u64 size,
+    const Texture2DCreateInfo& createInfo)
+{
+    Ref<Texture2D> texture = ParseEncoded(name, data, size, createInfo);
+    texture->Upload();
+    return texture;
+}
+
+Ref<Texture2D> Texture2D::Create(
+    const char* path, const Texture2DCreateInfo& createInfo)
+{
+    uint32_t size = 0;
+    void* data =
+        Load(GetFileReader(), GetAllocator(), bx::FilePath(path), &size);
+    if (data == nullptr) {
+        auto texture = Ref<Texture2D>::Create();
+        texture->m_NameStorage = path;
+        texture->m_DebugName = texture->m_NameStorage.c_str();
+        return texture;
     }
 
+    Ref<Texture2D> texture = CreateFromEncoded(path, data, size, createInfo);
+    bx::free(GetAllocator(), data);
     return texture;
 }
 
