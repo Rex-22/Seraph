@@ -20,6 +20,7 @@ enum class AssetType : u16
     Mesh,
     Material,
     Texture2D,
+    Shader,
 };
 
 const char* AssetTypeToString(AssetType type);

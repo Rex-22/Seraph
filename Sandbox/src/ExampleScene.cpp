@@ -73,7 +73,7 @@ void ExampleScene::OnLoaded()
     m_Texture = Seraph::AssetManager::GetAsset<Seraph::Texture2D>(textureHandle);
 
     m_Material = Seraph::Ref<Seraph::Material>::Create(
-        Seraph::ShaderManager::Get("simple"));
+        Seraph::ShaderManager::GetHandle("simple"));
     m_Material->AddProperty<Seraph::ColorProperty>(
         "s_color", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
     m_Material->AddProperty<Seraph::TextureProperty>(

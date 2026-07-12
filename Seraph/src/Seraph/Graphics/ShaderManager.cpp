@@ -4,14 +4,17 @@
 
 #include "Seraph/Graphics/ShaderManager.h"
 
+#include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Core/Log.h"
+#include "Seraph/Graphics/ShaderAsset.h"
 
-#include "bgfx/embedded_shader.h"
-
-#include <ranges>
+#include <functional>
 #include <unordered_map>
 
 namespace Seraph
+{
+
+namespace
 {
 
 struct EmbeddedProgramSource
@@ -27,10 +30,13 @@ std::unordered_map<std::string, EmbeddedProgramSource>& Registry()
     return s_registry;
 }
 
-std::unordered_map<std::string, bgfx::ProgramHandle>& Cache()
+} // namespace
+
+AssetHandle ShaderHandleFromName(std::string_view name)
 {
-    static std::unordered_map<std::string, bgfx::ProgramHandle> s_cache;
-    return s_cache;
+    const u64 hash = std::hash<std::string_view>{}(name);
+    // 0 is the reserved null handle; nudge the (astronomically unlikely) 0 hash.
+    return AssetHandle(hash != c_NullAssetHandle ? hash : 1);
 }
 
 void ShaderManager::RegisterEmbedded(
@@ -40,37 +46,47 @@ void ShaderManager::RegisterEmbedded(
     Registry()[name] = EmbeddedProgramSource{shaders, vertexName, fragmentName};
 }
 
-bgfx::ProgramHandle ShaderManager::Get(const std::string& name)
+AssetHandle ShaderManager::GetHandle(const std::string& name)
 {
-    auto& cache = Cache();
-    if (const auto it = cache.find(name); it != cache.end()) {
-        return it->second;
-    }
+    const AssetHandle handle = ShaderHandleFromName(name);
+
+    // Already built + registered as a memory asset?
+    if (AssetManager::GetAsset<ShaderAsset>(handle))
+        return handle;
 
     const auto src = Registry().find(name);
     if (src == Registry().end()) {
-        SP_CORE_ERROR_TAG("[ShaderManager] Unknown shader '{}'", name);
-        return BGFX_INVALID_HANDLE;
+        SP_CORE_ERROR_TAG("ShaderManager", "Unknown shader '{}'", name);
+        return AssetHandle(c_NullAssetHandle);
     }
 
-    const auto type = bgfx::getRendererType();
-    const auto vs = bgfx::createEmbeddedShader(
-        src->second.shaders, type, src->second.vertexName.c_str());
-    const auto fs = bgfx::createEmbeddedShader(
-        src->second.shaders, type, src->second.fragmentName.c_str());
-
-    if (!bgfx::isValid(vs) || !bgfx::isValid(fs)) {
-        SP_CORE_ERROR_TAG("ShaderManager",
-            "Could not create embedded shaders for '{}' "
-            "(vs '{}', fs '{}') — not embedded for the active renderer?",
-            name, src->second.vertexName, src->second.fragmentName);
-        return BGFX_INVALID_HANDLE;
+    // Build the embedded program on the main thread (bgfx::createEmbeddedShader
+    // needs the active renderer) and register it under the deterministic handle.
+    // Memory assets skip the serializer's Finalize, so Upload runs here.
+    auto asset = Ref<ShaderAsset>::Create();
+    asset->StageEmbedded(
+        src->second.shaders, src->second.vertexName, src->second.fragmentName);
+    asset->Handle = handle;
+    if (!asset->Upload()) {
+        SP_CORE_ERROR_TAG(
+            "ShaderManager", "Failed to upload embedded shader '{}'", name);
+        return AssetHandle(c_NullAssetHandle);
     }
 
-    // destroyShaders = true: the program takes ownership of the shader handles.
-    const auto program = bgfx::createProgram(vs, fs, true);
-    cache[name] = program;
-    return program;
+    AssetManager::AddMemoryAsset(asset);
+    return handle;
+}
+
+bgfx::ProgramHandle ShaderManager::Get(const std::string& name)
+{
+    const AssetHandle handle = GetHandle(name);
+    if (static_cast<u64>(handle) == c_NullAssetHandle)
+        return BGFX_INVALID_HANDLE;
+
+    Ref<ShaderAsset> shader = AssetManager::GetAsset<ShaderAsset>(handle);
+    if (!shader)
+        return BGFX_INVALID_HANDLE;
+    return shader->Program();
 }
 
 bool ShaderManager::Has(const std::string& name)
@@ -80,12 +96,7 @@ bool ShaderManager::Has(const std::string& name)
 
 void ShaderManager::Shutdown()
 {
-    for (const auto& program : Cache() | std::views::values) {
-        if (bgfx::isValid(program)) {
-            bgfx::destroy(program);
-        }
-    }
-    Cache().clear();
+    Registry().clear();
 }
 
 } // namespace Seraph

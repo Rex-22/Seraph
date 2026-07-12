@@ -144,7 +144,7 @@ Ref<Material> MeshSerializer::GetOrCreateDefaultMaterial()
     if (m_DefaultMaterial)
         return m_DefaultMaterial;
 
-    Ref<Material> material = Ref<Material>::Create(ShaderManager::Get("simple"));
+    Ref<Material> material = Ref<Material>::Create(ShaderManager::GetHandle("simple"));
 
     u32 white = 0xffffffff;
     m_DefaultTexture = Texture2D::Create("MeshDefaultTexture", &white, 1, 1);

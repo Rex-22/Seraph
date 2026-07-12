@@ -18,6 +18,8 @@ const char* AssetTypeToString(AssetType type)
             return "Material";
         case AssetType::Texture2D:
             return "Texture2D";
+        case AssetType::Shader:
+            return "Shader";
     }
     return "None";
 }
@@ -30,6 +32,8 @@ AssetType AssetTypeFromString(std::string_view type)
         return AssetType::Material;
     if (type == "Texture2D")
         return AssetType::Texture2D;
+    if (type == "Shader")
+        return AssetType::Shader;
     return AssetType::None;
 }
 
