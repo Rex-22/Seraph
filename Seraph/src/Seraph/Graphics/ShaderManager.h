@@ -11,7 +11,6 @@
 #pragma once
 
 #include "Seraph/Asset/AssetHandle.h"
-#include "Seraph/Core/Buffer.h"
 
 #include "bgfx/bgfx.h"
 
@@ -25,6 +24,8 @@ struct EmbeddedShader;
 
 namespace Seraph
 {
+
+class ShaderAsset;
 
 // Deterministic handle for a named shader, so embedded shaders get a stable
 // identity without a registry file and can be referenced like any other asset.
@@ -49,12 +50,12 @@ public:
 
     [[nodiscard]] static bool Has(const std::string& name);
 
-    // Copy a registered embedded shader's compiled vertex + fragment blobs (for
-    // the active renderer) into `outVs`/`outFs`. This is how embedded shaders are
-    // cooked to .sshader files / packs. Returns false if the name is unknown or
-    // no blob exists for the active renderer.
+    // Stage a registered embedded shader's compiled blobs for EVERY renderer
+    // profile it was built with into `out` (via ShaderAsset::StageVariant), so
+    // it can be cooked to a portable .sshader / pack. Returns false if the name
+    // is unknown or no complete vertex+fragment variant exists.
     [[nodiscard]] static bool ExportEmbeddedShader(
-        const std::string& name, Buffer& outVs, Buffer& outFs);
+        const std::string& name, ShaderAsset& out);
 
     // Programs are owned by their ShaderAsset and released via
     // AssetManager::Shutdown (before bgfx::shutdown), so this no longer destroys

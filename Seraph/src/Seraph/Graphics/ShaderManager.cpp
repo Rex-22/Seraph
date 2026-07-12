@@ -84,8 +84,7 @@ bool ShaderManager::Has(const std::string& name)
     return Registry().contains(name);
 }
 
-bool ShaderManager::ExportEmbeddedShader(
-    const std::string& name, Buffer& outVs, Buffer& outFs)
+bool ShaderManager::ExportEmbeddedShader(const std::string& name, ShaderAsset& out)
 {
     const auto src = Registry().find(name);
     if (src == Registry().end()) {
@@ -93,32 +92,43 @@ bool ShaderManager::ExportEmbeddedShader(
         return false;
     }
 
-    const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
-
-    // Find the compiled blob for `shaderName` matching the active renderer in
-    // the embedded-shader table (name == nullptr terminates the table).
-    const auto findBlob =
-        [&](const std::string& shaderName, Buffer& out) -> bool {
-        for (const bgfx::EmbeddedShader* es = src->second.shaders;
-             es->name != nullptr; ++es) {
-            if (shaderName != es->name)
-                continue;
-            for (u32 i = 0; i < bgfx::RendererType::Count; ++i) {
-                const bgfx::EmbeddedShader::Data& data = es->data[i];
-                if (data.type == renderer && data.data != nullptr && data.size > 0) {
-                    out = Buffer::Copy(data.data, data.size);
-                    return true;
+    // Collect every renderer profile's blob for a stage from the embedded-shader
+    // table (name == nullptr terminates the table).
+    const auto gather =
+        [&](const std::string& shaderName, std::unordered_map<u16, Buffer>& blobs) {
+            for (const bgfx::EmbeddedShader* es = src->second.shaders;
+                 es->name != nullptr; ++es) {
+                if (shaderName != es->name)
+                    continue;
+                for (u32 i = 0; i < bgfx::RendererType::Count; ++i) {
+                    const bgfx::EmbeddedShader::Data& data = es->data[i];
+                    if (data.data != nullptr && data.size > 0 &&
+                        data.type < bgfx::RendererType::Count)
+                        blobs[static_cast<u16>(data.type)] =
+                            Buffer::Copy(data.data, data.size);
                 }
             }
-        }
-        return false;
-    };
+        };
 
-    if (!findBlob(src->second.vertexName, outVs) ||
-        !findBlob(src->second.fragmentName, outFs)) {
+    std::unordered_map<u16, Buffer> vsBlobs;
+    std::unordered_map<u16, Buffer> fsBlobs;
+    gather(src->second.vertexName, vsBlobs);
+    gather(src->second.fragmentName, fsBlobs);
+
+    // Stage a variant for each renderer that has both a vertex and fragment blob.
+    bool any = false;
+    for (auto& [renderer, vs] : vsBlobs) {
+        const auto fsIt = fsBlobs.find(renderer);
+        if (fsIt == fsBlobs.end())
+            continue;
+        out.StageVariant(renderer, std::move(vs), std::move(fsIt->second));
+        any = true;
+    }
+
+    if (!any) {
         SP_CORE_ERROR_TAG(
             "ShaderManager",
-            "No embedded blob for shader '{}' on the active renderer", name);
+            "No complete embedded variant for shader '{}'", name);
         return false;
     }
     return true;
