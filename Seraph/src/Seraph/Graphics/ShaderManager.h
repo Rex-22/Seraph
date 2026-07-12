@@ -11,6 +11,7 @@
 #pragma once
 
 #include "Seraph/Asset/AssetHandle.h"
+#include "Seraph/Core/Buffer.h"
 
 #include "bgfx/bgfx.h"
 
@@ -47,6 +48,13 @@ public:
     [[nodiscard]] static AssetHandle GetHandle(const std::string& name);
 
     [[nodiscard]] static bool Has(const std::string& name);
+
+    // Copy a registered embedded shader's compiled vertex + fragment blobs (for
+    // the active renderer) into `outVs`/`outFs`. This is how embedded shaders are
+    // cooked to .sshader files / packs. Returns false if the name is unknown or
+    // no blob exists for the active renderer.
+    [[nodiscard]] static bool ExportEmbeddedShader(
+        const std::string& name, Buffer& outVs, Buffer& outFs);
 
     // Programs are owned by their ShaderAsset and released via
     // AssetManager::Shutdown (before bgfx::shutdown), so this no longer destroys

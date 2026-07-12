@@ -31,6 +31,8 @@ AssetType AssetTypeFromExtension(const std::string& extension)
         return AssetType::Texture2D;
     if (ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".fbx")
         return AssetType::Mesh;
+    if (ext == ".sshader")
+        return AssetType::Shader;
     return AssetType::None;
 }
 

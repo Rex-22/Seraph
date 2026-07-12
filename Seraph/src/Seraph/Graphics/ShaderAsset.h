@@ -59,6 +59,11 @@ public:
     [[nodiscard]] bgfx::ProgramHandle Program() const { return m_Program; }
     [[nodiscard]] bool IsValid() const { return bgfx::isValid(m_Program); }
 
+    // Staged CPU bytecode — valid only between Stage() and Upload() (Upload
+    // releases it). Used by ShaderSerializer::Serialize to write a container.
+    [[nodiscard]] const Buffer& StagedVertex() const { return m_Vs; }
+    [[nodiscard]] const Buffer& StagedFragment() const { return m_Fs; }
+
 private:
     // Compiled-bytecode source (file / pack case).
     Buffer m_Vs;
