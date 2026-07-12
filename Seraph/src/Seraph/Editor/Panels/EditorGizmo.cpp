@@ -99,6 +99,9 @@ void EditorGizmo::DrawToolbar()
     ImGui::SetNextWindowPos(
         ImVec2(m_ViewportPos.x + 8.0f, m_ViewportPos.y + 8.0f), ImGuiCond_Always);
     ImGui::Begin("##gizmo_toolbar", nullptr, k_ToolbarFlags);
+    // Ensure the toolbar floats above docked windows every frame.
+    if (ImGuiWindow* w = ImGui::FindWindowByName("##gizmo_toolbar"))
+        ImGui::BringWindowToDisplayFront(w);
 
     auto opButton = [&](const char* label, Operation op)
     {
