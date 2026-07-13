@@ -1,5 +1,6 @@
 #include "SceneSerializer.h"
 
+#include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/AssetRef.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Graphics/SceneCamera.h"
@@ -11,6 +12,7 @@
 #include "Seraph/Scene/Components/TransformComponent.h"
 #include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/SceneAsset.h"
+#include "Seraph/Utilities/YAMLSerializationHelpers.h"
 
 #include <glm/glm.hpp>
 #include <yaml-cpp/yaml.h>
@@ -171,7 +173,15 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
 
             if (const YAML::Node m = node["Mesh"]) {
                 auto& mc = entity.AddComponent<MeshComponent>();
-                mc.Mesh = AssetRef{ m["Mesh"].as<u64>() };
+                auto handle = m["Mesh"].as<AssetHandle>(0);
+                if (AssetManager::IsAssetHandleValid(handle))
+                {
+                    mc.Mesh = handle;
+                } else {
+                    SP_CORE_ERROR_TAG("SceneSerializer", "Missing asset {}", handle);
+                    mc.Mesh = 0;
+                }
+
             }
 
             if (const YAML::Node r = node["Relationship"]) {

@@ -8,6 +8,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <ranges>
 #include <string>
 #include <vector>
 
@@ -454,12 +455,12 @@ void EditorAssetManager::SerializeAssetRegistry()
     std::vector<AssetMetadata> entries;
     {
         std::shared_lock lock(m_Mutex);
-        for (const auto& [handle, metadata] : m_Registry)
-            if (!metadata.IsMemoryAsset && metadata.IsValid())
+        for (const auto& metadata : m_Registry | std::views::values)
+            if (metadata.IsValid())
                 entries.push_back(metadata);
     }
-    std::sort(
-        entries.begin(), entries.end(),
+    std::ranges::sort(
+        entries,
         [](const AssetMetadata& a, const AssetMetadata& b) {
             return static_cast<u64>(a.Handle) < static_cast<u64>(b.Handle);
         });
