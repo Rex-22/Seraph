@@ -1,0 +1,17 @@
+Material:
+  Shader: simple
+  RenderState:
+    Blend: Opaque
+    Cull: Back
+    Depth: Greater
+    DepthWrite: true
+    ColorWrite: true
+  Parameters:
+    - Name: s_color
+      Type: Color
+      Value: [0.4852941, 0.11180796, 0.11180796, 1]
+      Range: [0, 1]
+    - Name: s_texColor
+      Type: Texture
+      Texture: 10102685020214783571
+      Stage: 0

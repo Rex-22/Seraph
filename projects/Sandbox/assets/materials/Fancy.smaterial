@@ -1,0 +1,29 @@
+Material:
+  Shader: Shader_1
+  RenderState:
+    Blend: Opaque
+    Cull: Back
+    Depth: Greater
+    DepthWrite: true
+    ColorWrite: true
+  Parameters:
+    - Name: u_colorA
+      Type: Color
+      Value: [0.92, 0.18, 0.35, 1]
+      Range: [0, 1]
+    - Name: u_colorB
+      Type: Color
+      Value: [0.28762975, 0.3615597, 0.44117647, 1]
+      Range: [0, 1]
+    - Name: u_tiling
+      Type: Float
+      Value: [3.253, 0, 0, 0]
+      Range: [1, 40]
+    - Name: u_glow
+      Type: Float
+      Value: [0.737, 0, 0, 0]
+      Range: [0, 2]
+    - Name: u_warp
+      Type: Float
+      Value: [0.934, 0, 0, 0]
+      Range: [0, 1]

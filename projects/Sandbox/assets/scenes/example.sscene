@@ -1,16 +1,57 @@
-Scene: Example Scene
+Scene: TestProject
 Entities:
-  - Entity: 2201664692890954226
+  - Entity: 2561095505170714115
+    Tag: Cube 3
+    Transform:
+      Translation: [3.8735034, 0, 0]
+      Rotation: [0, -0, 0]
+      Scale: [0.52, 0.52, 0.52]
+    Mesh:
+      Mesh: 2588111291914606650
+      MaterialOverrides: [15603322866813599139]
+    Relationship:
+      Parent: 9784779853712716575
+      Children:
+        []
+  - Entity: 7933459923336589363
+    Tag: Cube 2
+    Transform:
+      Translation: [0, -4.990764, 0]
+      Rotation: [0, -0, 0]
+      Scale: [2.85, 2.85, 2.85]
+    Mesh:
+      Mesh: 7500292515646999820
+      MaterialOverrides: [3884254406120167305]
+    Relationship:
+      Parent: 9784779853712716575
+      Children:
+        []
+  - Entity: 9784779853712716575
+    Tag: Cube
+    Transform:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Mesh:
+      Mesh: 2588111291914606650
+      MaterialOverrides: [9201136865809239182]
+    Relationship:
+      Parent: 0
+      Children:
+        - 7933459923336589363
+        - 2561095505170714115
+        - 17662605094292451532
+  - Entity: 12403566664747799388
     Tag: Camera
     Transform:
-      Translation: [0, 0, 10]
-      Rotation: [0, 0, 0]
+      Translation: [-0.2483291, 3.4835858, 4.0588417]
+      Rotation: [-0.20829603, 0, 0]
       Scale: [1, 1, 1]
     Camera:
       ProjectionType: Perspective
       IsPrimary: true
-      PerspectiveFov: 60
-      PerspectiveNear: 0.01
+      PerspectiveFov: 45
+      PerspectiveNear: 0.1
       PerspectiveFar: 1000
       OrthographicSize: 10
       OrthographicNear: -1
@@ -19,27 +60,16 @@ Entities:
       Parent: 0
       Children:
         []
-  - Entity: 4267967204139994196
-    Tag: Cube
-    Transform:
-      Translation: [0, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
-    Mesh:
-      Mesh: 9837350662712858587
-    Relationship:
-      Parent: 0
-      Children:
-        []
-  - Entity: 13496979483844828754
+  - Entity: 17662605094292451532
     Tag: Entity
     Transform:
-      Translation: [0, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
+      Translation: [0, 3.0967004, 0]
+      Rotation: [0, -0, 0]
+      Scale: [0.55, 0.55, 0.55]
     Mesh:
-      Mesh: 5607669156657460945
+      Mesh: 2588111291914606650
+      MaterialOverrides: [6600000042]
     Relationship:
-      Parent: 0
+      Parent: 9784779853712716575
       Children:
         []

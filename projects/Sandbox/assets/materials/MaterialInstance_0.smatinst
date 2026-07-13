@@ -1,0 +1,7 @@
+MaterialInstance:
+  Parent: 3884254406120167305
+  Overrides:
+    - Name: s_color
+      Type: Color
+      Value: [0.8186271, 0.120386414, 0.8186275, 1]
+      Range: [0, 1]
