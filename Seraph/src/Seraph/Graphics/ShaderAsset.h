@@ -22,6 +22,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace bgfx
 {
@@ -30,6 +31,17 @@ struct EmbeddedShader;
 
 namespace Seraph
 {
+
+// A material-facing uniform reflected from the compiled shader. bgfx only
+// reports the coarse type (Sampler/Vec4/Mat3/Mat4) and array count, with its own
+// predefined uniforms (u_modelViewProj, ...) filtered out. Used to validate a
+// material's declared parameters against the shader it targets.
+struct ShaderUniformInfo
+{
+    std::string Name;
+    bgfx::UniformType::Enum Type = bgfx::UniformType::Count;
+    u16 Num = 1;
+};
 
 class ShaderAsset : public Asset
 {
@@ -68,6 +80,9 @@ public:
     [[nodiscard]] bgfx::ProgramHandle Program() const { return m_Program; }
     [[nodiscard]] bool IsValid() const { return bgfx::isValid(m_Program); }
 
+    // Material-facing uniforms reflected during Upload. Empty until uploaded.
+    [[nodiscard]] const std::vector<ShaderUniformInfo>& Uniforms() const { return m_Uniforms; }
+
     // Staged per-renderer bytecode (valid only between StageVariant and Upload;
     // Upload releases it). Used by ShaderSerializer::Serialize.
     [[nodiscard]] const BlobMap& VertexBlobs() const { return m_VertexBlobs; }
@@ -85,6 +100,7 @@ private:
     std::string m_EmbeddedFs;
 
     bgfx::ProgramHandle m_Program = BGFX_INVALID_HANDLE;
+    std::vector<ShaderUniformInfo> m_Uniforms;
 };
 
 } // namespace Seraph

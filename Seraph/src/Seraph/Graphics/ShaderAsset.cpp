@@ -9,9 +9,46 @@
 #include <bgfx/embedded_shader.h>
 
 #include <utility>
+#include <vector>
 
 namespace Seraph
 {
+
+namespace
+{
+
+// Append a shader stage's material-facing uniforms (bgfx filters out its own
+// predefined u_* uniforms) to `out`, de-duplicating by name across stages.
+void ReflectStageUniforms(bgfx::ShaderHandle shader, std::vector<ShaderUniformInfo>& out)
+{
+    if (!bgfx::isValid(shader))
+        return;
+
+    const u16 count = bgfx::getShaderUniforms(shader, nullptr, 0);
+    if (count == 0)
+        return;
+
+    std::vector<bgfx::UniformHandle> handles(count);
+    bgfx::getShaderUniforms(shader, handles.data(), count);
+
+    for (const bgfx::UniformHandle handle : handles) {
+        if (!bgfx::isValid(handle))
+            continue;
+        bgfx::UniformInfo info{};
+        bgfx::getUniformInfo(handle, info);
+
+        bool seen = false;
+        for (const ShaderUniformInfo& existing : out)
+            if (existing.Name == info.name) {
+                seen = true;
+                break;
+            }
+        if (!seen)
+            out.push_back(ShaderUniformInfo{info.name, info.type, info.num});
+    }
+}
+
+} // namespace
 
 void ShaderAsset::StageVariant(u16 renderer, Buffer&& vertex, Buffer&& fragment)
 {
@@ -76,6 +113,12 @@ bool ShaderAsset::Upload()
             bgfx::getRendererName(bgfx::getRendererType()));
         return false;
     }
+
+    // Reflect material-facing uniforms while the shader handles still exist —
+    // createProgram(..., true) below consumes and destroys them.
+    m_Uniforms.clear();
+    ReflectStageUniforms(vs, m_Uniforms);
+    ReflectStageUniforms(fs, m_Uniforms);
 
     // destroyShaders = true: the program takes ownership of the shader handles.
     m_Program = bgfx::createProgram(vs, fs, true);
