@@ -24,6 +24,11 @@ public:
     explicit Material(AssetHandle shader);
     ~Material() override = default;
 
+    // The engine's built-in default material: the embedded "simple" shader with a
+    // 1x1 white texture. Used for imported meshes and as the editor's fallback.
+    // Main thread only (creates GPU resources).
+    static Ref<Material> CreateDefault();
+
     // Disable copy operations
     Material(const Material&) = delete;
     Material& operator=(const Material&) = delete;

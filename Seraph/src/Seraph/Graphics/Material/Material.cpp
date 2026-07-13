@@ -3,10 +3,14 @@
 //
 
 #include "Material.h"
+#include "ColorProperty.h"
 #include "MaterialProperty.h"
+#include "TextureProperty.h"
 
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Graphics/ShaderAsset.h"
+#include "Seraph/Graphics/ShaderManager.h"
+#include "Seraph/Graphics/Texture2D.h"
 
 #include <ranges>
 
@@ -15,6 +19,19 @@ namespace Seraph
 
 Material::Material(AssetHandle shader) : m_Shader(shader)
 {
+}
+
+Ref<Material> Material::CreateDefault()
+{
+    Ref<Material> material =
+        Ref<Material>::Create(ShaderManager::GetHandle("simple"));
+
+    const u32 white = 0xffffffff;
+    Ref<Texture2D> texture = Texture2D::Create("DefaultWhite", &white, 1, 1);
+
+    material->AddProperty<ColorProperty>("s_color", glm::vec4(1.0f));
+    material->AddProperty<TextureProperty>("s_texColor", texture, 0);
+    return material;
 }
 
 Material::Material(Material&& other) noexcept

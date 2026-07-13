@@ -17,7 +17,6 @@ namespace Seraph
 {
 
 class Material;
-class Texture2D;
 
 class MeshSerializer : public AssetSerializer
 {
@@ -41,7 +40,6 @@ private:
     Ref<Material> GetOrCreateDefaultMaterial();
 
     Ref<Material> m_DefaultMaterial;
-    Ref<Texture2D> m_DefaultTexture;
 };
 
 } // namespace Seraph

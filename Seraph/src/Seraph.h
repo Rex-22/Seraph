@@ -15,6 +15,7 @@
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Buffer.h"
 #include "Seraph/Core/Core.h"
+#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/GlmCustomFormatters.h"
 #include "Seraph/Core/Input.h"
 #include "Seraph/Core/KeyCodes.h"
@@ -70,6 +71,7 @@
 
 // --- Project / Runtime ------------------------------------------------------
 #include "Seraph/Project/Project.h"
+#include "Seraph/Project/ProjectManager.h"
 #include "Seraph/Runtime/RuntimeLayer.h"
 
 // --- Editor ----------------------------------------------------------------

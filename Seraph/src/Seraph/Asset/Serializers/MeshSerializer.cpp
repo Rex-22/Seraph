@@ -141,18 +141,8 @@ void MeshSerializer::Finalize(const Ref<Asset>& asset)
 
 Ref<Material> MeshSerializer::GetOrCreateDefaultMaterial()
 {
-    if (m_DefaultMaterial)
-        return m_DefaultMaterial;
-
-    Ref<Material> material = Ref<Material>::Create(ShaderManager::GetHandle("simple"));
-
-    u32 white = 0xffffffff;
-    m_DefaultTexture = Texture2D::Create("MeshDefaultTexture", &white, 1, 1);
-
-    material->AddProperty<ColorProperty>("s_color", glm::vec4(1.0f));
-    material->AddProperty<TextureProperty>("s_texColor", m_DefaultTexture, 0);
-
-    m_DefaultMaterial = material;
+    if (!m_DefaultMaterial)
+        m_DefaultMaterial = Material::CreateDefault();
     return m_DefaultMaterial;
 }
 
