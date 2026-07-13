@@ -121,9 +121,9 @@ bool ShaderSerializer::Serialize(
     // deterministic (stable-diff) layout.
     std::vector<u16> renderers;
     for (const auto& [renderer, blob] : vsBlobs)
-        if (blob && fsBlobs.count(renderer) != 0)
+        if (blob && fsBlobs.contains(renderer))
             renderers.push_back(renderer);
-    std::sort(renderers.begin(), renderers.end());
+    std::ranges::sort(renderers);
 
     if (renderers.empty()) {
         SP_CORE_ERROR_TAG(

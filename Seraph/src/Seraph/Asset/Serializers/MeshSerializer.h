@@ -23,8 +23,6 @@ class MeshSerializer : public AssetSerializer
 {
 public:
     MeshSerializer() = default;
-    // Defined in the .cpp so the Ref<Material>/Ref<Texture2D> members' destructors
-    // are instantiated where those types are complete.
     ~MeshSerializer() override;
 
     Ref<Asset> LoadData(const AssetMetadata& metadata, const Buffer& bytes) override;

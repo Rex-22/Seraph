@@ -21,8 +21,6 @@ class Material: public Asset
 public:
     ASSET_CLASS_TYPE(Material)
 
-    // References a ShaderAsset by handle; the program is resolved lazily
-    // through the AssetManager (see Program()).
     explicit Material(AssetHandle shader);
     ~Material() override = default;
 

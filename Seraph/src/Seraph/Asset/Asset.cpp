@@ -4,37 +4,32 @@
 
 #include "Asset.h"
 
+#include "Seraph/Core/BiMap.h"
+
 namespace Seraph
 {
 
-const char* AssetTypeToString(AssetType type)
+static const BiMap<std::string_view, AssetType>& Registry()
 {
-    switch (type) {
-        case AssetType::None:
-            return "None";
-        case AssetType::Mesh:
-            return "Mesh";
-        case AssetType::Material:
-            return "Material";
-        case AssetType::Texture2D:
-            return "Texture2D";
-        case AssetType::Shader:
-            return "Shader";
-    }
-    return "None";
+    static BiMap<std::string_view, AssetType> s_Registry {
+        {"None", AssetType::None},
+        {"Mesh", AssetType::Mesh},
+        {"Material", AssetType::Material},
+        {"Texture2D", AssetType::Texture2D},
+        {"Shader", AssetType::Shader},
+    };
+    return s_Registry;
 }
 
-AssetType AssetTypeFromString(std::string_view type)
+
+std::string_view AssetTypeToString(const AssetType type)
 {
-    if (type == "Mesh")
-        return AssetType::Mesh;
-    if (type == "Material")
-        return AssetType::Material;
-    if (type == "Texture2D")
-        return AssetType::Texture2D;
-    if (type == "Shader")
-        return AssetType::Shader;
-    return AssetType::None;
+    return Registry().GetLeft(type).value_or("None");
+}
+
+AssetType AssetTypeFromString(const std::string_view type)
+{
+    return Registry().GetRight(type).value_or(AssetType::None);
 }
 
 } // namespace Seraph

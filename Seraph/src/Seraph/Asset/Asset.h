@@ -23,7 +23,7 @@ enum class AssetType : u16
     Shader,
 };
 
-const char* AssetTypeToString(AssetType type);
+std::string_view AssetTypeToString(AssetType type);
 AssetType AssetTypeFromString(std::string_view type);
 
 enum class AssetFlag : u16
