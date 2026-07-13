@@ -4,6 +4,8 @@
 #include "Seraph/Asset/AssetSource.h"
 #include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
+#include "Seraph/Graphics/ShaderCompiler.h"
+#include "Seraph/Graphics/ShaderManager.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -424,6 +426,98 @@ AssetHandle EditorAssetManager::SaveAssetAs(
         "AssetManager", "Saved {} asset '{}' as {}",
         AssetTypeToString(metadata.Type), relativePath.string(),
         static_cast<u64>(handle));
+    return handle;
+}
+
+namespace
+{
+
+// Template for a new shader: a pass-through matching the built-in "simple"
+// shader's interface (position/color/uv vertex attributes; s_color + s_texColor
+// uniforms), so a freshly-created shader is a drop-in replacement for "simple".
+constexpr const char* k_VaryingTemplate =
+    "vec4 v_color0    : COLOR0    = vec4(1.0, 1.0, 1.0, 1.0);\n"
+    "vec2 v_texcoord0 : TEXCOORD0 = vec2(0.0, 0.0);\n"
+    "\n"
+    "vec3 a_position  : POSITION;\n"
+    "vec4 a_color0    : COLOR0;\n"
+    "vec2 a_texcoord0 : TEXCOORD0;\n";
+
+constexpr const char* k_VertexTemplate =
+    "$input a_position, a_color0, a_texcoord0\n"
+    "$output v_color0, v_texcoord0\n"
+    "\n"
+    "#include \"bgfx_shader.sh\"\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    gl_Position = mul(u_modelViewProj, vec4(a_position, 1.0));\n"
+    "    v_color0 = a_color0;\n"
+    "    v_texcoord0 = a_texcoord0;\n"
+    "}\n";
+
+constexpr const char* k_FragmentTemplate =
+    "$input v_color0, v_texcoord0\n"
+    "\n"
+    "#include \"bgfx_shader.sh\"\n"
+    "\n"
+    "uniform vec4 s_color;\n"
+    "SAMPLER2D(s_texColor, 0);\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    gl_FragColor = texture2D(s_texColor, v_texcoord0) * v_color0 * s_color;\n"
+    "}\n";
+
+void WriteIfAbsent(const std::filesystem::path& relative, const char* contents)
+{
+    if (FileSystem::Exists(Root::Project, relative))
+        return;
+    const Buffer bytes = Buffer::Copy(contents, std::string(contents).size());
+    FileSystem::Write(Root::Project, relative, bytes);
+}
+
+} // namespace
+
+AssetHandle EditorAssetManager::CreateShader(const std::string& name)
+{
+    namespace fs = std::filesystem;
+    if (name.empty())
+        return c_NullAssetHandle;
+
+    const fs::path sourceRel = fs::path("shaders") / name;
+    const fs::path sshaderRel = fs::path("shaders") / (name + ".sshader");
+
+    // 1. Write the template source set (skips files that already exist).
+    WriteIfAbsent(sourceRel / "varying.def.sc", k_VaryingTemplate);
+    WriteIfAbsent(sourceRel / ("vs_" + name + ".sc"), k_VertexTemplate);
+    WriteIfAbsent(sourceRel / ("fs_" + name + ".sc"), k_FragmentTemplate);
+
+    // 2. Cook the source folder to a multi-renderer .sshader.
+    const fs::path sourceAbs = FileSystem::Resolve(Root::Project, sourceRel);
+    const fs::path sshaderAbs = FileSystem::Resolve(Root::Project, sshaderRel);
+    if (!ShaderCompiler::Cook(sourceAbs, name, sshaderAbs))
+        return c_NullAssetHandle;
+
+    // 3. Register the .sshader under the name's deterministic handle, so
+    //    ShaderManager::GetHandle(name) resolves it this run and every future
+    //    run (the registry entry persists) and at runtime from the pack.
+    const AssetHandle handle = ShaderHandleFromName(name);
+    {
+        AssetMetadata metadata;
+        metadata.Handle = handle;
+        metadata.Type = AssetType::Shader;
+        metadata.FilePath = sshaderRel;
+
+        std::unique_lock lock(m_Mutex);
+        m_LoadedAssets.erase(handle); // force a fresh load of the new bytes
+        m_Registry[handle] = metadata;
+        m_Status[handle] = AssetStatus::None;
+    }
+    ShaderManager::RegisterCooked(name, handle);
+    SerializeAssetRegistry();
+
+    SP_CORE_INFO_TAG("AssetManager", "Created shader '{}' ({})", name, static_cast<u64>(handle));
     return handle;
 }
 

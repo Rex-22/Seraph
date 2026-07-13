@@ -62,6 +62,13 @@ public:
     AssetHandle SaveAssetAs(
         Ref<Asset> asset, const std::filesystem::path& relativePath);
 
+    // Create a new shader from a template: writes a source folder
+    // (shaders/<name>/ with varying.def.sc + vs_/fs_<name>.sc), cooks it to a
+    // shaders/<name>.sshader asset via ShaderCompiler, registers that, and makes
+    // it resolvable by name through ShaderManager. Returns the .sshader handle,
+    // or c_NullAssetHandle on failure. Editor/dev only (needs the shaderc tool).
+    AssetHandle CreateShader(const std::string& name);
+
     AssetMetadata GetMetadata(AssetHandle handle);
     AssetHandle GetAssetHandleFromFilePath(const std::filesystem::path& relativePath);
 
