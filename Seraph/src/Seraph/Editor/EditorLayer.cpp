@@ -45,11 +45,6 @@ void EditorLayer::SetScene(Ref<Scene> scene)
     m_Gizmo.SetScene(m_Scene);
 }
 
-void EditorLayer::SetDefaultMaterial(Ref<Material> material)
-{
-    m_EntityInspector.SetDefaultMaterial(std::move(material));
-}
-
 void EditorLayer::OnAttach()
 {
     auto [w, h] = Application::Instance().Window().Size();

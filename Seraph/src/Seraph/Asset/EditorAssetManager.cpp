@@ -28,7 +28,8 @@ AssetType AssetTypeFromExtension(const std::string& extension)
     if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".tga" ||
         ext == ".dds" || ext == ".ktx" || ext == ".bmp")
         return AssetType::Texture2D;
-    if (ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".fbx")
+    if (ext == ".gltf" || ext == ".glb" || ext == ".obj" || ext == ".fbx" ||
+        ext == ".smesh")
         return AssetType::Mesh;
     if (ext == ".sshader")
         return AssetType::Shader;

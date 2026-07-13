@@ -6,6 +6,7 @@
 
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/AssetRef.h"
+#include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Scene/Scene.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
@@ -104,11 +105,6 @@ static bool BeginComponentSection(const char* label, [[maybe_unused]] Entity ent
     }
 
     return open;
-}
-
-void EntityInspectorPanel::SetDefaultMaterial(Ref<Material> material)
-{
-    { m_DefaultMaterial = material; }
 }
 
 void EntityInspectorPanel::OnImGuiRender()
@@ -286,33 +282,31 @@ void EntityInspectorPanel::DrawAddComponentMenu()
 
         if (!m_SelectedEntity.HasComponent<MeshComponent>())
         {
-            bool hasMaterial = m_DefaultMaterial != nullptr;
-
-            if (ImGui::BeginMenu("Mesh", hasMaterial))
+            if (ImGui::BeginMenu("Mesh"))
             {
-                auto addMesh = [&](Ref<Mesh> mesh)
+                // The factory builds the geometry; SaveAssetAs materializes it as
+                // a shared .smesh under the project (reusing the asset when the
+                // path is already registered) so it survives reload and packs.
+                auto addPrimitive = [&](Ref<Mesh> mesh, const char* relativePath)
                 {
-                    // Procedural meshes are registered as in-memory assets; the
-                    // component stores only the resulting handle.
-                    AssetHandle handle = AssetManager::AddMemoryAsset(mesh);
-                    auto& mc = m_SelectedEntity.AddComponent<MeshComponent>();
-                    mc.Mesh = AssetRef{handle};
+                    Ref<EditorAssetManager> assets =
+                        AssetManager::Get().As<EditorAssetManager>();
+                    if (!assets)
+                        return;
+                    AssetHandle handle = assets->SaveAssetAs(mesh, relativePath);
+                    if (static_cast<u64>(handle) == c_NullAssetHandle)
+                        return;
+                    m_SelectedEntity.AddComponent<MeshComponent>().Mesh = AssetRef{handle};
                     ImGui::CloseCurrentPopup();
                 };
 
                 if (ImGui::MenuItem("Cube"))
-                    addMesh(MeshFactory::CreateCube(m_DefaultMaterial));
+                    addPrimitive(MeshFactory::CreateCube(), "meshes/primitives/Cube.smesh");
 
                 if (ImGui::MenuItem("Plane"))
-                    addMesh(MeshFactory::CreatePlane(m_DefaultMaterial));
+                    addPrimitive(MeshFactory::CreatePlane(), "meshes/primitives/Plane.smesh");
 
                 ImGui::EndMenu();
-            }
-
-            if (!hasMaterial)
-            {
-                ImGui::SameLine();
-                ImGui::TextDisabled("(set default material first)");
             }
         }
 

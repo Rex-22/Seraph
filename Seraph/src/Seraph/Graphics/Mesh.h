@@ -1,28 +1,29 @@
 //
 // Created by ruben on 5/3/25.
 //
+// A Mesh is a pure GPU resource + geometry metadata: one vertex buffer, one
+// index buffer, a vertex layout, a table of submeshes (drawable index ranges,
+// each bound to a material slot), and a material-slot count. It owns no material
+// and does not know how to draw itself — binding, material resolution and
+// submission live in the renderer. CPU-side vertex/index bytes are retained so
+// the mesh can be serialized to a .smesh file.
+//
 
 #pragma once
 
-#include "Material/Material.h"
 #include "Seraph/Asset/Asset.h"
 #include "Seraph/Core/Base.h"
+#include "Seraph/Core/Log.h"
 #include "Seraph/Core/Ref.h"
 
 #include <bgfx/bgfx.h>
 #include <concepts>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace Seraph
 {
-class Transform;
-}
-
-namespace Seraph
-{
-class Camera;
-class Material;
 
 template<typename TVertex>
 concept HasVertexLayout = requires
@@ -30,17 +31,27 @@ concept HasVertexLayout = requires
     { TVertex::Layout() } -> std::convertible_to<const bgfx::VertexLayout*>;
 };
 
-class Mesh: public Asset
+class Mesh : public Asset
 {
 public:
     ASSET_CLASS_TYPE(Mesh)
 
-    explicit Mesh(const Ref<Material>& material);
+    // One drawable range within the shared vertex/index buffers, bound to a
+    // material slot. Indices are absolute (they already include BaseVertex),
+    // matching how the importer concatenates sources.
+    struct Submesh
+    {
+        u32 BaseVertex = 0;
+        u32 BaseIndex = 0;
+        u32 IndexCount = 0;
+        u32 MaterialSlot = 0;
+    };
+
+    Mesh() = default;
     ~Mesh() override;
 
-public:
     void SetName(const std::string& name);
-    void SetMaterial(const Ref<Material>& material) { m_Material = material; }
+    [[nodiscard]] const std::string& Name() const { return m_Name; }
 
     template<HasVertexLayout TVertex>
     void SetVertexLayout()
@@ -50,39 +61,65 @@ public:
             SP_CORE_WARN_TAG("Mesh", "Vertex layout for mesh '{}' has no attributes", m_Name);
     }
 
-    // Runtime layout (e.g. an imported mesh); the mesh copies and owns it.
+    // Runtime layout (e.g. an imported / deserialized mesh); the mesh copies and
+    // owns it.
     void SetVertexLayout(const bgfx::VertexLayout& layout);
 
-    // Immediate upload (main thread). Used by procedural/factory meshes.
-    void SetVertexData(const void* data, uint32_t size);
-    void SetIndexData(const uint16_t* indices, size_t size);
+    // Immediate upload (main thread), used by procedural/factory meshes. Both
+    // retain a CPU copy so the mesh can be serialized. `indexSize` is bytes per
+    // index (2 or 4).
+    void SetVertexData(const void* data, u32 byteSize);
+    void SetIndexData(const void* data, u32 byteSize, u32 indexSize = sizeof(u16));
 
-    // Two-phase (asset loading): stage CPU bytes on a worker thread, then Upload
-    // the GPU buffers on the main thread.
-    void StageVertexData(const void* data, uint32_t size);
-    void StageIndexData(const uint16_t* indices, uint32_t count);
+    // Two-phase (async loading): stage CPU bytes on a worker thread, then Upload
+    // the GPU buffers on the main thread. The CPU copy is retained after upload.
+    // Both sizes are in BYTES (was: index count — normalized here).
+    void StageVertexData(const void* data, u32 byteSize);
+    void StageIndexData(const void* data, u32 byteSize, u32 indexSize = sizeof(u16));
     bool Upload();
 
+    void SetSubmeshes(std::vector<Submesh> submeshes) { m_Submeshes = std::move(submeshes); }
+    void SetMaterialSlotCount(u32 count) { m_MaterialSlotCount = count; }
+
+    // --- Accessors --------------------------------------------------------
     [[nodiscard]] const bgfx::VertexLayout* Layout() const { return m_Layout; }
     [[nodiscard]] bgfx::VertexBufferHandle VertexBuffer() const { return m_VertexBuffer; }
     [[nodiscard]] bgfx::IndexBufferHandle IndexBuffer() const { return m_IndexBuffer; }
-    [[nodiscard]] const std::string& Name() const { return m_Name; }
+    [[nodiscard]] const std::vector<Submesh>& Submeshes() const { return m_Submeshes; }
+    [[nodiscard]] u32 MaterialSlotCount() const { return m_MaterialSlotCount; }
+    [[nodiscard]] u32 IndexSize() const { return m_IndexSize; }
 
-    void Submit(uint16_t viewId, const glm::mat4& transform = glm::mat4(1.0f)) const;
+    // CPU-side geometry, retained for serialization.
+    [[nodiscard]] const std::vector<u8>& VertexData() const { return m_Vertices; }
+    [[nodiscard]] const std::vector<u8>& IndexData() const { return m_Indices; }
+    [[nodiscard]] u32 VertexCount() const
+    {
+        const u32 stride = m_Layout != nullptr ? m_Layout->getStride() : 0;
+        return stride != 0 ? static_cast<u32>(m_Vertices.size()) / stride : 0;
+    }
+    [[nodiscard]] u32 IndexCount() const
+    {
+        return m_IndexSize != 0 ? static_cast<u32>(m_Indices.size()) / m_IndexSize : 0;
+    }
 
 private:
+    bool CreateBuffers();
+
     const bgfx::VertexLayout* m_Layout = nullptr;
     bgfx::VertexLayout m_OwnedLayout{}; // used when a runtime layout is set
-    Ref<Material> m_Material;
 
-    bgfx::VertexBufferHandle m_VertexBuffer { bgfx::kInvalidHandle };
-    bgfx::IndexBufferHandle m_IndexBuffer { bgfx::kInvalidHandle };
+    bgfx::VertexBufferHandle m_VertexBuffer{bgfx::kInvalidHandle};
+    bgfx::IndexBufferHandle m_IndexBuffer{bgfx::kInvalidHandle};
 
-    // CPU data staged between StageVertexData/StageIndexData and Upload.
-    std::vector<u8> m_StagedVertices;
-    std::vector<u16> m_StagedIndices;
+    // Retained CPU geometry — kept after upload so the mesh can be serialized.
+    std::vector<u8> m_Vertices;
+    std::vector<u8> m_Indices;
+    u32 m_IndexSize = sizeof(u16); // bytes per index (2 or 4)
 
-    std::string m_Name;
+    std::vector<Submesh> m_Submeshes;
+    u32 m_MaterialSlotCount = 1;
+
+    std::string m_Name = "NoName";
 };
 
-} // namespace Graphics
+} // namespace Seraph

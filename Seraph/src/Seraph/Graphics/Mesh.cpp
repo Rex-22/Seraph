@@ -5,28 +5,20 @@
 #include "Mesh.h"
 
 #include "Seraph/Core/Log.h"
-#include "Seraph/Graphics/Material/Material.h"
-#include "glm/gtc/type_ptr.hpp"
 
 #include <cstring>
 
 namespace Seraph
 {
 
-Mesh::Mesh(const Ref<Material>& material) : m_Material(material)
-{
-    m_Name = "NoName";
-}
-
 Mesh::~Mesh()
 {
-    if (bgfx::isValid(m_VertexBuffer)) {
+    if (bgfx::isValid(m_VertexBuffer))
         bgfx::destroy(m_VertexBuffer);
-    }
-    if (bgfx::isValid(m_IndexBuffer)) {
+    if (bgfx::isValid(m_IndexBuffer))
         bgfx::destroy(m_IndexBuffer);
-    }
 }
+
 void Mesh::SetName(const std::string& name)
 {
     m_Name = name;
@@ -40,10 +32,15 @@ void Mesh::SetVertexLayout(const bgfx::VertexLayout& layout)
         SP_CORE_WARN_TAG("Mesh", "Vertex layout for mesh '{}' has no attributes", m_Name);
 }
 
-void Mesh::SetVertexData(const void* data, const uint32_t size)
+void Mesh::SetVertexData(const void* data, const u32 byteSize)
 {
+    m_Vertices.resize(byteSize);
+    if (byteSize > 0 && data != nullptr)
+        std::memcpy(m_Vertices.data(), data, byteSize);
+
     if (bgfx::isValid(m_VertexBuffer)) {
         bgfx::destroy(m_VertexBuffer);
+        m_VertexBuffer = BGFX_INVALID_HANDLE;
     }
 
     if (m_Layout == nullptr) {
@@ -51,30 +48,43 @@ void Mesh::SetVertexData(const void* data, const uint32_t size)
         return;
     }
 
-    // Copy so bgfx owns the memory — the caller's buffer need not outlive us.
+    // Copy so bgfx owns the GPU-side memory; our CPU copy in m_Vertices persists
+    // for serialization.
     m_VertexBuffer =
-        bgfx::createVertexBuffer(bgfx::copy(data, size), *m_Layout);
+        bgfx::createVertexBuffer(bgfx::copy(m_Vertices.data(), byteSize), *m_Layout);
 }
 
-void Mesh::SetIndexData(const uint16_t* indices, const size_t size)
+void Mesh::SetIndexData(const void* data, const u32 byteSize, const u32 indexSize)
 {
+    m_IndexSize = indexSize;
+    m_Indices.resize(byteSize);
+    if (byteSize > 0 && data != nullptr)
+        std::memcpy(m_Indices.data(), data, byteSize);
+
     if (bgfx::isValid(m_IndexBuffer)) {
         bgfx::destroy(m_IndexBuffer);
+        m_IndexBuffer = BGFX_INVALID_HANDLE;
     }
+
+    const u16 flags =
+        indexSize == sizeof(u32) ? BGFX_BUFFER_INDEX32 : BGFX_BUFFER_NONE;
     m_IndexBuffer =
-        bgfx::createIndexBuffer(bgfx::copy(indices, static_cast<uint32_t>(size)));
+        bgfx::createIndexBuffer(bgfx::copy(m_Indices.data(), byteSize), flags);
 }
 
-void Mesh::StageVertexData(const void* data, const uint32_t size)
+void Mesh::StageVertexData(const void* data, const u32 byteSize)
 {
-    m_StagedVertices.resize(size);
-    if (size > 0 && data != nullptr)
-        std::memcpy(m_StagedVertices.data(), data, size);
+    m_Vertices.resize(byteSize);
+    if (byteSize > 0 && data != nullptr)
+        std::memcpy(m_Vertices.data(), data, byteSize);
 }
 
-void Mesh::StageIndexData(const uint16_t* indices, const uint32_t count)
+void Mesh::StageIndexData(const void* data, const u32 byteSize, const u32 indexSize)
 {
-    m_StagedIndices.assign(indices, indices + count);
+    m_IndexSize = indexSize;
+    m_Indices.resize(byteSize);
+    if (byteSize > 0 && data != nullptr)
+        std::memcpy(m_Indices.data(), data, byteSize);
 }
 
 bool Mesh::Upload()
@@ -83,43 +93,29 @@ bool Mesh::Upload()
         SP_CORE_ERROR_TAG("Mesh", "Cannot upload mesh '{}' with no layout", m_Name);
         return false;
     }
-    if (m_StagedVertices.empty() || m_StagedIndices.empty()) {
+    if (m_Vertices.empty() || m_Indices.empty()) {
         SP_CORE_ERROR_TAG("Mesh", "Cannot upload mesh '{}' with no staged data", m_Name);
         return false;
     }
+    return CreateBuffers();
+}
 
+bool Mesh::CreateBuffers()
+{
     if (bgfx::isValid(m_VertexBuffer))
         bgfx::destroy(m_VertexBuffer);
     if (bgfx::isValid(m_IndexBuffer))
         bgfx::destroy(m_IndexBuffer);
 
     m_VertexBuffer = bgfx::createVertexBuffer(
-        bgfx::copy(m_StagedVertices.data(),
-                   static_cast<uint32_t>(m_StagedVertices.size())),
-        *m_Layout);
-    m_IndexBuffer = bgfx::createIndexBuffer(
-        bgfx::copy(m_StagedIndices.data(),
-                   static_cast<uint32_t>(m_StagedIndices.size() * sizeof(u16))));
+        bgfx::copy(m_Vertices.data(), static_cast<u32>(m_Vertices.size())), *m_Layout);
 
-    // Staged CPU data no longer needed once uploaded.
-    m_StagedVertices.clear();
-    m_StagedVertices.shrink_to_fit();
-    m_StagedIndices.clear();
-    m_StagedIndices.shrink_to_fit();
+    const u16 flags =
+        m_IndexSize == sizeof(u32) ? BGFX_BUFFER_INDEX32 : BGFX_BUFFER_NONE;
+    m_IndexBuffer = bgfx::createIndexBuffer(
+        bgfx::copy(m_Indices.data(), static_cast<u32>(m_Indices.size())), flags);
 
     return bgfx::isValid(m_VertexBuffer) && bgfx::isValid(m_IndexBuffer);
 }
 
-void Mesh::Submit(u16 viewId, const glm::mat4& transform) const
-{
-    bgfx::setTransform(glm::value_ptr(transform));
-
-    bgfx::setVertexBuffer(0, VertexBuffer());
-    bgfx::setIndexBuffer(IndexBuffer());
-
-    m_Material->Apply(
-        viewId, BGFX_DISCARD_INDEX_BUFFER | BGFX_DISCARD_VERTEX_STREAMS);
-    bgfx::discard();
-}
-
-} // namespace Graphics
+} // namespace Seraph

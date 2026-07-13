@@ -1,11 +1,16 @@
 //
-// Serializer for Mesh, backed by Assimp (OBJ / glTF). Phase 1 imports the model
-// and stages CPU vertex/index data on any thread; Phase 2 uploads the GPU
-// buffers and assigns a material on the main thread.
+// Serializer for Mesh. Handles two byte formats behind one AssetType::Mesh:
 //
-// Material handling is intentionally simple for now: every imported mesh gets a
-// shared default material. Per-mesh / per-submesh materials from the source file
-// are a documented follow-up.
+//   * .smesh — the engine's native binary mesh (magic 'SMSH'): a self-describing
+//     header (vertex layout + submesh table + material-slot count) followed by
+//     the raw vertex and index blobs. This is what Serialize writes and what the
+//     editor/runtime load for meshes authored in-engine. Lossless.
+//   * import formats (.obj/.gltf/.glb/.fbx) — parsed via Assimp into the same
+//     in-memory Mesh (one submesh per source mesh). Import-only; never written.
+//
+// LoadData dispatches on the leading magic and is fully self-describing (it never
+// reads metadata.FilePath), so packed meshes load with empty metadata. Phase 1
+// stages CPU vertex/index data; Phase 2 (Finalize) uploads the GPU buffers.
 //
 
 #pragma once
@@ -15,8 +20,6 @@
 
 namespace Seraph
 {
-
-class Material;
 
 class MeshSerializer : public AssetSerializer
 {
@@ -28,18 +31,12 @@ public:
     void Finalize(const Ref<Asset>& asset) override;
     [[nodiscard]] bool RequiresFinalize() const override { return true; }
 
+    // Emits the native .smesh binary from a Mesh's retained CPU data + layout +
+    // submesh table. Used by EditorAssetManager::SaveAsset / SaveAssetAs.
+    bool Serialize(
+        const AssetMetadata& metadata, const Ref<Asset>& asset, Buffer& out) override;
+
     [[nodiscard]] AssetType GetType() const override { return AssetType::Mesh; }
-
-    // Assign the material given to imported meshes. If left null, a shared
-    // default material is created lazily from the "simple" shader.
-    void SetDefaultMaterial(Ref<Material> material) { m_DefaultMaterial = material; }
-
-private:
-    // Created on the main thread in Finalize, released when the serializer is
-    // destroyed at AssetImporter::Shutdown (before bgfx is torn down).
-    Ref<Material> GetOrCreateDefaultMaterial();
-
-    Ref<Material> m_DefaultMaterial;
 };
 
 } // namespace Seraph

@@ -4,12 +4,16 @@
 
 #include "MeshFactory.h"
 
+#include <vector>
+
 namespace Seraph
 {
 
 // ---- Cube ------------------------------------------------------------------
 // 24 vertices (4 per face) so each face can have independent UVs.
 // Indices form 12 triangles (2 per face × 6 faces).
+// Base positions are the unit-sign corners (±1); CreateCube scales them by the
+// requested half-extents.
 
 static const PrimitiveVertex s_CubeVertices[] =
 {
@@ -60,18 +64,34 @@ static const uint16_t s_CubeIndices[] =
     22, 21, 20,  22, 23, 21,  // -Y
 };
 
-Ref<Mesh> MeshFactory::CreateCube(const Ref<Material>& material)
+Ref<Mesh> MeshFactory::CreateCube(const CubeParams& params)
 {
-    auto mesh = Ref<Mesh>::Create(material);
+    const glm::vec3 e = params.HalfExtents;
+
+    std::vector<PrimitiveVertex> vertices(
+        std::begin(s_CubeVertices), std::end(s_CubeVertices));
+    for (PrimitiveVertex& v : vertices) {
+        v.x *= e.x;
+        v.y *= e.y;
+        v.z *= e.z;
+    }
+
+    auto mesh = Ref<Mesh>::Create();
     mesh->SetName("Cube");
     mesh->SetVertexLayout<PrimitiveVertex>();
-    mesh->SetVertexData(s_CubeVertices, sizeof(s_CubeVertices));
-    mesh->SetIndexData(s_CubeIndices, sizeof(s_CubeIndices));
+    mesh->SetVertexData(
+        vertices.data(), static_cast<u32>(vertices.size() * sizeof(PrimitiveVertex)));
+    mesh->SetIndexData(s_CubeIndices, sizeof(s_CubeIndices), sizeof(uint16_t));
+
+    constexpr u32 indexCount = sizeof(s_CubeIndices) / sizeof(s_CubeIndices[0]);
+    mesh->SetSubmeshes({Mesh::Submesh{0, 0, indexCount, 0}});
+    mesh->SetMaterialSlotCount(1);
     return mesh;
 }
 
 // ---- Plane -----------------------------------------------------------------
-// A unit quad in the XZ plane (y = 0), centered at origin, facing +Y.
+// A quad in the XZ plane (y = 0), centered at origin, facing +Y. Base positions
+// are the unit-sign corners; CreatePlane scales X/Z by the requested half-extents.
 
 static const PrimitiveVertex s_PlaneVertices[] =
 {
@@ -87,13 +107,27 @@ static const uint16_t s_PlaneIndices[] =
     2, 3, 1,
 };
 
-Ref<Mesh> MeshFactory::CreatePlane(const Ref<Material>& material)
+Ref<Mesh> MeshFactory::CreatePlane(const PlaneParams& params)
 {
-    auto mesh = Ref<Mesh>::Create(material);
+    const glm::vec2 e = params.HalfExtents;
+
+    std::vector<PrimitiveVertex> vertices(
+        std::begin(s_PlaneVertices), std::end(s_PlaneVertices));
+    for (PrimitiveVertex& v : vertices) {
+        v.x *= e.x;
+        v.z *= e.y;
+    }
+
+    auto mesh = Ref<Mesh>::Create();
     mesh->SetName("Plane");
     mesh->SetVertexLayout<PrimitiveVertex>();
-    mesh->SetVertexData(s_PlaneVertices, sizeof(s_PlaneVertices));
-    mesh->SetIndexData(s_PlaneIndices, sizeof(s_PlaneIndices));
+    mesh->SetVertexData(
+        vertices.data(), static_cast<u32>(vertices.size() * sizeof(PrimitiveVertex)));
+    mesh->SetIndexData(s_PlaneIndices, sizeof(s_PlaneIndices), sizeof(uint16_t));
+
+    constexpr u32 indexCount = sizeof(s_PlaneIndices) / sizeof(s_PlaneIndices[0]);
+    mesh->SetSubmeshes({Mesh::Submesh{0, 0, indexCount, 0}});
+    mesh->SetMaterialSlotCount(1);
     return mesh;
 }
 

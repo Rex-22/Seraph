@@ -12,7 +12,9 @@
 #include "Seraph/Graphics/ShaderManager.h"
 #include "Seraph/Graphics/Texture2D.h"
 
+#include <functional>
 #include <ranges>
+#include <string_view>
 
 namespace Seraph
 {
@@ -31,6 +33,33 @@ Ref<Material> Material::CreateDefault()
 
     material->AddProperty<ColorProperty>("s_color", glm::vec4(1.0f));
     material->AddProperty<TextureProperty>("s_texColor", texture, 0);
+    return material;
+}
+
+AssetHandle Material::DefaultHandle()
+{
+    // Deterministic, name-derived handle (same pattern as ShaderHandleFromName)
+    // so the default material has a stable identity across runs without a
+    // registry entry. 0 is the reserved null handle.
+    static const AssetHandle handle = [] {
+        const u64 hash = std::hash<std::string_view>{}("Seraph::DefaultMaterial");
+        return AssetHandle(hash != c_NullAssetHandle ? hash : 1);
+    }();
+    return handle;
+}
+
+Ref<Material> Material::GetDefault()
+{
+    const AssetHandle handle = DefaultHandle();
+    if (Ref<Material> existing = AssetManager::GetAsset<Material>(handle))
+        return existing;
+
+    // Build once and register as a memory asset under the deterministic handle.
+    // Recreated identically at runtime init (like embedded shaders), so it never
+    // needs packing.
+    Ref<Material> material = CreateDefault();
+    material->Handle = handle;
+    AssetManager::AddMemoryAsset(material);
     return material;
 }
 

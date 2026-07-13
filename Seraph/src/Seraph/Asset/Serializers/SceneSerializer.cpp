@@ -96,6 +96,13 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
         emitter << YAML::Key << "Mesh" << YAML::Value << YAML::BeginMap;
         emitter << YAML::Key << "Mesh" << YAML::Value
                 << static_cast<u64>(mc.Mesh.Handle());
+        if (!mc.MaterialOverrides.empty()) {
+            emitter << YAML::Key << "MaterialOverrides" << YAML::Value
+                    << YAML::Flow << YAML::BeginSeq;
+            for (const AssetHandle handle : mc.MaterialOverrides)
+                emitter << static_cast<u64>(handle);
+            emitter << YAML::EndSeq;
+        }
         emitter << YAML::EndMap;
     }
 
@@ -182,6 +189,10 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
                     mc.Mesh = 0;
                 }
 
+                if (const YAML::Node overrides = m["MaterialOverrides"];
+                    overrides && overrides.IsSequence())
+                    for (const auto& o : overrides)
+                        mc.MaterialOverrides.emplace_back(o.as<u64>(0));
             }
 
             if (const YAML::Node r = node["Relationship"]) {

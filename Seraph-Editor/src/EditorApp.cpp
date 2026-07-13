@@ -30,7 +30,6 @@ public:
         auto renderer = Seraph::Ref<Seraph::SceneRenderer>::Create(scene, settings);
 
         auto editor = Seraph::Ref<Seraph::EditorLayer>::Create(scene, renderer);
-        editor->SetDefaultMaterial(Seraph::Material::CreateDefault());
         PushLayer(editor);
     }
 

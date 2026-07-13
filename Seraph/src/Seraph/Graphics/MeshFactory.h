@@ -9,6 +9,7 @@
 
 #include <bgfx/bgfx.h>
 #include <cstdint>
+#include <glm/glm.hpp>
 
 namespace Seraph
 {
@@ -37,11 +38,28 @@ struct PrimitiveVertex
     }
 };
 
+// Parameters for each procedural primitive. Defaults reproduce the original
+// unit-ish primitives (half-extents of 1), so `CreateCube()` is unchanged.
+struct CubeParams
+{
+    glm::vec3 HalfExtents{1.0f}; // half-size along each axis
+};
+
+struct PlaneParams
+{
+    glm::vec2 HalfExtents{1.0f}; // half-size along X and Z
+};
+
+// Generates procedural primitive geometry as a ready-to-render Mesh. Pure: it
+// does NOT touch the asset system, so results can be used directly (e.g. runtime
+// procedural meshes) or handed to EditorAssetManager::SaveAssetAs to be
+// materialized as a shared .smesh asset. Future primitives (sphere, cylinder,
+// ...) follow the same params-in / Ref<Mesh>-out shape.
 class MeshFactory
 {
 public:
-    static Ref<Mesh> CreateCube(const Ref<Material>& material);
-    static Ref<Mesh> CreatePlane(const Ref<Material>& material);
+    static Ref<Mesh> CreateCube(const CubeParams& params = {});
+    static Ref<Mesh> CreatePlane(const PlaneParams& params = {});
 };
 
 } // namespace Seraph

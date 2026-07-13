@@ -30,8 +30,6 @@
 namespace Seraph
 {
 
-class Material;
-
 class EditorLayer : public Layer
 {
 public:
@@ -39,9 +37,6 @@ public:
 
     // Swap the active scene at runtime (e.g. after loading a new level).
     void SetScene(Ref<Scene> scene);
-
-    // Optional — enables "Add Mesh" shortcuts in the inspector's add-component menu.
-    void SetDefaultMaterial(Ref<Material> material);
 
     void OnAttach()  override;
     void OnDetach()  override;

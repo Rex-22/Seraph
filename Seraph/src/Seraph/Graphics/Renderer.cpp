@@ -10,6 +10,7 @@
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Graphics/Camera.h"
+#include "Seraph/Graphics/Material/Material.h"
 #include "Seraph/Graphics/Mesh.h"
 #include "Seraph/Graphics/ShaderManager.h"
 
@@ -226,7 +227,35 @@ void Renderer::Cleanup()
 
 void Renderer::SubmitMesh(const Mesh& mesh, const glm::mat4& transform)
 {
-    mesh.Submit(s_RenderData.currentViewId, transform);
+    const bgfx::VertexBufferHandle vb = mesh.VertexBuffer();
+    const bgfx::IndexBufferHandle ib = mesh.IndexBuffer();
+    if (!bgfx::isValid(vb) || !bgfx::isValid(ib))
+        return;
+
+    // v1: every material slot resolves to the shared engine default. Per-slot
+    // defaults and per-entity overrides arrive with the material-asset phase.
+    Ref<Material> material = Material::GetDefault();
+    if (!material)
+        return;
+
+    const u16 viewId = s_RenderData.currentViewId;
+
+    // Draw one index range per submesh; DISCARD_ALL after each submit clears the
+    // buffer/transform/uniform bindings, so every submesh re-binds cleanly.
+    const auto drawRange = [&](u32 firstIndex, u32 indexCount) {
+        bgfx::setTransform(glm::value_ptr(transform));
+        bgfx::setVertexBuffer(0, vb);
+        bgfx::setIndexBuffer(ib, firstIndex, indexCount);
+        material->Apply(viewId, BGFX_DISCARD_ALL);
+    };
+
+    const std::vector<Mesh::Submesh>& submeshes = mesh.Submeshes();
+    if (submeshes.empty()) {
+        drawRange(0, mesh.IndexCount());
+    } else {
+        for (const Mesh::Submesh& submesh : submeshes)
+            drawRange(submesh.BaseIndex, submesh.IndexCount);
+    }
 }
 
 void Renderer::Begin(uint16_t viewId)
