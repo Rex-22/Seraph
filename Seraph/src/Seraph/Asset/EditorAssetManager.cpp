@@ -35,6 +35,10 @@ AssetType AssetTypeFromExtension(const std::string& extension)
         return AssetType::Shader;
     if (ext == ".sscene")
         return AssetType::Scene;
+    if (ext == ".smaterial")
+        return AssetType::Material;
+    if (ext == ".smatinst")
+        return AssetType::MaterialInstance;
     return AssetType::None;
 }
 
@@ -457,7 +461,13 @@ void EditorAssetManager::SerializeAssetRegistry()
     {
         std::shared_lock lock(m_Mutex);
         for (const auto& metadata : m_Registry | std::views::values)
-            if (metadata.IsValid())
+            // Only persist file-backed assets. Memory assets (the default
+            // material, default white texture, embedded shaders, procedural
+            // meshes) are recreated in code each run and have no file path;
+            // writing them would produce pathless registry entries that fail to
+            // load next launch.
+            if (metadata.IsValid() && !metadata.IsMemoryAsset &&
+                !metadata.FilePath.empty())
                 entries.push_back(metadata);
     }
     std::ranges::sort(
@@ -514,7 +524,9 @@ bool EditorAssetManager::DeserializeAssetRegistry()
         metadata.Handle = node["Handle"].as<u64>();
         metadata.Type = AssetTypeFromString(node["Type"].as<std::string>());
         metadata.FilePath = node["FilePath"].as<std::string>();
-        if (!metadata.IsValid())
+        // Skip invalid or pathless entries. The latter self-heals registries
+        // written by an older build that persisted memory assets.
+        if (!metadata.IsValid() || metadata.FilePath.empty())
             continue;
         m_Registry[metadata.Handle] = metadata;
         m_Status[metadata.Handle] = AssetStatus::None;
