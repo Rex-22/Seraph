@@ -9,6 +9,8 @@
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Asset/Pack/AssetPackBuilder.h"
+#include "Seraph/Graphics/Material/Material.h"
+#include "Seraph/Graphics/Material/MaterialInstance.h"
 #include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Core.h"
@@ -139,6 +141,11 @@ void EditorLayer::DrawMenuBar()
 
     if (ImGui::BeginMenu("Assets"))
     {
+        if (ImGui::MenuItem("New Material"))
+            NewMaterial();
+        if (ImGui::MenuItem("New Material Instance"))
+            NewMaterialInstance();
+        ImGui::Separator();
         if (ImGui::MenuItem("Build Asset Pack"))
             BuildAssetPack();
         ImGui::EndMenu();
@@ -194,6 +201,42 @@ void EditorLayer::OpenScene()
 
     SetScene(sceneAsset->GetScene());
     SP_CORE_INFO_TAG("Editor", "Opened scene '{}'", k_ScenePath);
+}
+
+void EditorLayer::NewMaterial()
+{
+    Ref<EditorAssetManager> manager = AssetManager::Get().As<EditorAssetManager>();
+    if (!manager)
+        return;
+
+    // Seed from the engine default (simple shader + color + texture params).
+    Ref<Material> material = Material::CreateDefault();
+    const std::size_t n = manager->GetAllAssetsOfType(AssetType::Material).size();
+    const std::string path = "materials/Material_" + std::to_string(n) + ".smaterial";
+
+    AssetHandle handle = manager->SaveAssetAs(material, path);
+    if (static_cast<u64>(handle) != c_NullAssetHandle) {
+        m_MaterialEditor.SetSelected(handle);
+        SP_CORE_INFO_TAG("Editor", "Created material '{}'", path);
+    }
+}
+
+void EditorLayer::NewMaterialInstance()
+{
+    Ref<EditorAssetManager> manager = AssetManager::Get().As<EditorAssetManager>();
+    if (!manager)
+        return;
+
+    auto instance = Ref<MaterialInstance>::Create();
+    const std::size_t n = manager->GetAllAssetsOfType(AssetType::MaterialInstance).size();
+    const std::string path =
+        "materials/MaterialInstance_" + std::to_string(n) + ".smatinst";
+
+    AssetHandle handle = manager->SaveAssetAs(instance, path);
+    if (static_cast<u64>(handle) != c_NullAssetHandle) {
+        m_MaterialEditor.SetSelected(handle);
+        SP_CORE_INFO_TAG("Editor", "Created material instance '{}'", path);
+    }
 }
 
 void EditorLayer::BuildAssetPack()
@@ -256,6 +299,8 @@ void EditorLayer::OnImGuiRender()
         Entity selected = m_EntityBrowser.GetSelectedEntity();
         m_EntityInspector.SetSelectedEntity(selected);
         m_EntityInspector.OnImGuiRender();
+
+        m_MaterialEditor.OnImGuiRender();
 
         m_Gizmo.SetSelectedEntity(selected);
         m_Gizmo.SetCamera(m_EditorCamera.GetViewMatrix(),

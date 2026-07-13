@@ -14,14 +14,74 @@
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
+#include "Seraph/Graphics/Mesh.h"
 #include "Seraph/Graphics/MeshFactory.h"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
+#include <algorithm>
 #include <cstring>
+#include <string>
+#include <vector>
 
 namespace Seraph
 {
+
+namespace
+{
+
+// Combo over all material assets (Material + MaterialInstance) plus "(none)".
+// Returns true if the selection changed. Labels come from the asset's file name.
+bool MaterialSlotCombo(const char* label, AssetHandle& current)
+{
+    Ref<EditorAssetManager> ed = AssetManager::Get().As<EditorAssetManager>();
+    if (!ed)
+        return false;
+
+    // Only list file-backed material assets. Memory assets (e.g. the engine
+    // default material) have no file and are represented by the "(default)"
+    // entry, so listing them separately is just noise.
+    std::vector<AssetHandle> handles;
+    const auto gather = [&](AssetType type) {
+        for (const AssetHandle h : ed->GetAllAssetsOfType(type))
+            if (!ed->GetMetadata(h).FilePath.empty())
+                handles.push_back(h);
+    };
+    gather(AssetType::Material);
+    gather(AssetType::MaterialInstance);
+    std::sort(handles.begin(), handles.end(), [](AssetHandle a, AssetHandle b) {
+        return static_cast<u64>(a) < static_cast<u64>(b);
+    });
+
+    const auto labelFor = [&](AssetHandle h) -> std::string {
+        const AssetMetadata md = ed->GetMetadata(h);
+        return md.FilePath.empty() ? std::to_string(static_cast<u64>(h))
+                                   : md.FilePath.filename().string();
+    };
+
+    const std::string preview =
+        static_cast<u64>(current) == c_NullAssetHandle ? "(default)" : labelFor(current);
+
+    bool changed = false;
+    if (ImGui::BeginCombo(label, preview.c_str())) {
+        if (ImGui::Selectable("(default)", static_cast<u64>(current) == c_NullAssetHandle)) {
+            current = c_NullAssetHandle;
+            changed = true;
+        }
+        for (const AssetHandle h : handles) {
+            ImGui::PushID(static_cast<int>(static_cast<u64>(h)));
+            if (ImGui::Selectable(labelFor(h).c_str(), h == current)) {
+                current = h;
+                changed = true;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    return changed;
+}
+
+} // namespace
 
 // Draws a labeled DragFloat3 with colored X/Y/Z axis buttons.
 // Returns true if the value changed.
@@ -250,6 +310,30 @@ void EntityInspectorPanel::DrawMeshComponent()
             ImGui::TextUnformatted(
                 AssetManager::IsAssetLoaded(mc->Mesh.Handle()) ? "Loaded"
                                                                : "Loading...");
+
+            // Per-slot material assignment. A null (default) selection resolves
+            // to the mesh's baked slot default, then the engine default.
+            if (Ref<Mesh> mesh = mc->Mesh.As<Mesh>())
+            {
+                const u32 slots = mesh->MaterialSlotCount();
+                ImGui::TextUnformatted("Materials");
+                for (u32 slot = 0; slot < slots; ++slot)
+                {
+                    ImGui::PushID(static_cast<int>(slot));
+                    AssetHandle current =
+                        slot < mc->MaterialOverrides.size()
+                            ? mc->MaterialOverrides[slot]
+                            : AssetHandle(c_NullAssetHandle);
+                    const std::string label = "Slot " + std::to_string(slot);
+                    if (MaterialSlotCombo(label.c_str(), current))
+                    {
+                        if (mc->MaterialOverrides.size() <= slot)
+                            mc->MaterialOverrides.resize(slot + 1, c_NullAssetHandle);
+                        mc->MaterialOverrides[slot] = current;
+                    }
+                    ImGui::PopID();
+                }
+            }
         }
         else
         {

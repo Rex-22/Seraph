@@ -18,6 +18,7 @@
 #include "Seraph/Editor/Panels/EditorGizmo.h"
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
 #include "Seraph/Editor/Panels/EntityInspectorPanel.h"
+#include "Seraph/Editor/Panels/MaterialEditorPanel.h"
 #include "Seraph/Editor/Panels/ViewportPanel.h"
 #include "Seraph/Graphics/RenderTarget.h"
 #include "Seraph/Graphics/SceneRenderer.h"
@@ -52,6 +53,8 @@ private:
     void BuildAssetPack();
     void SaveScene();
     void OpenScene();
+    void NewMaterial();
+    void NewMaterialInstance();
 
     // Project launcher (shown when no project is open) + project switching.
     void DrawLauncher();
@@ -77,6 +80,7 @@ private:
     ViewportPanel        m_ViewportPanel;
     EntityBrowserPanel   m_EntityBrowser;
     EntityInspectorPanel m_EntityInspector;
+    MaterialEditorPanel  m_MaterialEditor;
     EditorGizmo          m_Gizmo;
     RenderTarget         m_RenderTarget;
 

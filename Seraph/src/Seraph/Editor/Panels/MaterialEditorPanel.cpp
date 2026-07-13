@@ -32,13 +32,17 @@ std::string AssetLabel(AssetHandle handle)
     return std::to_string(static_cast<u64>(handle));
 }
 
-// Sorted handles of a given asset type, for stable combo ordering.
+// Sorted handles of a given asset type, for stable combo ordering. Only
+// file-backed assets are listed; memory assets (engine default material, default
+// white texture, embedded shaders) have no file and are covered by the "(none)"
+// / "(default)" entries.
 std::vector<AssetHandle> AssetsOfType(AssetType type)
 {
     std::vector<AssetHandle> result;
-    if (Ref<AssetManagerBase> mgr = AssetManager::Get()) {
-        for (const AssetHandle h : mgr->GetAllAssetsOfType(type))
-            result.push_back(h);
+    if (Ref<EditorAssetManager> ed = Editor()) {
+        for (const AssetHandle h : ed->GetAllAssetsOfType(type))
+            if (!ed->GetMetadata(h).FilePath.empty())
+                result.push_back(h);
     }
     std::sort(result.begin(), result.end(), [](AssetHandle a, AssetHandle b) {
         return static_cast<u64>(a) < static_cast<u64>(b);
