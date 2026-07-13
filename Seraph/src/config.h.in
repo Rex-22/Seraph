@@ -5,6 +5,10 @@
 #ifndef CONFIG_H_IN_H
 #define CONFIG_H_IN_H
 
+// Compile-time defaults used only until a project is opened at runtime:
+//   ASSET_PATH               - FileSystem's fallback project asset root.
+//   SERAPH_DEFAULT_PROJECT   - the .sproj the editor opens by default (dev).
 #define ASSET_PATH "@ASSET_PATH@"
+#define SERAPH_DEFAULT_PROJECT "@SERAPH_DEFAULT_PROJECT@"
 
 #endif //CONFIG_H_IN_H

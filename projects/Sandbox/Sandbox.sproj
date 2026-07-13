@@ -2,7 +2,7 @@ Project: Sandbox
 AssetDirectory: assets
 StartupScene: 5277924531748715668
 Packs:
-  - assets.pack
+  - cache/assets.pack
 Window:
   Width: 1280
   Height: 720

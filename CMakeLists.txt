@@ -8,17 +8,22 @@ include(cmake/config.cmake)
 
 add_compile_definitions("SP_DEBUG=$<CONFIG:Debug>")
 
+# The bundled sample project. Its asset dir is the FileSystem's fallback root,
+# and its .sproj is what the editor opens by default during development. Both are
+# compile-time conveniences only — a runtime-opened project overrides them.
+set(SERAPH_DEFAULT_PROJECT "${PROJECT_SOURCE_DIR}/projects/Sandbox")
+
 # Set option to control setting the resource path variable
 option(USE_INSTALL_ASSET_PATH "Set resource path to install location" OFF)
 
 if(NOT USE_INSTALL_ASSET_PATH)
-  set(ASSET_PATH "${PROJECT_SOURCE_DIR}/assets/")
+  set(ASSET_PATH "${SERAPH_DEFAULT_PROJECT}/assets/")
 else()
   set(ASSET_PATH "${CMAKE_INSTALL_PREFIX}/share/${CMAKE_PROJECT_NAME}/assets/")
 endif()
 
-install(DIRECTORY assets
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${CMAKE_PROJECT_NAME}"
+install(DIRECTORY projects/Sandbox
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${CMAKE_PROJECT_NAME}/projects"
 )
 
 # Generate config.h into the build's generated-include dir. That dir is on the
