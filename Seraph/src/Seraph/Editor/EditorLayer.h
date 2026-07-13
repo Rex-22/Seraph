@@ -55,6 +55,7 @@ private:
     void OpenScene();
     void NewMaterial();
     void NewMaterialInstance();
+    void CreateShader();
 
     // Project launcher (shown when no project is open) + project switching.
     void DrawLauncher();

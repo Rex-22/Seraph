@@ -145,6 +145,8 @@ void EditorLayer::DrawMenuBar()
             NewMaterial();
         if (ImGui::MenuItem("New Material Instance"))
             NewMaterialInstance();
+        if (ImGui::MenuItem("Create Shader"))
+            CreateShader();
         ImGui::Separator();
         if (ImGui::MenuItem("Build Asset Pack"))
             BuildAssetPack();
@@ -237,6 +239,24 @@ void EditorLayer::NewMaterialInstance()
         m_MaterialEditor.SetSelected(handle);
         SP_CORE_INFO_TAG("Editor", "Created material instance '{}'", path);
     }
+}
+
+void EditorLayer::CreateShader()
+{
+    Ref<EditorAssetManager> manager = AssetManager::Get().As<EditorAssetManager>();
+    if (!manager)
+        return;
+
+    const std::size_t n = manager->GetAllAssetsOfType(AssetType::Shader).size();
+    const std::string name = "Shader_" + std::to_string(n);
+
+    AssetHandle handle = manager->CreateShader(name);
+    if (static_cast<u64>(handle) != c_NullAssetHandle)
+        SP_CORE_INFO_TAG(
+            "Editor", "Created shader '{}' — reference it from a material by name",
+            name);
+    else
+        SP_CORE_ERROR_TAG("Editor", "Failed to create shader '{}'", name);
 }
 
 void EditorLayer::BuildAssetPack()
