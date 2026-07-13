@@ -32,6 +32,13 @@ std::unordered_map<std::string, EmbeddedProgramSource>& Registry()
     return s_registry;
 }
 
+// Name -> handle for cooked .sshader assets registered at import time.
+std::unordered_map<std::string, AssetHandle>& CookedRegistry()
+{
+    static std::unordered_map<std::string, AssetHandle> s_cooked;
+    return s_cooked;
+}
+
 } // namespace
 
 AssetHandle ShaderHandleFromName(std::string_view name)
@@ -48,8 +55,17 @@ void ShaderManager::RegisterEmbedded(
     Registry()[name] = EmbeddedProgramSource{shaders, vertexName, fragmentName};
 }
 
+void ShaderManager::RegisterCooked(const std::string& name, AssetHandle handle)
+{
+    CookedRegistry()[name] = handle;
+}
+
 AssetHandle ShaderManager::GetHandle(const std::string& name)
 {
+    // Cooked .sshader assets registered by name take precedence.
+    if (const auto it = CookedRegistry().find(name); it != CookedRegistry().end())
+        return it->second;
+
     const AssetHandle handle = ShaderHandleFromName(name);
 
     // Already built + registered as a memory asset?
@@ -137,6 +153,7 @@ bool ShaderManager::ExportEmbeddedShader(const std::string& name, ShaderAsset& o
 void ShaderManager::Shutdown()
 {
     Registry().clear();
+    CookedRegistry().clear();
 }
 
 } // namespace Seraph

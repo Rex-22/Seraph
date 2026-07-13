@@ -1,11 +1,16 @@
 //
 // Created by Ruben on 2026/06/27.
 //
-// Compatibility facade over the asset system for named shaders. Embedded shaders
-// are registered by name (from the generated shader-registry code at startup)
-// and resolved to ShaderAsset memory assets keyed by ShaderHandleFromName(name).
-// New code should reference shaders by AssetHandle; this keeps name-based call
-// sites working during the migration.
+// The engine's shader-resolution layer: maps a shader NAME to its ShaderAsset
+// handle. Two sources feed it:
+//   * Embedded shaders — compiled into the executable and registered by the
+//     generated shader-registry code at static-init (RegisterEmbedded). Built
+//     lazily into a ShaderAsset memory asset keyed by ShaderHandleFromName(name).
+//   * Cooked shaders — project .sc files compiled offline to a .sshader asset
+//     and registered by name (RegisterCooked) so they resolve like built-ins.
+//
+// Materials reference shaders by name; GetHandle(name) is the single lookup used
+// throughout the engine.
 //
 
 #pragma once
@@ -43,9 +48,15 @@ public:
         const std::string& name, const bgfx::EmbeddedShader* shaders,
         const char* vertexName, const char* fragmentName);
 
-    // Ensure the named embedded shader is built + registered as a ShaderAsset
-    // and return its (deterministic) handle. Returns the null handle if the name
-    // is unknown or the program could not be created.
+    // Associate a name with an already-registered cooked .sshader asset handle,
+    // so materials can reference it by name like a built-in. Called by the shader
+    // import/cook step.
+    static void RegisterCooked(const std::string& name, AssetHandle handle);
+
+    // Resolve a shader name to its ShaderAsset handle. Cooked registrations win;
+    // otherwise the named embedded shader is built + registered on first use.
+    // Returns the null handle if the name is unknown or the program could not be
+    // created.
     [[nodiscard]] static AssetHandle GetHandle(const std::string& name);
 
     [[nodiscard]] static bool Has(const std::string& name);
