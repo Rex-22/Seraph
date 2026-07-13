@@ -4,6 +4,7 @@
 
 #include "EditorLayer.h"
 
+#include "Platform/FileDialog.h"
 #include "Platform/Window.h"
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/EditorAssetManager.h"
@@ -22,6 +23,7 @@
 #include <imgui_internal.h>
 #include <yaml-cpp/yaml.h>
 
+#include <cstdio>
 #include <exception>
 #include <filesystem>
 
@@ -303,6 +305,19 @@ void EditorLayer::ExitRuntime()
 
 void EditorLayer::DrawLauncher()
 {
+    constexpr int kDialogOpenProject = 1;
+    constexpr int kDialogNewDir = 2;
+
+    // Absorb a native file-dialog result requested on a previous frame.
+    if (auto picked = FileDialog::Poll())
+    {
+        const std::string chosen = picked->path.string();
+        if (picked->id == kDialogOpenProject)
+            std::snprintf(m_OpenPathBuf, sizeof(m_OpenPathBuf), "%s", chosen.c_str());
+        else if (picked->id == kDialogNewDir)
+            std::snprintf(m_NewDirBuf, sizeof(m_NewDirBuf), "%s", chosen.c_str());
+    }
+
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(560, 440), ImGuiCond_FirstUseEver);
@@ -321,15 +336,23 @@ void EditorLayer::DrawLauncher()
     ImGui::EndChild();
 
     ImGui::Spacing();
-    ImGui::TextUnformatted("Open project (.sproj path)");
+    ImGui::TextUnformatted("Open project (.sproj)");
+    ImGui::SetNextItemWidth(-160.0f);
     ImGui::InputText("##openpath", m_OpenPathBuf, sizeof(m_OpenPathBuf));
+    ImGui::SameLine();
+    if (ImGui::Button("Browse...##open"))
+        FileDialog::OpenFile(kDialogOpenProject, "Seraph Project", "sproj");
     ImGui::SameLine();
     if (ImGui::Button("Open") && m_OpenPathBuf[0] != '\0')
         OpenProjectPath(m_OpenPathBuf);
 
     ImGui::Spacing();
     ImGui::TextUnformatted("New project");
+    ImGui::SetNextItemWidth(-160.0f);
     ImGui::InputText("Folder", m_NewDirBuf, sizeof(m_NewDirBuf));
+    ImGui::SameLine();
+    if (ImGui::Button("Browse...##newdir"))
+        FileDialog::OpenFolder(kDialogNewDir);
     ImGui::InputText("Name", m_NewNameBuf, sizeof(m_NewNameBuf));
     if (ImGui::Button("Create") && m_NewDirBuf[0] != '\0' && m_NewNameBuf[0] != '\0')
         NewProjectAt(m_NewDirBuf, m_NewNameBuf);
