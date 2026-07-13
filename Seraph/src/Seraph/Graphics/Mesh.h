@@ -81,12 +81,29 @@ public:
     void SetSubmeshes(std::vector<Submesh> submeshes) { m_Submeshes = std::move(submeshes); }
     void SetMaterialSlotCount(u32 count) { m_MaterialSlotCount = count; }
 
+    // Per-slot default material handles baked into the mesh (index == slot).
+    // Empty, or a null handle at a slot, means "no baked default" — the renderer
+    // falls back to the engine default material.
+    void SetMaterialSlotDefaults(std::vector<AssetHandle> defaults)
+    {
+        m_MaterialSlotDefaults = std::move(defaults);
+    }
+    [[nodiscard]] AssetHandle MaterialSlotDefault(u32 slot) const
+    {
+        return slot < m_MaterialSlotDefaults.size() ? m_MaterialSlotDefaults[slot]
+                                                    : AssetHandle(c_NullAssetHandle);
+    }
+
     // --- Accessors --------------------------------------------------------
     [[nodiscard]] const bgfx::VertexLayout* Layout() const { return m_Layout; }
     [[nodiscard]] bgfx::VertexBufferHandle VertexBuffer() const { return m_VertexBuffer; }
     [[nodiscard]] bgfx::IndexBufferHandle IndexBuffer() const { return m_IndexBuffer; }
     [[nodiscard]] const std::vector<Submesh>& Submeshes() const { return m_Submeshes; }
     [[nodiscard]] u32 MaterialSlotCount() const { return m_MaterialSlotCount; }
+    [[nodiscard]] const std::vector<AssetHandle>& MaterialSlotDefaults() const
+    {
+        return m_MaterialSlotDefaults;
+    }
     [[nodiscard]] u32 IndexSize() const { return m_IndexSize; }
 
     // CPU-side geometry, retained for serialization.
@@ -118,6 +135,7 @@ private:
 
     std::vector<Submesh> m_Submeshes;
     u32 m_MaterialSlotCount = 1;
+    std::vector<AssetHandle> m_MaterialSlotDefaults; // index == slot; may be empty
 
     std::string m_Name = "NoName";
 };

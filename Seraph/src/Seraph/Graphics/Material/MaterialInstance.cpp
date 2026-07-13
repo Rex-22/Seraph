@@ -58,15 +58,7 @@ const ResolvedMaterial& MaterialInstance::Resolve()
     }
     ResolveDepthGuard guard;
 
-    // GetAsset<T> only matches an exact type; a parent may be Material or
-    // MaterialInstance, so resolve it untyped and downcast.
-    Ref<MaterialAsset> parent;
-    if (Ref<Asset> asset = AssetManager::GetAsset(m_Parent)) {
-        const AssetType t = asset->GetAssetType();
-        if (t == AssetType::Material || t == AssetType::MaterialInstance)
-            parent = asset.As<MaterialAsset>();
-    }
-
+    Ref<MaterialAsset> parent = MaterialAsset::Get(m_Parent);
     if (parent) {
         m_Resolved = parent->Resolve();
     } else if (static_cast<u64>(m_Parent) != c_NullAssetHandle) {

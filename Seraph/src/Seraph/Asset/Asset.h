@@ -19,6 +19,7 @@ enum class AssetType : u16
     None = 0,
     Mesh,
     Material,
+    MaterialInstance,
     Texture2D,
     Shader,
     Scene,

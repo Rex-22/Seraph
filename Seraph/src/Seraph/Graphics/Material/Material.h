@@ -1,84 +1,80 @@
 //
-// Created by Ruben on 2025/05/20.
+// A base material: a shader (referenced by name) plus a declared parameter
+// interface with default values and a render state. Data-driven and
+// serializable (.smaterial). Instances (MaterialInstance) reference a Material
+// and override individual parameter values.
 //
+// The parameter schema is authored here, not derived from the shader: bgfx
+// reflection only exposes coarse uniform types (Vec4/Sampler/Mat3/Mat4), so the
+// semantic type, defaults, sampler stage and UI hints live on the parameters.
+// Reflection is used only to validate the declared names against the shader.
+//
+
 #pragma once
 
-#include "MaterialProperty.h"
-#include "Seraph/Asset/Asset.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Ref.h"
+#include "Seraph/Graphics/Material/MaterialAsset.h"
+#include "Seraph/Graphics/Material/MaterialParameter.h"
+#include "Seraph/Graphics/Material/MaterialRenderState.h"
 
-#include <bgfx/bgfx.h>
-
-#include <memory>
-#include <unordered_map>
+#include <string>
+#include <vector>
 
 namespace Seraph
 {
 
-class Material: public Asset
+class Material : public MaterialAsset
 {
 public:
     ASSET_CLASS_TYPE(Material)
 
-    explicit Material(AssetHandle shader);
+    Material() = default;
+    explicit Material(std::string shaderName) : m_ShaderName(std::move(shaderName)) {}
     ~Material() override = default;
 
-    // The engine's built-in default material: the embedded "simple" shader with a
-    // 1x1 white texture. Main thread only (creates GPU resources).
-    static Ref<Material> CreateDefault();
-
-    // Deterministic handle under which the shared default material is registered
-    // in the asset system. Stable across runs.
-    static AssetHandle DefaultHandle();
-
-    // The shared engine default/fallback material, registered as a memory asset
-    // on first use and returned thereafter. This is the material the renderer
-    // falls back to for any mesh slot without an assigned material. Main thread
-    // only (may create GPU resources on first call).
-    static Ref<Material> GetDefault();
-
-    // Disable copy operations
-    Material(const Material&) = delete;
-    Material& operator=(const Material&) = delete;
-
-    // Enable move operations
-    Material(Material&& other) noexcept;
-    Material& operator=(Material&& other) noexcept;
-
-    template<typename T, typename NameType, typename... Args>
-    void AddProperty(NameType&& name, Args&&... args)
+    // --- Schema / authoring -----------------------------------------------
+    void SetShaderName(std::string name)
     {
-        static_assert(
-            std::is_base_of_v<MaterialProperty, T>,
-            "T must derive from MaterialProperty");
-        auto propertyName = std::string(std::forward<NameType>(name));
+        m_ShaderName = std::move(name);
+        m_ResolveDirty = true;
+    }
+    [[nodiscard]] const std::string& ShaderName() const { return m_ShaderName; }
 
-        m_Properties[propertyName] =
-            std::make_unique<T>(propertyName, std::forward<Args>(args)...);
+    // Add a parameter, or replace the existing one with the same name.
+    void SetParameter(const MaterialParameter& param);
+    [[nodiscard]] MaterialParameter* FindParameter(const std::string& name);
+    [[nodiscard]] const std::vector<MaterialParameter>& Parameters() const { return m_Parameters; }
+    void ClearParameters()
+    {
+        m_Parameters.clear();
+        m_ResolveDirty = true;
     }
 
-    [[nodiscard]] MaterialProperty* GetProperty(const std::string& name) const;
+    [[nodiscard]] MaterialRenderState& RenderState()
+    {
+        m_ResolveDirty = true;
+        return m_State;
+    }
+    [[nodiscard]] const MaterialRenderState& RenderState() const { return m_State; }
 
-    // Like BGFX_STATE_DEFAULT but with a reversed-Z depth test (GREATER instead
-    // of LESS), matching the [0,1] reversed-Z projection the camera produces.
-    static constexpr u64 k_ReversedZStateDefault =
-        BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z |
-        BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_CULL_CW | BGFX_STATE_MSAA;
+    // --- MaterialAsset -----------------------------------------------------
+    const ResolvedMaterial& Resolve() override;
 
-    void Apply(u16 viewId, u64 flags = k_ReversedZStateDefault) const;
-
-    // Resolves the shader program through the AssetManager.
-    [[nodiscard]] bgfx::ProgramHandle Program() const;
-
-    void SetState(const u64 state) { m_State = state; }
-    [[nodiscard]] uint64_t State() const { return m_State;}
+    // --- Engine default material -------------------------------------------
+    // The built-in default: the embedded "simple" shader with a white color and
+    // the default white texture. Main thread only (may create GPU resources).
+    static Ref<Material> CreateDefault();
+    static AssetHandle DefaultHandle();
+    static Ref<Material> GetDefault();
 
 private:
-    std::unordered_map<std::string, std::unique_ptr<MaterialProperty>>
-        m_Properties;
-    AssetHandle m_Shader = c_NullAssetHandle;
+    std::string m_ShaderName;
+    std::vector<MaterialParameter> m_Parameters;
+    MaterialRenderState m_State;
 
-    u64 m_State = k_ReversedZStateDefault;
+    ResolvedMaterial m_Resolved;
+    bool m_ResolveDirty = true;
 };
-} // namespace Graphics
+
+} // namespace Seraph

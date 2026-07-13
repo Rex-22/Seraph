@@ -5,7 +5,10 @@
 #pragma once
 #include "Camera.h"
 #include "Mesh.h"
+#include "Seraph/Asset/AssetHandle.h"
 #include "Seraph/Core/Ref.h"
+
+#include <vector>
 
 namespace Seraph
 {
@@ -36,7 +39,9 @@ public:
 
     void SetScene(Ref<Scene> scene);
 
-    void SubmitMesh(const Mesh& mesh, const glm::mat4& transform = glm::mat4(1.0f));
+    void SubmitMesh(
+        const Mesh& mesh, const glm::mat4& transform = glm::mat4(1.0f),
+        const std::vector<AssetHandle>& materialOverrides = {});
 
     void Clear(u16 flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
 

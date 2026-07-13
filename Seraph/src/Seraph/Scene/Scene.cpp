@@ -117,7 +117,7 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
         if (Ref<Mesh> mesh = mc.Mesh.As<Mesh>()) {
             Entity entity{e, this};
             sceneRenderer->SubmitMesh(
-                *mesh, GetWorldSpaceTransformMatrix(entity));
+                *mesh, GetWorldSpaceTransformMatrix(entity), mc.MaterialOverrides);
         }
     }
     sceneRenderer->EndScene();
@@ -138,7 +138,8 @@ void Scene::OnRenderEditor(Ref<SceneRenderer> sceneRenderer, const EditorCamera&
     for (auto [e, mc] : m_Registry.view<MeshComponent>().each()) {
         if (Ref<Mesh> mesh = mc.Mesh.As<Mesh>()) {
             Entity entity{e, this};
-            sceneRenderer->SubmitMesh(*mesh, GetWorldSpaceTransformMatrix(entity));
+            sceneRenderer->SubmitMesh(
+                *mesh, GetWorldSpaceTransformMatrix(entity), mc.MaterialOverrides);
         }
     }
     sceneRenderer->EndScene();

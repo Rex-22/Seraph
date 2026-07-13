@@ -10,6 +10,19 @@
 namespace Seraph
 {
 
+Ref<MaterialAsset> MaterialAsset::Get(AssetHandle handle)
+{
+    if (static_cast<u64>(handle) == c_NullAssetHandle)
+        return nullptr;
+    Ref<Asset> asset = AssetManager::GetAsset(handle);
+    if (!asset)
+        return nullptr;
+    const AssetType type = asset->GetAssetType();
+    if (type == AssetType::Material || type == AssetType::MaterialInstance)
+        return asset.As<MaterialAsset>();
+    return nullptr;
+}
+
 void MaterialAsset::Bind()
 {
     BindResolved(Resolve());

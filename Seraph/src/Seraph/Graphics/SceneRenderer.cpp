@@ -38,9 +38,11 @@ void SceneRenderer::SetScene(Ref<Scene> scene)
     m_Scene = scene;
 }
 
-void SceneRenderer::SubmitMesh(const Mesh& mesh, const glm::mat4& transform)
+void SceneRenderer::SubmitMesh(
+    const Mesh& mesh, const glm::mat4& transform,
+    const std::vector<AssetHandle>& materialOverrides)
 {
-    Renderer::SubmitMesh(mesh, transform);
+    Renderer::SubmitMesh(mesh, transform, materialOverrides);
 }
 
 void SceneRenderer::Clear(u16 flags)

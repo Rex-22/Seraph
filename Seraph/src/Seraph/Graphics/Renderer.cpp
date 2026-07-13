@@ -11,6 +11,7 @@
 #include "Seraph/Core/Core.h"
 #include "Seraph/Graphics/Camera.h"
 #include "Seraph/Graphics/Material/Material.h"
+#include "Seraph/Graphics/Material/UniformCache.h"
 #include "Seraph/Graphics/Mesh.h"
 #include "Seraph/Graphics/ShaderManager.h"
 
@@ -222,39 +223,52 @@ void Renderer::Init()
 void Renderer::Cleanup()
 {
     ShaderManager::Shutdown();
+    UniformCache::Shutdown();
     bgfx::shutdown();
 }
 
-void Renderer::SubmitMesh(const Mesh& mesh, const glm::mat4& transform)
+void Renderer::SubmitMesh(
+    const Mesh& mesh, const glm::mat4& transform,
+    const std::vector<AssetHandle>& materialOverrides)
 {
     const bgfx::VertexBufferHandle vb = mesh.VertexBuffer();
     const bgfx::IndexBufferHandle ib = mesh.IndexBuffer();
     if (!bgfx::isValid(vb) || !bgfx::isValid(ib))
         return;
 
-    // v1: every material slot resolves to the shared engine default. Per-slot
-    // defaults and per-entity overrides arrive with the material-asset phase.
-    Ref<Material> material = Material::GetDefault();
-    if (!material)
-        return;
-
+    Ref<MaterialAsset> engineDefault = Material::GetDefault();
     const u16 viewId = s_RenderData.currentViewId;
 
-    // Draw one index range per submesh; DISCARD_ALL after each submit clears the
-    // buffer/transform/uniform bindings, so every submesh re-binds cleanly.
-    const auto drawRange = [&](u32 firstIndex, u32 indexCount) {
+    // Resolve a material slot: per-entity override -> mesh baked default ->
+    // shared engine default.
+    const auto resolveSlot = [&](u32 slot) -> Ref<MaterialAsset> {
+        if (slot < materialOverrides.size()) {
+            if (Ref<MaterialAsset> m = MaterialAsset::Get(materialOverrides[slot]))
+                return m;
+        }
+        if (Ref<MaterialAsset> m = MaterialAsset::Get(mesh.MaterialSlotDefault(slot)))
+            return m;
+        return engineDefault;
+    };
+
+    // Draw one index range per submesh. The material binds state + uniforms; the
+    // renderer issues the submit. DISCARD_ALL clears bindings between submeshes.
+    const auto drawRange = [&](u32 firstIndex, u32 indexCount, Ref<MaterialAsset> material) {
+        if (!material)
+            return;
         bgfx::setTransform(glm::value_ptr(transform));
         bgfx::setVertexBuffer(0, vb);
         bgfx::setIndexBuffer(ib, firstIndex, indexCount);
-        material->Apply(viewId, BGFX_DISCARD_ALL);
+        material->Bind();
+        bgfx::submit(viewId, material->Program(), 0, BGFX_DISCARD_ALL);
     };
 
     const std::vector<Mesh::Submesh>& submeshes = mesh.Submeshes();
     if (submeshes.empty()) {
-        drawRange(0, mesh.IndexCount());
+        drawRange(0, mesh.IndexCount(), resolveSlot(0));
     } else {
         for (const Mesh::Submesh& submesh : submeshes)
-            drawRange(submesh.BaseIndex, submesh.IndexCount);
+            drawRange(submesh.BaseIndex, submesh.IndexCount, resolveSlot(submesh.MaterialSlot));
     }
 }
 

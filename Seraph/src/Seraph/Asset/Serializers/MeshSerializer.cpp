@@ -28,7 +28,10 @@ namespace
 // stores only their count and the submesh->slot mapping.
 
 constexpr char c_MeshMagic[4] = {'S', 'M', 'S', 'H'};
-constexpr u32 c_MeshVersion = 1;
+// v1: header + attributes + submeshes + vertex blob + index blob.
+// v2: adds a per-slot default-material table (u64 handle * MaterialSlotCount)
+//     between the submesh table and the vertex blob.
+constexpr u32 c_MeshVersion = 2;
 
 struct MeshFileHeader
 {
@@ -226,9 +229,9 @@ Ref<Asset> ParseSMesh(const Buffer& bytes)
         SP_CORE_ERROR_TAG("Mesh", ".smesh has bad magic");
         return nullptr;
     }
-    if (header.Version != c_MeshVersion) {
+    if (header.Version == 0 || header.Version > c_MeshVersion) {
         SP_CORE_ERROR_TAG(
-            "Mesh", ".smesh version {} != expected {}", header.Version, c_MeshVersion);
+            "Mesh", ".smesh version {} unsupported (max {})", header.Version, c_MeshVersion);
         return nullptr;
     }
     if (header.IndexSize != 2 && header.IndexSize != 4) {
@@ -236,12 +239,16 @@ Ref<Asset> ParseSMesh(const Buffer& bytes)
         return nullptr;
     }
 
+    const u32 slotCount = header.MaterialSlotCount == 0 ? 1 : header.MaterialSlotCount;
     const u64 attrBytes = static_cast<u64>(header.AttributeCount) * sizeof(MeshAttributeEntry);
     const u64 submeshBytes = static_cast<u64>(header.SubmeshCount) * sizeof(MeshSubmeshEntry);
+    // v2+ stores a u64 default-material handle per slot after the submesh table.
+    const u64 slotBytes =
+        header.Version >= 2 ? static_cast<u64>(slotCount) * sizeof(u64) : 0;
     const u64 vertexBytes = static_cast<u64>(header.VertexCount) * header.VertexStride;
     const u64 indexBytes = static_cast<u64>(header.IndexCount) * header.IndexSize;
-    const u64 required =
-        sizeof(header) + attrBytes + submeshBytes + vertexBytes + indexBytes;
+    const u64 required = sizeof(header) + attrBytes + submeshBytes + slotBytes +
+        vertexBytes + indexBytes;
     if (bytes.Size() < required) {
         SP_CORE_ERROR_TAG("Mesh", ".smesh is truncated");
         return nullptr;
@@ -258,6 +265,14 @@ Ref<Asset> ParseSMesh(const Buffer& bytes)
     if (header.SubmeshCount > 0)
         std::memcpy(submeshEntries.data(), cursor, submeshBytes);
     cursor += submeshBytes;
+
+    std::vector<AssetHandle> slotDefaults;
+    if (slotBytes > 0) {
+        std::vector<u64> raw(slotCount);
+        std::memcpy(raw.data(), cursor, slotBytes);
+        slotDefaults.assign(raw.begin(), raw.end());
+        cursor += slotBytes;
+    }
 
     const u8* vertexData = cursor;
     cursor += vertexBytes;
@@ -278,7 +293,9 @@ Ref<Asset> ParseSMesh(const Buffer& bytes)
     for (const MeshSubmeshEntry& e : submeshEntries)
         submeshes.push_back({e.BaseVertex, e.BaseIndex, e.IndexCount, e.MaterialSlot});
     mesh->SetSubmeshes(std::move(submeshes));
-    mesh->SetMaterialSlotCount(header.MaterialSlotCount == 0 ? 1 : header.MaterialSlotCount);
+    mesh->SetMaterialSlotCount(slotCount);
+    if (!slotDefaults.empty())
+        mesh->SetMaterialSlotDefaults(std::move(slotDefaults));
 
     return mesh; // Upload happens in Finalize (main thread)
 }
@@ -471,12 +488,20 @@ bool MeshSerializer::Serialize(
     header.IndexSize = mesh->IndexSize();
     header.AttributeCount = static_cast<u32>(attrs.size());
     header.SubmeshCount = static_cast<u32>(submeshEntries.size());
-    header.MaterialSlotCount = mesh->MaterialSlotCount();
+    const u32 slotCount = mesh->MaterialSlotCount() == 0 ? 1 : mesh->MaterialSlotCount();
+    header.MaterialSlotCount = slotCount;
+
+    // Per-slot default material handles (v2). Missing entries serialize as null.
+    std::vector<u64> slotDefaults(slotCount, c_NullAssetHandle);
+    const std::vector<AssetHandle>& meshSlots = mesh->MaterialSlotDefaults();
+    for (u32 i = 0; i < slotCount && i < meshSlots.size(); ++i)
+        slotDefaults[i] = static_cast<u64>(meshSlots[i]);
 
     const u64 attrBytes = attrs.size() * sizeof(MeshAttributeEntry);
     const u64 submeshBytes = submeshEntries.size() * sizeof(MeshSubmeshEntry);
-    const u64 total =
-        sizeof(header) + attrBytes + submeshBytes + vertexData.size() + indexData.size();
+    const u64 slotBytes = slotDefaults.size() * sizeof(u64);
+    const u64 total = sizeof(header) + attrBytes + submeshBytes + slotBytes +
+        vertexData.size() + indexData.size();
 
     out.Allocate(total);
     if (!out)
@@ -489,6 +514,8 @@ bool MeshSerializer::Serialize(
     cursor += attrBytes;
     std::memcpy(cursor, submeshEntries.data(), submeshBytes);
     cursor += submeshBytes;
+    std::memcpy(cursor, slotDefaults.data(), slotBytes);
+    cursor += slotBytes;
     std::memcpy(cursor, vertexData.data(), vertexData.size());
     cursor += vertexData.size();
     std::memcpy(cursor, indexData.data(), indexData.size());

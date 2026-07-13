@@ -33,14 +33,11 @@
 #include "Seraph/Graphics/ShaderManager.h"
 #include "Seraph/Graphics/Texture2D.h"
 #include "Seraph/Graphics/TextureAtlas.h"
-#include "Seraph/Graphics/Material/ColorProperty.h"
-#include "Seraph/Graphics/Material/FloatProperty.h"
 #include "Seraph/Graphics/Material/Material.h"
-#include "Seraph/Graphics/Material/MaterialProperty.h"
-#include "Seraph/Graphics/Material/TextureProperty.h"
-#include "Seraph/Graphics/Material/Vector3Property.h"
-#include "Seraph/Graphics/Material/Vector4ArrayProperty.h"
-#include "Seraph/Graphics/Material/Vector4Property.h"
+#include "Seraph/Graphics/Material/MaterialAsset.h"
+#include "Seraph/Graphics/Material/MaterialInstance.h"
+#include "Seraph/Graphics/Material/MaterialParameter.h"
+#include "Seraph/Graphics/Material/MaterialRenderState.h"
 
 // --- Asset -----------------------------------------------------------------
 #include "Seraph/Asset/Asset.h"

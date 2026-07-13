@@ -35,6 +35,11 @@ class MaterialAsset : public Asset
 public:
     ~MaterialAsset() override = default;
 
+    // Resolve a handle to a material asset, accepting either a base Material or a
+    // MaterialInstance (AssetManager::GetAsset<T> matches an exact type only).
+    // Returns null if the handle is unset or not a material.
+    static Ref<MaterialAsset> Get(AssetHandle handle);
+
     // Flatten to a bindable set (implementations cache this). For a base
     // Material this is its own data; for an instance it is the parent chain
     // merged with overrides.
