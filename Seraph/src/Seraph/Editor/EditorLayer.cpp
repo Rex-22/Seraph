@@ -245,20 +245,56 @@ void EditorLayer::NewMaterialInstance()
 
 void EditorLayer::CreateShader()
 {
-    Ref<EditorAssetManager> manager = AssetManager::Get().As<EditorAssetManager>();
-    if (!manager)
+    // Open the name-input popup; creation happens on confirm in
+    // DrawCreateShaderPopup().
+    m_ShaderNameBuf[0] = '\0';
+    m_ShowCreateShaderPopup = true;
+}
+
+void EditorLayer::DrawCreateShaderPopup()
+{
+    if (m_ShowCreateShaderPopup) {
+        ImGui::OpenPopup("Create Shader");
+        m_ShowCreateShaderPopup = false;
+    }
+
+    // Center the modal.
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+    if (!ImGui::BeginPopupModal("Create Shader", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 
-    const std::size_t n = manager->GetAllAssetsOfType(AssetType::Shader).size();
-    const std::string name = "Shader_" + std::to_string(n);
+    ImGui::TextUnformatted("Shader name (used for the folder and vs_/fs_ files):");
+    ImGui::SetNextItemWidth(280.0f);
+    const bool submitted = ImGui::InputText(
+        "##shadername", m_ShaderNameBuf, sizeof(m_ShaderNameBuf),
+        ImGuiInputTextFlags_EnterReturnsTrue);
 
-    AssetHandle handle = manager->CreateShader(name);
-    if (static_cast<u64>(handle) != c_NullAssetHandle)
-        SP_CORE_INFO_TAG(
-            "Editor", "Created shader '{}' — reference it from a material by name",
-            name);
-    else
-        SP_CORE_ERROR_TAG("Editor", "Failed to create shader '{}'", name);
+    const bool valid = m_ShaderNameBuf[0] != '\0';
+    if (!valid)
+        ImGui::TextDisabled("Enter a name.");
+
+    ImGui::BeginDisabled(!valid);
+    if (ImGui::Button("Create") || (submitted && valid)) {
+        if (Ref<EditorAssetManager> manager = AssetManager::Get().As<EditorAssetManager>()) {
+            const AssetHandle handle = manager->CreateShader(m_ShaderNameBuf);
+            if (static_cast<u64>(handle) != c_NullAssetHandle)
+                SP_CORE_INFO_TAG(
+                    "Editor",
+                    "Created shader '{}' — reference it from a material by name",
+                    m_ShaderNameBuf);
+            else
+                SP_CORE_ERROR_TAG("Editor", "Failed to create shader '{}'", m_ShaderNameBuf);
+        }
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+        ImGui::CloseCurrentPopup();
+
+    ImGui::EndPopup();
 }
 
 void EditorLayer::ReloadShaders()
@@ -329,6 +365,8 @@ void EditorLayer::OnImGuiRender()
         m_EntityInspector.OnImGuiRender();
 
         m_MaterialEditor.OnImGuiRender();
+
+        DrawCreateShaderPopup();
 
         m_Gizmo.SetSelectedEntity(selected);
         m_Gizmo.SetCamera(m_EditorCamera.GetViewMatrix(),

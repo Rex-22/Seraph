@@ -55,7 +55,8 @@ private:
     void OpenScene();
     void NewMaterial();
     void NewMaterialInstance();
-    void CreateShader();
+    void CreateShader();       // opens the name-input popup
+    void DrawCreateShaderPopup();
     void ReloadShaders();
 
     // Project launcher (shown when no project is open) + project switching.
@@ -92,6 +93,9 @@ private:
     char                 m_OpenPathBuf[512] = {};
     char                 m_NewDirBuf[512] = {};
     char                 m_NewNameBuf[128] = {};
+
+    bool                 m_ShowCreateShaderPopup = false;
+    char                 m_ShaderNameBuf[128] = {};
 };
 
 } // namespace Seraph
