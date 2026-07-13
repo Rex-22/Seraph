@@ -209,6 +209,15 @@ public:
         const char* name, const void* data, u64 size,
         const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
 
+    // Deterministic handle for the shared 1x1 white fallback texture (stable
+    // across runs; same scheme as Material::DefaultHandle).
+    static AssetHandle DefaultWhiteHandle();
+
+    // The shared 1x1 white texture, created and registered as a memory asset on
+    // first use. Used as the sampler fallback when a material's texture slot is
+    // unassigned or unresolved. Main thread only (creates a GPU resource).
+    static Ref<Texture2D> GetDefaultWhite();
+
 private:
     const char* m_DebugName{};
     std::string m_NameStorage;

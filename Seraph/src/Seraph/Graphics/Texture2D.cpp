@@ -3,12 +3,16 @@
 //
 
 #include "Texture2D.h"
+#include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Core/Ref.h"
 
 #include <bgfx/bgfx.h>
 #include <bimg/bimg.h>
 #include <bimg/decode.h>
+
+#include <functional>
+#include <string_view>
 
 namespace Seraph
 {
@@ -184,6 +188,29 @@ Ref<Texture2D> Texture2D::Create(
         }
     }
 
+    return texture;
+}
+
+AssetHandle Texture2D::DefaultWhiteHandle()
+{
+    static const AssetHandle handle = [] {
+        const u64 hash = std::hash<std::string_view>{}("Seraph::DefaultWhiteTexture");
+        return AssetHandle(hash != c_NullAssetHandle ? hash : 1);
+    }();
+    return handle;
+}
+
+Ref<Texture2D> Texture2D::GetDefaultWhite()
+{
+    const AssetHandle handle = DefaultWhiteHandle();
+    if (Ref<Texture2D> existing = AssetManager::GetAsset<Texture2D>(handle))
+        return existing;
+
+    const u32 white = 0xffffffff;
+    Ref<Texture2D> texture = Create("DefaultWhite", &white, 1, 1);
+    // Disambiguate the inherited asset-handle member from Texture2D::Handle().
+    texture->Asset::Handle = handle;
+    AssetManager::AddMemoryAsset(texture);
     return texture;
 }
 } // namespace Seraph
