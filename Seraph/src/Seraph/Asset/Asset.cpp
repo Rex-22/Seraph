@@ -17,6 +17,7 @@ static const BiMap<std::string_view, AssetType>& Registry()
         {"Material", AssetType::Material},
         {"Texture2D", AssetType::Texture2D},
         {"Shader", AssetType::Shader},
+        {"Scene", AssetType::Scene},
     };
     return s_Registry;
 }

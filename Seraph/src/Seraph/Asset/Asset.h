@@ -21,6 +21,7 @@ enum class AssetType : u16
     Material,
     Texture2D,
     Shader,
+    Scene,
 };
 
 std::string_view AssetTypeToString(AssetType type);

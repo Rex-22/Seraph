@@ -1,6 +1,7 @@
 #include "AssetImporter.h"
 
 #include "Seraph/Asset/Serializers/MeshSerializer.h"
+#include "Seraph/Asset/Serializers/SceneSerializer.h"
 #include "Seraph/Asset/Serializers/ShaderSerializer.h"
 #include "Seraph/Asset/Serializers/TextureSerializer.h"
 #include "Seraph/Core/Log.h"
@@ -25,6 +26,7 @@ void AssetImporter::Init()
     RegisterSerializer(std::make_unique<TextureSerializer>());
     RegisterSerializer(std::make_unique<MeshSerializer>());
     RegisterSerializer(std::make_unique<ShaderSerializer>());
+    RegisterSerializer(std::make_unique<SceneSerializer>());
 }
 
 void AssetImporter::Shutdown()
