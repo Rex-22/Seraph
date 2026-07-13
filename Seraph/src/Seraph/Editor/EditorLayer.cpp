@@ -147,6 +147,8 @@ void EditorLayer::DrawMenuBar()
             NewMaterialInstance();
         if (ImGui::MenuItem("Create Shader"))
             CreateShader();
+        if (ImGui::MenuItem("Reload Shaders"))
+            ReloadShaders();
         ImGui::Separator();
         if (ImGui::MenuItem("Build Asset Pack"))
             BuildAssetPack();
@@ -257,6 +259,12 @@ void EditorLayer::CreateShader()
             name);
     else
         SP_CORE_ERROR_TAG("Editor", "Failed to create shader '{}'", name);
+}
+
+void EditorLayer::ReloadShaders()
+{
+    if (Ref<EditorAssetManager> manager = AssetManager::Get().As<EditorAssetManager>())
+        manager->ReloadShaders();
 }
 
 void EditorLayer::BuildAssetPack()

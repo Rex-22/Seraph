@@ -69,6 +69,11 @@ public:
     // or c_NullAssetHandle on failure. Editor/dev only (needs the shaderc tool).
     AssetHandle CreateShader(const std::string& name);
 
+    // Re-cook every shader source folder under shaders/ whose .sc files are newer
+    // than its cooked .sshader, then hot-reload the affected programs so live
+    // materials pick up the changes. Editor/dev only.
+    void ReloadShaders();
+
     AssetMetadata GetMetadata(AssetHandle handle);
     AssetHandle GetAssetHandleFromFilePath(const std::filesystem::path& relativePath);
 
@@ -80,6 +85,12 @@ public:
     bool DeserializeAssetRegistry();
 
 private:
+    // Register a cooked shaders/<name>.sshader under the name's deterministic
+    // handle, expose it to ShaderManager, and drop any cached copy so it
+    // reloads. Does not write the registry to disk (callers batch that).
+    AssetHandle RegisterCookedShader(
+        const std::string& name, const std::filesystem::path& sshaderRelative);
+
     // Reads bytes + runs the serializer (both phases) on the calling thread.
     Ref<Asset> LoadAssetSync(const AssetMetadata& metadata);
     // Phase 1 on a worker thread; result lands in the finalize queue.

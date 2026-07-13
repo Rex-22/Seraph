@@ -502,23 +502,65 @@ AssetHandle EditorAssetManager::CreateShader(const std::string& name)
     // 3. Register the .sshader under the name's deterministic handle, so
     //    ShaderManager::GetHandle(name) resolves it this run and every future
     //    run (the registry entry persists) and at runtime from the pack.
-    const AssetHandle handle = ShaderHandleFromName(name);
-    {
-        AssetMetadata metadata;
-        metadata.Handle = handle;
-        metadata.Type = AssetType::Shader;
-        metadata.FilePath = sshaderRel;
-
-        std::unique_lock lock(m_Mutex);
-        m_LoadedAssets.erase(handle); // force a fresh load of the new bytes
-        m_Registry[handle] = metadata;
-        m_Status[handle] = AssetStatus::None;
-    }
-    ShaderManager::RegisterCooked(name, handle);
+    const AssetHandle handle = RegisterCookedShader(name, sshaderRel);
     SerializeAssetRegistry();
 
     SP_CORE_INFO_TAG("AssetManager", "Created shader '{}' ({})", name, static_cast<u64>(handle));
     return handle;
+}
+
+AssetHandle EditorAssetManager::RegisterCookedShader(
+    const std::string& name, const std::filesystem::path& sshaderRelative)
+{
+    const AssetHandle handle = ShaderHandleFromName(name);
+
+    AssetMetadata metadata;
+    metadata.Handle = handle;
+    metadata.Type = AssetType::Shader;
+    metadata.FilePath = sshaderRelative;
+
+    {
+        std::unique_lock lock(m_Mutex);
+        m_LoadedAssets.erase(handle); // drop any cached program; forces a reload
+        m_Registry[handle] = metadata;
+        m_Status[handle] = AssetStatus::None;
+    }
+    ShaderManager::RegisterCooked(name, handle);
+    return handle;
+}
+
+void EditorAssetManager::ReloadShaders()
+{
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const fs::path root = FileSystem::Resolve(Root::Project, "shaders");
+    if (!fs::is_directory(root, ec))
+        return;
+
+    int reloaded = 0;
+    for (const auto& entry : fs::directory_iterator(root, ec)) {
+        if (!entry.is_directory())
+            continue;
+
+        // A shader source folder is one that holds a varying.def.sc; its name is
+        // the folder name (matching the vs_/fs_<name>.sc convention).
+        const std::string name = entry.path().filename().string();
+        if (!fs::exists(entry.path() / "varying.def.sc", ec))
+            continue;
+
+        const fs::path sshaderRel = fs::path("shaders") / (name + ".sshader");
+        const fs::path sshaderAbs = FileSystem::Resolve(Root::Project, sshaderRel);
+        // Cook only recompiles when a source is newer than the .sshader.
+        if (!ShaderCompiler::Cook(entry.path(), name, sshaderAbs))
+            continue;
+
+        const AssetHandle handle = RegisterCookedShader(name, sshaderRel);
+        GetAsset(handle); // rebuild the program now so live materials refresh
+        ++reloaded;
+    }
+
+    SerializeAssetRegistry();
+    SP_CORE_INFO_TAG("AssetManager", "Reloaded {} shader(s)", reloaded);
 }
 
 AssetMetadata EditorAssetManager::GetMetadata(AssetHandle handle)
