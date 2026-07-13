@@ -59,6 +59,7 @@
 
 // --- Scene -----------------------------------------------------------------
 #include "Seraph/Scene/Scene.h"
+#include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Components/IDComponent.h"
@@ -66,6 +67,10 @@
 #include "Seraph/Scene/Components/RelationshipComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
+
+// --- Project / Runtime ------------------------------------------------------
+#include "Seraph/Project/Project.h"
+#include "Seraph/Runtime/RuntimeLayer.h"
 
 // --- Editor ----------------------------------------------------------------
 #include "Seraph/Editor/EditorCamera.h"
