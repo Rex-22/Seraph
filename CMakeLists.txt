@@ -26,6 +26,14 @@ install(DIRECTORY projects/Sandbox
         DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${CMAKE_PROJECT_NAME}/projects"
 )
 
+# Dev-only paths for the editor's shader-cook step: the shaderc tool built as
+# part of bgfx, and the include dirs its shaders need (bgfx headers + the
+# engine's shared shader lib). These are build-tree paths; a shipped editor
+# would ship the tool alongside instead.
+set(SERAPH_SHADERC_PATH "${CMAKE_BINARY_DIR}/vendor/bgfx/cmake/bgfx/shaderc")
+set(SERAPH_SHADER_INCLUDE_DIRS
+    "${PROJECT_SOURCE_DIR}/vendor/bgfx/bgfx/src;${PROJECT_SOURCE_DIR}/vendor/bgfx/bgfx/examples/common;${PROJECT_SOURCE_DIR}/shader")
+
 # Generate config.h into the build's generated-include dir. That dir is on the
 # include search path (${CMAKE_BINARY_DIR}/include, see Seraph/CMakeLists.txt)
 # for the engine and its consumers, so `#include <config.h>` resolves.

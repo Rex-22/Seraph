@@ -11,4 +11,9 @@
 #define ASSET_PATH "@ASSET_PATH@"
 #define SERAPH_DEFAULT_PROJECT "@SERAPH_DEFAULT_PROJECT@"
 
+// Dev-only shader-cook paths (see root CMakeLists.txt). SERAPH_SHADER_INCLUDE_DIRS
+// is a ';'-separated list.
+#define SERAPH_SHADERC_PATH "@SERAPH_SHADERC_PATH@"
+#define SERAPH_SHADER_INCLUDE_DIRS "@SERAPH_SHADER_INCLUDE_DIRS@"
+
 #endif //CONFIG_H_IN_H
