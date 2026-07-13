@@ -11,6 +11,7 @@
 #include <cctype>
 #include <fstream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace Seraph
@@ -33,6 +34,8 @@ AssetType AssetTypeFromExtension(const std::string& extension)
         return AssetType::Mesh;
     if (ext == ".sshader")
         return AssetType::Shader;
+    if (ext == ".sscene")
+        return AssetType::Scene;
     return AssetType::None;
 }
 
@@ -381,6 +384,64 @@ bool EditorAssetManager::SaveAsset(AssetHandle handle)
     out.write(reinterpret_cast<const char*>(bytes.Data()),
               static_cast<std::streamsize>(bytes.Size()));
     return true;
+}
+
+AssetHandle EditorAssetManager::SaveAssetAs(
+    Ref<Asset> asset, const std::filesystem::path& relativePath)
+{
+    if (!asset)
+        return c_NullAssetHandle;
+
+    // Reuse the handle already registered for this path, else assign one.
+    AssetHandle handle = GetAssetHandleFromFilePath(relativePath);
+    if (static_cast<u64>(handle) == c_NullAssetHandle)
+        handle = static_cast<u64>(asset->Handle) != c_NullAssetHandle
+                     ? asset->Handle
+                     : AssetHandle();
+    asset->Handle = handle;
+
+    AssetMetadata metadata;
+    metadata.Handle = handle;
+    metadata.Type = asset->GetAssetType();
+    metadata.FilePath = relativePath;
+
+    Buffer bytes;
+    if (!AssetImporter::Serialize(metadata, asset, bytes) || !bytes) {
+        SP_CORE_ERROR_TAG(
+            "AssetManager", "Failed to serialize asset for '{}'",
+            relativePath.string());
+        return c_NullAssetHandle;
+    }
+
+    const std::filesystem::path fullPath =
+        std::filesystem::path(ASSET_PATH) / relativePath;
+    std::error_code ec;
+    std::filesystem::create_directories(fullPath.parent_path(), ec);
+    std::ofstream out(fullPath, std::ios::binary);
+    if (!out) {
+        SP_CORE_ERROR_TAG(
+            "AssetManager", "Could not open '{}' for writing", fullPath.string());
+        return c_NullAssetHandle;
+    }
+    out.write(reinterpret_cast<const char*>(bytes.Data()),
+              static_cast<std::streamsize>(bytes.Size()));
+    out.close();
+
+    {
+        std::unique_lock lock(m_Mutex);
+        metadata.IsDataLoaded = true;
+        m_Registry[handle] = metadata;
+        m_LoadedAssets[handle] = asset; // now file-backed
+        m_MemoryAssets.erase(handle);   // in case it was procedural
+        m_Status[handle] = AssetStatus::Ready;
+    }
+
+    SerializeAssetRegistry();
+    SP_CORE_INFO_TAG(
+        "AssetManager", "Saved {} asset '{}' as {}",
+        AssetTypeToString(metadata.Type), relativePath.string(),
+        static_cast<u64>(handle));
+    return handle;
 }
 
 AssetMetadata EditorAssetManager::GetMetadata(AssetHandle handle)

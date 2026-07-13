@@ -8,6 +8,7 @@
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Asset/Pack/AssetPackBuilder.h"
+#include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Core/Input.h"
@@ -118,6 +119,15 @@ void EditorLayer::DrawMenuBar()
     if (!ImGui::BeginMainMenuBar())
         return;
 
+    if (ImGui::BeginMenu("Scene"))
+    {
+        if (ImGui::MenuItem("Save Scene"))
+            SaveScene();
+        if (ImGui::MenuItem("Open Scene"))
+            OpenScene();
+        ImGui::EndMenu();
+    }
+
     if (ImGui::BeginMenu("Assets"))
     {
         if (ImGui::MenuItem("Build Asset Pack"))
@@ -126,6 +136,55 @@ void EditorLayer::DrawMenuBar()
     }
 
     ImGui::EndMainMenuBar();
+}
+
+void EditorLayer::SaveScene()
+{
+    Ref<EditorAssetManager> manager =
+        AssetManager::Get().As<EditorAssetManager>();
+    if (!manager)
+    {
+        SP_CORE_ERROR_TAG("Editor", "Save Scene requires an EditorAssetManager");
+        return;
+    }
+
+    Ref<SceneAsset> sceneAsset = Ref<SceneAsset>::Create(m_Scene);
+    AssetHandle handle = manager->SaveAssetAs(sceneAsset, k_ScenePath);
+    if (static_cast<u64>(handle) != c_NullAssetHandle)
+        SP_CORE_INFO_TAG(
+            "Editor", "Saved scene to '{}' ({})", k_ScenePath,
+            static_cast<u64>(handle));
+}
+
+void EditorLayer::OpenScene()
+{
+    Ref<EditorAssetManager> manager =
+        AssetManager::Get().As<EditorAssetManager>();
+    if (!manager)
+    {
+        SP_CORE_ERROR_TAG("Editor", "Open Scene requires an EditorAssetManager");
+        return;
+    }
+
+    AssetHandle handle = manager->ImportAsset(k_ScenePath);
+    if (static_cast<u64>(handle) == c_NullAssetHandle)
+    {
+        SP_CORE_ERROR_TAG("Editor", "No scene at '{}'", k_ScenePath);
+        return;
+    }
+
+    // Force a fresh parse from disk (genuine round-trip, not the cached asset).
+    manager->ReloadData(handle);
+
+    Ref<SceneAsset> sceneAsset = AssetManager::GetAsset<SceneAsset>(handle);
+    if (!sceneAsset || !sceneAsset->GetScene())
+    {
+        SP_CORE_ERROR_TAG("Editor", "Failed to load scene '{}'", k_ScenePath);
+        return;
+    }
+
+    SetScene(sceneAsset->GetScene());
+    SP_CORE_INFO_TAG("Editor", "Opened scene '{}'", k_ScenePath);
 }
 
 void EditorLayer::BuildAssetPack()

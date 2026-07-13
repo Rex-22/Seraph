@@ -51,6 +51,11 @@ private:
 
     void DrawMenuBar();
     void BuildAssetPack();
+    void SaveScene();
+    void OpenScene();
+
+    // Fixed path for bring-up; a file-open dialog is future polish.
+    static constexpr const char* k_ScenePath = "scenes/example.sscene";
 
     // bgfx view 0 = backbuffer clear, view 255 = ImGui overlay.
     // View 1 is reserved for the offscreen scene render target.

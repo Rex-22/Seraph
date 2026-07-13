@@ -54,6 +54,14 @@ public:
     // Serialize a single asset's bytes back to disk (via its serializer).
     bool SaveAsset(AssetHandle handle);
 
+    // Serialize an in-memory / newly-authored asset to a loose file under the
+    // asset root and register it as a file-backed asset (so it is packable and
+    // survives a restart). Reuses the existing handle for `relativePath` if one
+    // is already registered; otherwise assigns a fresh handle. Returns the
+    // handle, or c_NullAssetHandle on failure.
+    AssetHandle SaveAssetAs(
+        Ref<Asset> asset, const std::filesystem::path& relativePath);
+
     AssetMetadata GetMetadata(AssetHandle handle);
     AssetHandle GetAssetHandleFromFilePath(const std::filesystem::path& relativePath);
 
