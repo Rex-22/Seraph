@@ -1,0 +1,11 @@
+Version: 1
+Assets:
+  - Handle: 5277924531748715668
+    Type: Scene
+    FilePath: scenes/example.sscene
+  - Handle: 9837350662712858587
+    Type: Mesh
+    FilePath: meshes/cube.obj
+  - Handle: 15165392039057449281
+    Type: Texture2D
+    FilePath: textures/test_texture.png

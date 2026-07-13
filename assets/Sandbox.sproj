@@ -1,0 +1,10 @@
+Project: Sandbox
+AssetDirectory: assets
+StartupScene: 5277924531748715668
+Packs:
+  - assets.pack
+Window:
+  Width: 1280
+  Height: 720
+  Title: Seraph Sandbox
+  VSync: false

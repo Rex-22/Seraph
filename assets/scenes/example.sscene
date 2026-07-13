@@ -1,0 +1,45 @@
+Scene: Example Scene
+Entities:
+  - Entity: 2201664692890954226
+    Tag: Camera
+    Transform:
+      Translation: [0, 0, 10]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Camera:
+      ProjectionType: Perspective
+      IsPrimary: true
+      PerspectiveFov: 60
+      PerspectiveNear: 0.01
+      PerspectiveFar: 1000
+      OrthographicSize: 10
+      OrthographicNear: -1
+      OrthographicFar: 1
+    Relationship:
+      Parent: 0
+      Children:
+        []
+  - Entity: 4267967204139994196
+    Tag: Cube
+    Transform:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Mesh:
+      Mesh: 9837350662712858587
+    Relationship:
+      Parent: 0
+      Children:
+        []
+  - Entity: 13496979483844828754
+    Tag: Entity
+    Transform:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+    Mesh:
+      Mesh: 5607669156657460945
+    Relationship:
+      Parent: 0
+      Children:
+        []
