@@ -27,5 +27,6 @@ install(DIRECTORY assets
 configure_file(Seraph/src/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
 
 # projects
-add_subdirectory(Seraph)      # Seraph engine (static library)
-add_subdirectory(Sandbox)  # Sandbox client (executable, links Seraph)
+add_subdirectory(Seraph)         # Seraph engine (static library)
+add_subdirectory(Seraph-Editor)  # editor tool (executable, links Seraph)
+add_subdirectory(Seraph-Runtime) # shipped-game player (executable, links Seraph)

@@ -1,8 +1,9 @@
 set(PROJECT Seraph)
 
 # EntryPoint.h / Seraph.h are client-facing headers: EntryPoint.h defines main()
-# and must only be compiled into the consuming executable (Sandbox), never the
-# library. They are headers, so the *.cpp glob never picks them up here.
+# and must only be compiled into a consuming executable (Seraph-Editor /
+# Seraph-Runtime), never the library. They are headers, so the *.cpp glob never
+# picks them up here.
 make_library()
 
 # Disable specific warnings for third-party STB library
@@ -13,8 +14,8 @@ endif()
 
 # Engine's own source root. PRIVATE (non-system) for our own build, so engine
 # code keeps including engine headers with "". SYSTEM INTERFACE for consumers
-# (Sandbox), so they include engine headers as <Seraph/...> and never inherit
-# our warnings.
+# (the client executables), so they include engine headers as <Seraph/...> and
+# never inherit our warnings.
 target_include_directories(${PROJECT} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${PROJECT} SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -26,8 +27,8 @@ target_include_directories(${PROJECT} PUBLIC
 )
 
 # Third-party headers as SYSTEM so their warnings are suppressed. SYSTEM also
-# propagates to consumers (Sandbox), and avoids a -I/-isystem clash with the
-# same dirs propagated by the vendor targets we link below.
+# propagates to consumers (the client executables), and avoids a -I/-isystem
+# clash with the same dirs propagated by the vendor targets we link below.
 target_include_directories(${PROJECT} SYSTEM PUBLIC
         ${SDL3_INCLUDE_DIR}
         ${IMGUI_INCLUDE_DIR}
