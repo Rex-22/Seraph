@@ -559,8 +559,47 @@ void EditorAssetManager::ReloadShaders()
         ++reloaded;
     }
 
+    // Reconcile: prune cooked shaders/<name>.sshader whose source folder is gone
+    // (renamed or deleted), so the project always matches its shader sources.
+    struct Orphan { AssetHandle Handle; std::string Name; fs::path AbsPath; };
+    std::vector<Orphan> orphans;
+    {
+        std::shared_lock lock(m_Mutex);
+        for (const auto& [handle, md] : m_Registry) {
+            if (md.Type != AssetType::Shader || md.IsMemoryAsset)
+                continue;
+            if (md.FilePath.extension() != ".sshader" ||
+                md.FilePath.parent_path() != "shaders")
+                continue;
+            const std::string sname = md.FilePath.stem().string();
+            const fs::path varying =
+                FileSystem::Resolve(Root::Project, fs::path("shaders") / sname / "varying.def.sc");
+            if (!fs::exists(varying, ec))
+                orphans.push_back(
+                    {handle, sname, FileSystem::Resolve(Root::Project, md.FilePath)});
+        }
+    }
+
+    if (!orphans.empty()) {
+        {
+            std::unique_lock lock(m_Mutex);
+            for (const Orphan& o : orphans) {
+                m_Registry.erase(o.Handle);
+                m_LoadedAssets.erase(o.Handle);
+                m_Status.erase(o.Handle);
+            }
+        }
+        for (const Orphan& o : orphans) {
+            ShaderManager::UnregisterCooked(o.Name);
+            std::filesystem::remove(o.AbsPath, ec);
+            SP_CORE_INFO_TAG(
+                "AssetManager", "Pruned orphaned shader '{}' (no source folder)", o.Name);
+        }
+    }
+
     SerializeAssetRegistry();
-    SP_CORE_INFO_TAG("AssetManager", "Reloaded {} shader(s)", reloaded);
+    SP_CORE_INFO_TAG(
+        "AssetManager", "Reloaded {} shader(s), pruned {}", reloaded, orphans.size());
 }
 
 AssetMetadata EditorAssetManager::GetMetadata(AssetHandle handle)

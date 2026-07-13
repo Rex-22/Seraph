@@ -60,6 +60,11 @@ void ShaderManager::RegisterCooked(const std::string& name, AssetHandle handle)
     CookedRegistry()[name] = handle;
 }
 
+void ShaderManager::UnregisterCooked(const std::string& name)
+{
+    CookedRegistry().erase(name);
+}
+
 AssetHandle ShaderManager::GetHandle(const std::string& name)
 {
     // Cooked .sshader assets registered by name take precedence.

@@ -53,6 +53,9 @@ public:
     // import/cook step.
     static void RegisterCooked(const std::string& name, AssetHandle handle);
 
+    // Forget a cooked-shader name mapping (e.g. when its asset is pruned).
+    static void UnregisterCooked(const std::string& name);
+
     // Resolve a shader name to its ShaderAsset handle. Cooked registrations win;
     // otherwise the named embedded shader is built + registered on first use.
     // Returns the null handle if the name is unknown or the program could not be
