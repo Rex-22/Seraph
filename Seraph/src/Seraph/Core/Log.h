@@ -215,7 +215,7 @@ namespace Seraph {
 		logger->error("{0}: {1}", prefix, formatted);
 
 #if SP_ASSERT_MESSAGE_BOX
-		MessageBoxA(nullptr, formatted.data(), "Hazel Assert", MB_OK | MB_ICONERROR);
+		MessageBoxA(nullptr, formatted.data(), "Seraph Assert", MB_OK | MB_ICONERROR);
 #endif
 	}
 
@@ -225,7 +225,7 @@ namespace Seraph {
 		auto logger = (type == Type::Core) ? GetCoreLogger() : GetClientLogger();
 		logger->error("{0}", prefix);
 #if SP_ASSERT_MESSAGE_BOX
-		MessageBoxA(nullptr, "No message :(", "Hazel Assert", MB_OK | MB_ICONERROR);
+		MessageBoxA(nullptr, "No message :(", "Seraph Assert", MB_OK | MB_ICONERROR);
 #endif
 	}
 }
