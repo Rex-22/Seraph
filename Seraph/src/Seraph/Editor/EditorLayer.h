@@ -23,6 +23,10 @@
 #include "Seraph/Graphics/SceneRenderer.h"
 #include "Seraph/Scene/Scene.h"
 
+#include <filesystem>
+#include <string>
+#include <vector>
+
 namespace Seraph
 {
 
@@ -54,6 +58,16 @@ private:
     void SaveScene();
     void OpenScene();
 
+    // Project launcher (shown when no project is open) + project switching.
+    void DrawLauncher();
+    void OpenProjectPath(const std::filesystem::path& sprojPath);
+    void NewProjectAt(const std::filesystem::path& dir, const std::string& name);
+    void CloseProject();
+    void SetActiveScene(); // load the active project's startup scene (or empty)
+    void LoadRecents();
+    void SaveRecents();
+    void AddRecent(const std::filesystem::path& sprojPath);
+
     // Fixed path for bring-up; a file-open dialog is future polish.
     static constexpr const char* k_ScenePath = "scenes/example.sscene";
 
@@ -72,6 +86,11 @@ private:
     RenderTarget         m_RenderTarget;
 
     bool                 m_RuntimeMode = false;
+
+    std::vector<std::filesystem::path> m_Recents;
+    char                 m_OpenPathBuf[512] = {};
+    char                 m_NewDirBuf[512] = {};
+    char                 m_NewNameBuf[128] = {};
 };
 
 } // namespace Seraph

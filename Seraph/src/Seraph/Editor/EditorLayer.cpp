@@ -11,15 +11,18 @@
 #include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Core.h"
+#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Input.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Events/KeyEvent.h"
+#include "Seraph/Project/ProjectManager.h"
 
 #include <bgfx/bgfx.h>
-#include <config.h>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <yaml-cpp/yaml.h>
 
+#include <exception>
 #include <filesystem>
 
 namespace Seraph
@@ -61,6 +64,8 @@ void EditorLayer::OnAttach()
 
     m_EntityBrowser.SetScene(m_Scene);
     m_Gizmo.SetScene(m_Scene);
+
+    LoadRecents();
 }
 
 void EditorLayer::OnDetach()
@@ -118,6 +123,13 @@ void EditorLayer::DrawMenuBar()
 {
     if (!ImGui::BeginMainMenuBar())
         return;
+
+    if (ImGui::BeginMenu("File"))
+    {
+        if (ImGui::MenuItem("Close Project"))
+            CloseProject();
+        ImGui::EndMenu();
+    }
 
     if (ImGui::BeginMenu("Scene"))
     {
@@ -198,13 +210,17 @@ void EditorLayer::BuildAssetPack()
         return;
     }
 
-    const std::filesystem::path outPath =
-        std::filesystem::path(ASSET_PATH) / "assets.pack";
-    AssetPackBuilder::Build(*manager, outPath);
+    AssetPackBuilder::Build(*manager, ProjectManager::ActivePackPath());
 }
 
 void EditorLayer::OnImGuiRender()
 {
+    if (!ProjectManager::HasActive())
+    {
+        DrawLauncher();
+        return;
+    }
+
     if (!m_RuntimeMode)
         DrawMenuBar();
 
@@ -283,6 +299,135 @@ void EditorLayer::ExitRuntime()
     m_RuntimeMode = false;
     m_EditorCamera.SetActive(true);
     Input::SetCursorMode(CursorMode::Normal);
+}
+
+void EditorLayer::DrawLauncher()
+{
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(560, 440), ImGuiCond_FirstUseEver);
+    ImGui::Begin(
+        "Seraph — Projects", nullptr,
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking);
+
+    ImGui::TextUnformatted("Recent projects");
+    ImGui::Separator();
+    ImGui::BeginChild("recents", ImVec2(0, 180), true);
+    if (m_Recents.empty())
+        ImGui::TextDisabled("(none yet)");
+    for (const std::filesystem::path& recent : m_Recents)
+        if (ImGui::Selectable(recent.string().c_str()))
+            OpenProjectPath(recent);
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    ImGui::TextUnformatted("Open project (.sproj path)");
+    ImGui::InputText("##openpath", m_OpenPathBuf, sizeof(m_OpenPathBuf));
+    ImGui::SameLine();
+    if (ImGui::Button("Open") && m_OpenPathBuf[0] != '\0')
+        OpenProjectPath(m_OpenPathBuf);
+
+    ImGui::Spacing();
+    ImGui::TextUnformatted("New project");
+    ImGui::InputText("Folder", m_NewDirBuf, sizeof(m_NewDirBuf));
+    ImGui::InputText("Name", m_NewNameBuf, sizeof(m_NewNameBuf));
+    if (ImGui::Button("Create") && m_NewDirBuf[0] != '\0' && m_NewNameBuf[0] != '\0')
+        NewProjectAt(m_NewDirBuf, m_NewNameBuf);
+
+    ImGui::End();
+}
+
+void EditorLayer::SetActiveScene()
+{
+    Ref<Scene> scene;
+    const AssetHandle startup = ProjectManager::Active().StartupScene;
+    if (static_cast<u64>(startup) != c_NullAssetHandle)
+        if (Ref<SceneAsset> sceneAsset = AssetManager::GetAsset<SceneAsset>(startup))
+            scene = sceneAsset->GetScene();
+
+    if (!scene)
+        scene = Ref<Scene>::Create(ProjectManager::Active().Name);
+
+    SetScene(scene);
+}
+
+void EditorLayer::OpenProjectPath(const std::filesystem::path& sprojPath)
+{
+    if (!ProjectManager::Open(sprojPath, AssetMode::Editor))
+    {
+        SP_CORE_ERROR_TAG(
+            "Editor", "Could not open project '{}'", sprojPath.string());
+        return;
+    }
+    SetActiveScene();
+    AddRecent(sprojPath);
+    SaveRecents();
+    SP_CORE_INFO_TAG("Editor", "Opened project '{}'", ProjectManager::Active().Name);
+}
+
+void EditorLayer::NewProjectAt(const std::filesystem::path& dir, const std::string& name)
+{
+    if (!ProjectManager::Create(dir, name))
+    {
+        SP_CORE_ERROR_TAG(
+            "Editor", "Could not create project '{}' in '{}'", name, dir.string());
+        return;
+    }
+    SetActiveScene();
+    AddRecent(ProjectManager::ActiveSproj());
+    SaveRecents();
+}
+
+void EditorLayer::CloseProject()
+{
+    ProjectManager::Close();
+    SetScene(Ref<Scene>::Create("Untitled"));
+}
+
+void EditorLayer::LoadRecents()
+{
+    m_Recents.clear();
+    if (!FileSystem::Exists(Root::User, "recents.yaml"))
+        return; // no recents yet — normal on first run
+
+    Buffer bytes;
+    if (!FileSystem::Read(Root::User, "recents.yaml", bytes) || !bytes)
+        return;
+
+    try {
+        const YAML::Node node = YAML::Load(std::string(
+            reinterpret_cast<const char*>(bytes.Data()), bytes.Size()));
+        if (const YAML::Node list = node["Recents"]; list && list.IsSequence())
+            for (const auto& entry : list)
+                m_Recents.emplace_back(entry.as<std::string>());
+    } catch (const std::exception&) {
+        // A corrupt recents file is non-fatal — start with an empty list.
+    }
+}
+
+void EditorLayer::SaveRecents()
+{
+    YAML::Emitter out;
+    out << YAML::BeginMap << YAML::Key << "Recents" << YAML::Value << YAML::BeginSeq;
+    for (const std::filesystem::path& recent : m_Recents)
+        out << recent.generic_string();
+    out << YAML::EndSeq << YAML::EndMap;
+
+    const Buffer bytes = Buffer::Copy(out.c_str(), out.size());
+    FileSystem::Write(Root::User, "recents.yaml", bytes);
+}
+
+void EditorLayer::AddRecent(const std::filesystem::path& sprojPath)
+{
+    std::error_code ec;
+    std::filesystem::path abs = std::filesystem::absolute(sprojPath, ec);
+    if (ec)
+        abs = sprojPath;
+
+    std::erase(m_Recents, abs);
+    m_Recents.insert(m_Recents.begin(), abs);
+    if (m_Recents.size() > 10)
+        m_Recents.resize(10);
 }
 
 } // namespace Seraph
