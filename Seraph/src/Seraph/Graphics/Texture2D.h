@@ -187,9 +187,11 @@ public:
     bool Upload();
 
 public:
-    static Ref<Texture2D> Create(
-        const char* path, const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
+    // Textures load from disk exclusively through the AssetManager /
+    // TextureSerializer (resolve an AssetHandle). There is deliberately no
+    // path-based Create here — reading files is the FileSystem/asset system's job.
 
+    // Raw in-memory pixels (e.g. a procedural 1x1). Not a file read.
     static Ref<Texture2D> Create(
         const char* name, const void* data, u32 width, u32 height,
         const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
@@ -201,8 +203,8 @@ public:
         const char* name, const void* data, u64 size,
         const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
 
-    // Convenience: ParseEncoded + Upload in one call (main thread). Used by the
-    // path-based Create and any synchronous loader.
+    // Convenience: ParseEncoded + Upload in one call (main thread) from encoded
+    // image bytes already in memory. For a synchronous loader that holds bytes.
     static Ref<Texture2D> CreateFromEncoded(
         const char* name, const void* data, u64 size,
         const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());

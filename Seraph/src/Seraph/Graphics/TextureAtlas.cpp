@@ -4,7 +4,7 @@
 
 #include "TextureAtlas.h"
 
-#include "Seraph/Core/Core.h"
+#include "Seraph/Asset/AssetManager.h"
 #include "Texture2D.h"
 
 namespace Seraph
@@ -17,12 +17,14 @@ TextureAtlas::TextureAtlas(
 {
 }
 
-Ref<TextureAtlas> TextureAtlas::Create(const std::string& path, uint32_t spriteSize)
+Ref<TextureAtlas> TextureAtlas::Create(AssetHandle texture, uint32_t spriteSize)
 {
-    auto texture = Texture2D::Create(
-        path.c_str());
+    Ref<Texture2D> tex = AssetManager::GetAsset<Texture2D>(texture);
+    if (!tex)
+        return nullptr;
 
-    return Ref<TextureAtlas>::Create(texture, path, texture->Width(), texture->Height(), spriteSize);
+    return Ref<TextureAtlas>::Create(
+        tex, std::string(), tex->Width(), tex->Height(), spriteSize);
 }
 
 // TextureAtlas* TextureAtlas::CreateFromMemory(

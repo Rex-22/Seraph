@@ -4,7 +4,6 @@
 
 #include "Texture2D.h"
 #include "Seraph/Core/Core.h"
-#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Ref.h"
 
 #include <bgfx/bgfx.h>
@@ -153,24 +152,6 @@ Ref<Texture2D> Texture2D::CreateFromEncoded(
     Ref<Texture2D> texture = ParseEncoded(name, data, size, createInfo);
     texture->Upload();
     return texture;
-}
-
-Ref<Texture2D> Texture2D::Create(
-    const char* path, const Texture2DCreateInfo& createInfo)
-{
-    // TODO(assets): textures should load exclusively through the
-    // AssetManager/TextureSerializer, not read files directly here. This path is
-    // retained only for the (currently unused) TextureAtlas — see the texture
-    // task. It resolves against the project root via the FileSystem.
-    Buffer bytes;
-    if (!FileSystem::Read(Root::Project, path, bytes) || !bytes) {
-        auto texture = Ref<Texture2D>::Create();
-        texture->m_NameStorage = path;
-        texture->m_DebugName = texture->m_NameStorage.c_str();
-        return texture;
-    }
-
-    return CreateFromEncoded(path, bytes.Data(), bytes.Size(), createInfo);
 }
 
 Ref<Texture2D> Texture2D::Create(

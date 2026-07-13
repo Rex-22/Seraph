@@ -18,7 +18,9 @@ public:
     TextureAtlas(
         Ref<Texture2D> texture, std::string path, uint32_t width,uint32_t height, uint32_t spriteSize);
 
-    static Ref<TextureAtlas> Create(const std::string& path, uint32_t spriteSize);
+    // Wraps an already-loaded texture asset (resolved through the AssetManager).
+    // Textures are never read from a path here — that is the asset system's job.
+    static Ref<TextureAtlas> Create(AssetHandle texture, uint32_t spriteSize);
 
     /**
      * Create a TextureAtlas from raw RGBA pixel data in memory.
