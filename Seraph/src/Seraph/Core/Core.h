@@ -38,17 +38,8 @@ inline uint32_t EncodeNormalRgba8(float x, float y = 0.0f, float z = 0.0f, float
     return dst;
 }
 
-bx::FileReaderI* GetFileReader();
-
 bx::AllocatorI* GetAllocator();
 
-void* Load(
-    bx::FileReaderI* reader, bx::AllocatorI* allocator,
-    const bx::FilePath& filePath, uint32_t* _size);
-
 void CalcTangents(void* _vertices, uint16_t _numVertices, bgfx::VertexLayout _layout, const uint16_t* _indices, uint32_t _numIndices);
-
-void InitCore();
-void CleanupCore();
 
 }

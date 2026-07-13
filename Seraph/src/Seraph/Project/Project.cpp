@@ -1,10 +1,9 @@
 #include "Project.h"
 
+#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
 
 #include <yaml-cpp/yaml.h>
-
-#include <fstream>
 
 namespace Seraph
 {
@@ -30,26 +29,32 @@ bool Project::Save(const Project& project, const std::filesystem::path& path)
     out << YAML::EndMap;
     out << YAML::EndMap;
 
-    std::ofstream fout(path);
-    if (!fout) {
+    const Buffer bytes = Buffer::Copy(out.c_str(), out.size());
+    if (!FileSystem::Write(Root::Absolute, path, bytes)) {
         SP_CORE_ERROR_TAG(
             "Project", "Could not write project to '{}'", path.string());
         return false;
     }
-    fout << out.c_str();
     return true;
 }
 
 std::optional<Project> Project::Load(const std::filesystem::path& path)
 {
-    if (!std::filesystem::exists(path)) {
+    if (!FileSystem::Exists(Root::Absolute, path)) {
         SP_CORE_ERROR_TAG("Project", "Project file not found: '{}'", path.string());
+        return std::nullopt;
+    }
+
+    Buffer bytes;
+    if (!FileSystem::Read(Root::Absolute, path, bytes) || !bytes) {
+        SP_CORE_ERROR_TAG("Project", "Could not read project '{}'", path.string());
         return std::nullopt;
     }
 
     YAML::Node data;
     try {
-        data = YAML::LoadFile(path.string());
+        data = YAML::Load(std::string(
+            reinterpret_cast<const char*>(bytes.Data()), bytes.Size()));
     } catch (const std::exception& e) {
         SP_CORE_ERROR_TAG(
             "Project", "Failed to parse project '{}': {}", path.string(), e.what());

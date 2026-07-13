@@ -4,10 +4,10 @@
 #include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Asset/Pack/AssetPack.h"
 #include "Seraph/Core/Buffer.h"
+#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
 
 #include <cstring>
-#include <fstream>
 #include <vector>
 
 namespace Seraph
@@ -55,22 +55,23 @@ bool AssetPackBuilder::Build(
     header.BlobOffset = header.TocOffset + toc.size() * sizeof(PackTocEntry);
     header.BlobSize = blobCursor;
 
-    std::ofstream out(outPath, std::ios::binary | std::ios::trunc);
-    if (!out) {
-        SP_CORE_ERROR_TAG(
-            "Asset Pack", "Could not open '{}' for writing", outPath.string());
-        return false;
+    // Assemble the whole pack into one contiguous buffer, then write it out.
+    std::vector<u8> packBytes(header.BlobOffset + header.BlobSize);
+    u64 cursor = 0;
+    std::memcpy(packBytes.data() + cursor, &header, sizeof(PackHeader));
+    cursor += sizeof(PackHeader);
+    for (const PackTocEntry& entry : toc) {
+        std::memcpy(packBytes.data() + cursor, &entry, sizeof(PackTocEntry));
+        cursor += sizeof(PackTocEntry);
+    }
+    for (const Buffer& blob : blobs) {
+        if (blob.Size() > 0)
+            std::memcpy(packBytes.data() + cursor, blob.Data(), blob.Size());
+        cursor += blob.Size();
     }
 
-    out.write(reinterpret_cast<const char*>(&header), sizeof(PackHeader));
-    for (const PackTocEntry& entry : toc)
-        out.write(reinterpret_cast<const char*>(&entry), sizeof(PackTocEntry));
-    for (const Buffer& blob : blobs)
-        out.write(
-            reinterpret_cast<const char*>(blob.Data()),
-            static_cast<std::streamsize>(blob.Size()));
-
-    if (!out) {
+    const Buffer packBuffer = Buffer::Copy(packBytes.data(), packBytes.size());
+    if (!FileSystem::Write(Root::Absolute, outPath, packBuffer)) {
         SP_CORE_ERROR_TAG("Asset Pack", "Write failed for '{}'", outPath.string());
         return false;
     }

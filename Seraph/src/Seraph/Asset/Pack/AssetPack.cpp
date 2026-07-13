@@ -1,30 +1,27 @@
  #include "AssetPack.h"
 
+#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
 
 #include <cstring>
-#include <fstream>
 
 namespace Seraph
 {
 
 bool AssetPack::Load(const std::filesystem::path& path)
 {
-    std::ifstream in(path, std::ios::binary | std::ios::ate);
-    if (!in) {
+    Buffer bytes;
+    if (!FileSystem::Read(Root::Absolute, path, bytes)) {
         SP_CORE_ERROR_TAG("Asset Pack", "Could not open pack '{}'", path.string());
         return false;
     }
 
-    const std::streamsize fileSize = in.tellg();
-    if (fileSize < static_cast<std::streamsize>(sizeof(PackHeader))) {
+    if (bytes.Size() < sizeof(PackHeader)) {
         SP_CORE_ERROR_TAG("Asset Pack", "Pack '{}' is too small", path.string());
         return false;
     }
 
-    in.seekg(0);
-    m_Data.resize(static_cast<size_t>(fileSize));
-    in.read(reinterpret_cast<char*>(m_Data.data()), fileSize);
+    m_Data.assign(bytes.Data(), bytes.Data() + bytes.Size());
 
     std::memcpy(&m_Header, m_Data.data(), sizeof(PackHeader));
     if (std::memcmp(m_Header.Magic, c_PackMagic, sizeof(c_PackMagic)) != 0) {

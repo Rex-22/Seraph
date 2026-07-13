@@ -5,53 +5,11 @@
 #include "Core.h"
 
 #include "Log.h"
-#include "Platform/FileReader.h"
 
 #include <bgfx/bgfx.h>
-#include <bimg/decode.h>
-#include <bx/file.h>
-#include <bx/filepath.h>
-#include <bx/readerwriter.h>
-
-static bx::FileReader* s_fileReader = nullptr;
 
 namespace Seraph
 {
-
-typedef bx::StringT<&Seraph::g_allocator> String;
-
-void Unload(void* _ptr)
-{
-    bx::free(Seraph::GetAllocator(), _ptr);
-}
-
-void* Load(
-    bx::FileReaderI* reader, bx::AllocatorI* allocator,
-    const bx::FilePath& filePath, uint32_t* _size)
-{
-    if (!bx::open(reader, filePath)) {
-        SP_CORE_ERROR_TAG("Core", "Failed to open: {}.", filePath.getCPtr());
-        if (_size != nullptr) {
-            *_size = 0;
-        }
-
-        return nullptr;
-    }
-
-    const auto size = static_cast<int32_t>(bx::getSize(reader));
-    void* data = bx::alloc(allocator, size);
-    bx::read(reader, data, size, bx::ErrorAssert{});
-    bx::close(reader);
-    if (_size != nullptr) {
-        *_size = size;
-    }
-    return data;
-}
-
-bx::FileReaderI* GetFileReader()
-{
-    return s_fileReader;
-}
 
 bx::AllocatorI* GetAllocator()
 {
@@ -60,17 +18,6 @@ bx::AllocatorI* GetAllocator()
     }
 
     return Seraph::g_allocator;
-}
-
-void InitCore()
-{
-    s_fileReader = BX_NEW(GetAllocator(), Seraph::FileReader);
-}
-
-void CleanupCore()
-{
-    bx::deleteObject(GetAllocator(), s_fileReader);
-    s_fileReader = nullptr;
 }
 
 void CalcTangents(

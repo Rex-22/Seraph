@@ -12,16 +12,12 @@
 #include "Platform/Window.h"
 #include "Seraph/Asset/AssetImporter.h"
 #include "Seraph/Asset/AssetManager.h"
-#include "Seraph/Asset/AssetManagerBase.h"
-#include "Seraph/Asset/EditorAssetManager.h"
-#include "Seraph/Asset/Pack/RuntimeAssetManager.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Events/MouseEvent.h"
 #include "Seraph/Events/WindowEvent.h"
 #include "Seraph/Graphics/Renderer.h"
 
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_init.h>
 #include <bgfx/bgfx.h>
 #include <bx/timer.h>
@@ -38,8 +34,6 @@ Application* Application::s_Instance{nullptr};
 Application::Application(const ApplicationSpecification& specification)
     : m_Specification(specification)
 {
-    InitCore();
-
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SP_CORE_ERROR_TAG("SDL", "could not initialize. {}", SDL_GetError());
         exit(1);
@@ -50,33 +44,12 @@ Application::Application(const ApplicationSpecification& specification)
 
     Renderer::Init();
 
-    // Asset system: register serializers (needs the renderer up), then install
-    // the manager the specification asks for — loose files (editor) or a pack
-    // (runtime). Every AssetManager::GetAsset call site is identical either way.
+    // Register serializers (needs the renderer up). The asset manager itself is
+    // installed later by ProjectManager when a project is opened.
     AssetImporter::Init();
-    AssetManager::Init(CreateAssetManager());
 
     m_ImGuiLayer = ImGuiLayer::Create();
     PushOverlay(m_ImGuiLayer);
-}
-
-Ref<AssetManagerBase> Application::CreateAssetManager() const
-{
-    if (m_Specification.Assets == ApplicationSpecification::AssetMode::Runtime) {
-        // A shipped game has no source tree — resolve the pack next to the
-        // executable unless an absolute path was given.
-        std::filesystem::path packPath = m_Specification.AssetPack;
-        if (!packPath.is_absolute()) {
-            if (const char* base = SDL_GetBasePath()) // owned by SDL; do not free
-                packPath = std::filesystem::path(base) / packPath;
-        }
-        SP_CORE_INFO_TAG(
-            "Application", "Runtime asset mode — pack '{}'", packPath.string());
-        return Ref<RuntimeAssetManager>::Create(packPath);
-    }
-
-    SP_CORE_INFO_TAG("Application", "Editor asset mode — loose files");
-    return Ref<EditorAssetManager>::Create();
 }
 
 Application::~Application()
@@ -92,7 +65,6 @@ Application::~Application()
     Renderer::Cleanup();
     m_Window->Shutdown();
 
-    CleanupCore();
     SDL_Quit();
 }
 

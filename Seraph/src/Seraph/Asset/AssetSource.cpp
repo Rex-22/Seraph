@@ -1,10 +1,7 @@
 #include "AssetSource.h"
 
-#include "Seraph/Core/Core.h"
+#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
-
-#include <bx/allocator.h>
-#include <bx/filepath.h>
 
 #include <utility>
 
@@ -18,19 +15,13 @@ FileAssetSource::FileAssetSource(std::filesystem::path path)
 
 bool FileAssetSource::ReadBytes(Buffer& out)
 {
-    uint32_t size = 0;
-    void* data = Load(
-        GetFileReader(), GetAllocator(),
-        bx::FilePath(m_Path.string().c_str()), &size);
-    if (data == nullptr || size == 0) {
+    // Loose files are always project-relative (asset registry paths).
+    if (!FileSystem::Read(Root::Project, m_Path, out) || !out) {
         SP_CORE_ERROR_TAG(
             "AssetManager", "Failed to read asset bytes: {}", m_Path.string());
         return false;
     }
-
-    out = Buffer::Copy(data, size);
-    bx::free(GetAllocator(), data);
-    return static_cast<bool>(out);
+    return true;
 }
 
 std::string FileAssetSource::Identifier() const

@@ -2,16 +2,13 @@
 
 #include "Seraph/Asset/AssetImporter.h"
 #include "Seraph/Asset/AssetSource.h"
+#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
 
-#include <config.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
-#include <cctype>
-#include <fstream>
 #include <string>
-#include <system_error>
 #include <vector>
 
 namespace Seraph
@@ -39,10 +36,8 @@ AssetType AssetTypeFromExtension(const std::string& extension)
     return AssetType::None;
 }
 
-std::filesystem::path RegistryPath()
-{
-    return std::filesystem::path(ASSET_PATH) / "AssetRegistry.srr";
-}
+// The asset registry lives at the root of the active project's asset dir.
+constexpr const char* k_RegistryFile = "AssetRegistry.srr";
 
 } // namespace
 
@@ -373,17 +368,7 @@ bool EditorAssetManager::SaveAsset(AssetHandle handle)
     if (!AssetImporter::Serialize(metadata, asset, bytes) || !bytes)
         return false;
 
-    const std::filesystem::path fullPath =
-        std::filesystem::path(ASSET_PATH) / metadata.FilePath;
-    std::ofstream out(fullPath, std::ios::binary);
-    if (!out) {
-        SP_CORE_ERROR_TAG(
-            "AssetManager", "Could not open '{}' for writing", fullPath.string());
-        return false;
-    }
-    out.write(reinterpret_cast<const char*>(bytes.Data()),
-              static_cast<std::streamsize>(bytes.Size()));
-    return true;
+    return FileSystem::Write(Root::Project, metadata.FilePath, bytes);
 }
 
 AssetHandle EditorAssetManager::SaveAssetAs(
@@ -413,19 +398,11 @@ AssetHandle EditorAssetManager::SaveAssetAs(
         return c_NullAssetHandle;
     }
 
-    const std::filesystem::path fullPath =
-        std::filesystem::path(ASSET_PATH) / relativePath;
-    std::error_code ec;
-    std::filesystem::create_directories(fullPath.parent_path(), ec);
-    std::ofstream out(fullPath, std::ios::binary);
-    if (!out) {
+    if (!FileSystem::Write(Root::Project, relativePath, bytes)) {
         SP_CORE_ERROR_TAG(
-            "AssetManager", "Could not open '{}' for writing", fullPath.string());
+            "AssetManager", "Could not write asset '{}'", relativePath.string());
         return c_NullAssetHandle;
     }
-    out.write(reinterpret_cast<const char*>(bytes.Data()),
-              static_cast<std::streamsize>(bytes.Size()));
-    out.close();
 
     {
         std::unique_lock lock(m_Mutex);
@@ -501,29 +478,27 @@ void EditorAssetManager::SerializeAssetRegistry()
     out << YAML::EndSeq;
     out << YAML::EndMap;
 
-    const std::filesystem::path path = RegistryPath();
-    std::ofstream fout(path);
-    if (!fout) {
-        SP_CORE_ERROR_TAG(
-            "AssetManager", "Could not write asset registry to '{}'", path.string());
-        return;
-    }
-    fout << out.c_str();
+    const Buffer bytes = Buffer::Copy(out.c_str(), out.size());
+    if (!FileSystem::Write(Root::Project, k_RegistryFile, bytes))
+        SP_CORE_ERROR_TAG("AssetManager", "Could not write asset registry");
 }
 
 bool EditorAssetManager::DeserializeAssetRegistry()
 {
-    const std::filesystem::path path = RegistryPath();
-    if (!std::filesystem::exists(path))
+    if (!FileSystem::Exists(Root::Project, k_RegistryFile))
+        return false;
+
+    Buffer bytes;
+    if (!FileSystem::Read(Root::Project, k_RegistryFile, bytes) || !bytes)
         return false;
 
     YAML::Node data;
     try {
-        data = YAML::LoadFile(path.string());
+        data = YAML::Load(std::string(
+            reinterpret_cast<const char*>(bytes.Data()), bytes.Size()));
     } catch (const std::exception& e) {
         SP_CORE_ERROR_TAG(
-            "AssetManager", "Failed to parse asset registry '{}': {}",
-            path.string(), e.what());
+            "AssetManager", "Failed to parse asset registry: {}", e.what());
         return false;
     }
 
