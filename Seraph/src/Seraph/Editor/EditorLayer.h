@@ -47,6 +47,10 @@ public:
     void OnEvent(Event& e)    override;
     void OnImGuiRender()      override;
 
+    // Open a project by its .sproj path (installs its assets, loads its startup
+    // scene). Used by the launcher UI and by `Seraph-Editor --project <sproj>`.
+    void OpenProjectPath(const std::filesystem::path& sprojPath);
+
 private:
     void EnterRuntime();
     void ExitRuntime();
@@ -65,6 +69,9 @@ private:
 
     void DrawMenuBar();
     void BuildAssetPack();
+    // Build a runnable, distributable game folder for the active project (assets
+    // + scripts + runtime). Blocking; runs only when not playing.
+    void PackageGame();
     // Rebuild the active project's script module (async cmake build) and reload
     // its dylib. Only valid when not playing (a live script instance's vtable is
     // in the module being replaced).
@@ -82,7 +89,6 @@ private:
 
     // Project launcher (shown when no project is open) + project switching.
     void DrawLauncher();
-    void OpenProjectPath(const std::filesystem::path& sprojPath);
     void NewProjectAt(const std::filesystem::path& dir, const std::string& name);
     void CloseProject();
     void SetActiveScene(); // load the active project's startup scene (or empty)

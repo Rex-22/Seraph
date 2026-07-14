@@ -19,6 +19,7 @@
 #include "Seraph/Core/Input.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Events/KeyEvent.h"
+#include "Seraph/Project/GamePackager.h"
 #include "Seraph/Project/ProjectManager.h"
 #include "Seraph/Scripts/ScriptLibrary.h"
 
@@ -153,6 +154,11 @@ void EditorLayer::DrawMenuBar()
 
     if (ImGui::BeginMenu("File"))
     {
+        ImGui::BeginDisabled(m_RuntimeMode);
+        if (ImGui::MenuItem("Package Game"))
+            PackageGame();
+        ImGui::EndDisabled();
+        ImGui::Separator();
         if (ImGui::MenuItem("Close Project"))
             CloseProject();
         ImGui::EndMenu();
@@ -368,6 +374,19 @@ void EditorLayer::BuildAssetPack()
     AssetPackBuilder::Build(*manager, ProjectManager::ActivePackPath());
 }
 
+void EditorLayer::PackageGame()
+{
+    if (m_RuntimeMode)
+    {
+        SP_CORE_WARN_TAG("Packaging", "Stop play before packaging");
+        return;
+    }
+    // Blocking: builds scripts + cooks assets + assembles the folder.
+    const std::filesystem::path out =
+        ProjectManager::ActiveDir() / "dist" / ProjectManager::Active().Name;
+    GamePackager::Package(out);
+}
+
 void EditorLayer::CompileScripts()
 {
     if (m_RuntimeMode)
@@ -389,24 +408,27 @@ void EditorLayer::CompileScripts()
     SP_CORE_INFO_TAG(
         "Scripting", "Compiling scripts for '{}'...", ProjectManager::Active().Name);
 
-    // Build off the UI thread (RunProcess blocks). The build reconfigures the
-    // engine tree at this project's Game module and builds just that target,
-    // producing <project>/cache/libGame.<ext>. The main thread reloads it in
-    // PollScriptCompile once the atomic flips.
+    // Build off the UI thread (RunProcess blocks). The project is a standalone
+    // find_package(Seraph) build: configure its own build tree pointed at the
+    // local engine (SeraphConfig lives in SERAPH_ENGINE_BUILD_DIR), then build
+    // the Game target → <project>/cache/libGame.<ext>. The main thread reloads it
+    // in PollScriptCompile once the atomic flips.
+    const std::string buildDir = (ProjectManager::ActiveDir() / "cache" / "build").string();
     m_ScriptCompileThread = std::thread(
-        [this, projectDir]()
+        [this, projectDir, buildDir]()
         {
             std::string log;
             const ProcessResult cfg = RunProcess(SERAPH_CMAKE_COMMAND,
-                {"-S", SERAPH_ENGINE_SOURCE_DIR, "-B", SERAPH_ENGINE_BUILD_DIR,
-                    "-DSERAPH_GAME_DIR=" + projectDir});
+                {"-S", projectDir, "-B", buildDir,
+                    "-DSeraph_DIR=" SERAPH_ENGINE_BUILD_DIR,
+                    "-DCMAKE_BUILD_TYPE=Debug"});
             log += cfg.Output;
             bool ok = cfg.Launched && cfg.ExitCode == 0;
 
             if (ok)
             {
                 const ProcessResult bld = RunProcess(SERAPH_CMAKE_COMMAND,
-                    {"--build", SERAPH_ENGINE_BUILD_DIR, "--target", "Game"});
+                    {"--build", buildDir, "--target", "Game"});
                 log += bld.Output;
                 ok = bld.Launched && bld.ExitCode == 0;
             }

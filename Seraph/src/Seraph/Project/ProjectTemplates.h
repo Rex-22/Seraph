@@ -1,45 +1,102 @@
 //
-// Text templates for the C++/CMake files scaffolded into a newly-created
-// project, so a fresh project ships with a buildable Game module and a starter
-// script. Kept out of ProjectManager.cpp to keep that file readable.
+// Text templates for the files scaffolded into a newly-created project, so a
+// fresh project is a standalone find_package(Seraph) build with a working
+// starter script. Kept out of ProjectManager.cpp to keep that file readable.
 //
 
 #pragma once
 
+#include <cstddef>
 #include <string>
 
 namespace Seraph::ProjectTemplates
 {
 
-// CMakeLists.txt for a project's Game module — the same SHARED-library shape the
-// bundled Sandbox uses. libGame is loaded at runtime by the editor/runtime, so
-// switching/updating a project's scripts needs no host rebuild.
-inline std::string GameCMakeLists()
+namespace detail
 {
-    return R"cmake(# Game module: this project's native C++ gameplay scripts.
-#
-# Built as a SHARED library (libGame) loaded at runtime by the editor/runtime via
-# SDL_LoadObject. On load, its SP_REGISTER_SCRIPT initializers register into
-# libSeraph's ScriptRegistry. NOT linked into the hosts.
-set(PROJECT Game)
+    inline std::string Replace(
+        std::string s, const std::string& from, const std::string& to)
+    {
+        for (std::size_t p = s.find(from); p != std::string::npos;
+             p = s.find(from, p + to.size()))
+            s.replace(p, from.size(), to);
+        return s;
+    }
+} // namespace detail
+
+// Standalone CMakeLists for a project's Game module. It find_package(Seraph)s a
+// locally-built engine (path supplied by CMakePresets.json / -DSeraph_DIR) and
+// builds libGame — a SHARED module the editor/runtime load at runtime.
+inline std::string GameCMakeLists(const std::string& projectName)
+{
+    const std::string tpl = R"cmake(cmake_minimum_required(VERSION 3.30)
+project(@NAME@ CXX)
+set(CMAKE_CXX_STANDARD 20)
+
+# The Seraph engine you built. CMakePresets.json passes -DSeraph_DIR; or set it
+# yourself: -DSeraph_DIR=<engine-build-dir> (where SeraphConfig.cmake lives).
+find_package(Seraph REQUIRED)
 
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
+# libGame: this project's native C++ gameplay scripts. Loaded at runtime by the
+# editor/runtime via SDL_LoadObject (NOT linked into them); its SP_REGISTER_SCRIPT
+# initializers register into libSeraph's ScriptRegistry on load.
 add_library(Game SHARED ${GAME_SOURCES})
-target_link_libraries(Game PRIVATE Seraph)
+target_link_libraries(Game PRIVATE Seraph::Seraph)
 
-# libGame in the project's cache/ (ships with the project); rpath to the engine
-# bin/ so it resolves libSeraph when loaded. DEBUG_POSTFIX "" keeps the filename
-# stable (libGame, never libGamed) so the loader finds it in any build type.
+# rpath: the engine bin (dev-time load) + @loader_path/.. (so a PACKAGED libGame,
+# which sits in <game>/cache/, finds libSeraph one dir up next to the exe).
+if (APPLE)
+    set(GAME_RPATH "@loader_path/..;@loader_path;${SERAPH_ENGINE_BUILD_DIR}/bin")
+elseif (UNIX)
+    set(GAME_RPATH "$ORIGIN/..;$ORIGIN;${SERAPH_ENGINE_BUILD_DIR}/bin")
+endif ()
 set_target_properties(Game PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/cache"
-    BUILD_RPATH "${CMAKE_BINARY_DIR}/bin"
-    INSTALL_RPATH "${CMAKE_BINARY_DIR}/bin"
-    DEBUG_POSTFIX ""
-    FOLDER Libraries)
+    BUILD_RPATH   "${GAME_RPATH}"
+    INSTALL_RPATH "${GAME_RPATH}"
+    DEBUG_POSTFIX "")
+
+# IDE convenience targets:
+#   RunEditor   — open this project in the Seraph editor
+#   PackageGame — build a runnable, distributable game folder
+add_custom_target(RunEditor
+    COMMAND "${SERAPH_EDITOR_EXECUTABLE}"
+            --project "${CMAKE_CURRENT_SOURCE_DIR}/@NAME@.sproj"
+    USES_TERMINAL)
+add_custom_target(PackageGame
+    COMMAND "${SERAPH_EDITOR_EXECUTABLE}"
+            --package "${CMAKE_CURRENT_SOURCE_DIR}/@NAME@.sproj"
+    USES_TERMINAL)
 )cmake";
+    return detail::Replace(tpl, "@NAME@", projectName);
+}
+
+// CMakePresets.json so opening the project folder in an IDE (CLion/VS/VSCode)
+// configures against the local engine with no manual -D flags.
+inline std::string CMakePresets(const std::string& engineBuildDir)
+{
+    const std::string tpl = R"json({
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 30, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Seraph (local engine)",
+      "binaryDir": "${sourceDir}/cache/build",
+      "cacheVariables": {
+        "Seraph_DIR": "@ENGINE@",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [ { "name": "default", "configurePreset": "default" } ]
+}
+)json";
+    return detail::Replace(tpl, "@ENGINE@", engineBuildDir);
 }
 
 // A starter ScriptableEntity, ready to bind from the inspector.
@@ -88,18 +145,22 @@ inline std::string Readme(const std::string& projectName)
 {
     return "# " + projectName + R"md(
 
-A Seraph project. Its native C++ gameplay scripts live in `src/` and compile
-into a `Game` module (see `CMakeLists.txt`).
+A Seraph game project. Native C++ gameplay scripts live in `src/` and build into
+a `Game` module (`cache/libGame`) that the editor/runtime load at runtime.
 
-## Building this project's scripts
+## Develop
 
-Native scripts are compiled into the editor/runtime, so after adding or changing
-a script you must rebuild. Point the engine build at this project and rebuild:
+Open this folder in your IDE (CLion / VS / VS Code). `CMakePresets.json` points
+it at your local Seraph engine build, so it configures out of the box. Then:
 
-    cmake -S <seraph-repo> -B <build> -DSERAPH_GAME_DIR="<this-directory>"
-    cmake --build <build> --target Seraph-Editor Seraph-Runtime
+- Build the **Game** target to compile your scripts.
+- Run the **RunEditor** target to open this project in the editor.
+- Or open the editor yourself and use **Scripts > Compile Scripts** after edits.
 
-Then bind a script to an entity from the inspector: **Add Component > Script**.
+## Package
+
+Build the **PackageGame** target (or run `Seraph-Editor --package <this>.sproj`)
+to produce a self-contained, runnable game folder.
 )md";
 }
 

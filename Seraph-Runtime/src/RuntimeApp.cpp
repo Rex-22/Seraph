@@ -6,6 +6,7 @@
 //
 
 #include <Seraph.h>
+#include <Seraph/Core/CommandLine.h>
 #include <Seraph/Core/EntryPoint.h>
 
 #include <config.h>
@@ -22,6 +23,9 @@ static std::filesystem::path s_Sproj;
 
 static std::filesystem::path FindProjectFile()
 {
+    // Explicit override (dev / tooling).
+    if (std::string proj = Seraph::CommandLine::Get("--project"); !proj.empty())
+        return proj;
     // Shipped: a .sproj beside the executable. Dev: the bundled sample project.
     for (const auto& p : Seraph::FileSystem::List(Seraph::Root::Engine, ".", ".sproj"))
         return p;

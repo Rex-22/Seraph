@@ -8,7 +8,13 @@
 //
 
 #include <Seraph.h>
+#include <Seraph/Core/CommandLine.h>
 #include <Seraph/Core/EntryPoint.h>
+#include <Seraph/Project/GamePackager.h>
+#include <Seraph/Project/ProjectManager.h>
+
+#include <cstdlib>
+#include <filesystem>
 
 namespace SeraphEditor
 {
@@ -31,6 +37,11 @@ public:
 
         auto editor = Seraph::Ref<Seraph::EditorLayer>::Create(scene, renderer);
         PushLayer(editor);
+
+        // Open a project passed on the command line (the IDE "RunEditor" target /
+        // `Seraph-Editor --project <sproj>`), skipping the launcher.
+        if (std::string proj = Seraph::CommandLine::Get("--project"); !proj.empty())
+            editor->OpenProjectPath(proj);
     }
 
     ~EditorApp() override = default;
@@ -40,5 +51,26 @@ public:
 
 Seraph::Application* Seraph::CreateApplication()
 {
+    // Headless packaging: `--package <sproj> [--out <dir>]`. Open the project in
+    // editor asset mode, build a runnable game folder, and exit without a window.
+    if (Seraph::CommandLine::Has("--package"))
+    {
+        const std::string sproj = Seraph::CommandLine::Get("--package");
+        if (!Seraph::ProjectManager::Open(sproj, Seraph::AssetMode::Editor))
+            std::_Exit(1);
+
+        std::filesystem::path out = Seraph::CommandLine::Get("--out");
+        if (out.empty())
+            out = Seraph::ProjectManager::ActiveDir() / "dist"
+                / Seraph::ProjectManager::Active().Name;
+
+        const bool ok = Seraph::GamePackager::Package(out);
+        // Headless one-shot: _Exit skips static-destructor teardown (subsystems
+        // were never fully started for a windowless run, and tearing global
+        // logging/physics/asset state down out of order can fault). Logs already
+        // flushed synchronously above.
+        std::_Exit(ok ? 0 : 1);
+    }
+
     return new SeraphEditor::EditorApp();
 }

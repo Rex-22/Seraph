@@ -5,6 +5,9 @@
 #ifndef CONFIG_H_IN_H
 #define CONFIG_H_IN_H
 
+// Engine version (from project(Seraph VERSION ...)). Surfaced via Core/Version.h.
+#define SERAPH_VERSION "@PROJECT_VERSION@"
+
 // Compile-time defaults used only until a project is opened at runtime:
 //   ASSET_PATH               - FileSystem's fallback project asset root.
 //   SERAPH_DEFAULT_PROJECT   - the .sproj the editor opens by default (dev).

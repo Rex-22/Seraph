@@ -12,8 +12,12 @@ make_library(SHARED)
 
 # Windows: auto-export all symbols so the Game dylib resolves engine symbols
 # without annotating every class with __declspec (no-op on macOS/Linux, where
-# default visibility already exports).
-set_target_properties(Seraph PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+# default visibility already exports). DEBUG_POSTFIX "" keeps the filename stable
+# (libSeraph, never libSeraphd) so SeraphConfig's path and the baked @rpath
+# references match the file in every build type — and packaging can copy it.
+set_target_properties(Seraph PROPERTIES
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+    DEBUG_POSTFIX "")
 
 # Disable specific warnings for third-party STB library
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")

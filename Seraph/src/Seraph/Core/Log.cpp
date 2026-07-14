@@ -28,6 +28,7 @@ namespace Seraph {
 		{ "GLFW",              TagDetails{  true, Level::Error } },
 		{ "Memory",            TagDetails{  true, Level::Error } },
 		{ "Mesh",              TagDetails{  true, Level::Warn  } },
+		{ "Packaging",         TagDetails{  true, Level::Info  } },
 		{ "Physics",           TagDetails{  true, Level::Info  } },
 		{ "Project",           TagDetails{  true, Level::Warn  } },
 		{ "Renderer",          TagDetails{  true, Level::Info  } },

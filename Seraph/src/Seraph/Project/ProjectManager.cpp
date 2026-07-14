@@ -9,6 +9,8 @@
 #include "Seraph/Project/ProjectTemplates.h"
 #include "Seraph/Scripts/ScriptLibrary.h"
 
+#include <config.h>
+
 #include <utility>
 
 namespace Seraph
@@ -91,7 +93,9 @@ bool ProjectManager::Create(const std::filesystem::path& dir, const std::string&
             FileSystem::Write(Root::Absolute, rel,
                 Buffer::Copy(contents.data(), contents.size()));
         };
-    writeIfAbsent(dir / "CMakeLists.txt", ProjectTemplates::GameCMakeLists());
+    writeIfAbsent(dir / "CMakeLists.txt", ProjectTemplates::GameCMakeLists(name));
+    writeIfAbsent(dir / "CMakePresets.json",
+        ProjectTemplates::CMakePresets(SERAPH_ENGINE_BUILD_DIR));
     writeIfAbsent(dir / "src" / "ExampleScript.h", ProjectTemplates::ExampleScriptHeader());
     writeIfAbsent(dir / "src" / "ExampleScript.cpp", ProjectTemplates::ExampleScriptSource());
     writeIfAbsent(dir / "README.md", ProjectTemplates::Readme(name));

@@ -6,14 +6,22 @@
 
 #include "Base.h"
 #include "Application.h"
+#include "Seraph/Core/CommandLine.h"
 #include "Seraph/Core/FileSystem.h"
+#include "Seraph/Core/Log.h"
+#include "Seraph/Core/Version.h"
 #include "Seraph/Physics/PhysicsSystem.h"
 
 extern Seraph::Application* CreateApplication();
 
 int main(int argc, char** argv)
 {
+    // Parse the command line first so a client's CreateApplication() (and the
+    // editor/runtime) can read flags like --project / --package.
+    Seraph::CommandLine::Init(argc, argv);
+
     Seraph::Log::Init();
+    SP_CORE_INFO_TAG("Core", "Seraph Engine v{}", Seraph::EngineVersion());
     // File access is available before the Application exists, so a client's
     // CreateApplication() can read a project file to shape its window/spec.
     Seraph::FileSystem::Init();

@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.30)
-project(Seraph)
+# VERSION is the engine version, surfaced at runtime (config.h SERAPH_VERSION) and
+# in the generated SeraphConfig package. No LANGUAGES restriction — vendored SDL
+# and bgfx include C sources, so both C and CXX must stay enabled.
+project(Seraph VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -39,13 +42,6 @@ add_compile_definitions("SP_DEBUG=$<CONFIG:Debug>")
 # compile-time conveniences only — a runtime-opened project overrides them.
 set(SERAPH_DEFAULT_PROJECT "${PROJECT_SOURCE_DIR}/projects/Sandbox")
 
-# Which project's native C++ scripts (its "Game" module) are compiled into the
-# editor/runtime. Defaults to the bundled Sandbox; point it at another project
-# dir and reconfigure to build that game's scripts instead. One game is linked
-# at a time, so the module's target name (Game) never collides.
-set(SERAPH_GAME_DIR "${SERAPH_DEFAULT_PROJECT}" CACHE PATH
-    "Project whose C++ scripts are compiled into the editor/runtime")
-
 # Set option to control setting the resource path variable
 option(USE_INSTALL_ASSET_PATH "Set resource path to install location" OFF)
 
@@ -67,9 +63,10 @@ set(SERAPH_SHADERC_PATH "${CMAKE_BINARY_DIR}/vendor/bgfx/cmake/bgfx/shaderc")
 set(SERAPH_SHADER_INCLUDE_DIRS
     "${PROJECT_SOURCE_DIR}/vendor/bgfx/bgfx/src;${PROJECT_SOURCE_DIR}/vendor/bgfx/bgfx/examples/common;${PROJECT_SOURCE_DIR}/shader")
 
-# Engine locations + cmake, baked so the editor can rebuild a project's Game
-# module in-place (the "Compile Scripts" action reconfigures this build tree with
-# a new SERAPH_GAME_DIR and builds the Game target).
+# Engine build dir + cmake, baked so the editor's "Compile Scripts" action can
+# build a project's Game module standalone: it configures the project's own build
+# tree with -DSeraph_DIR=<this build> (where SeraphConfig.cmake lives) and builds
+# the Game target. SERAPH_ENGINE_SOURCE_DIR is also handy for tooling/docs.
 set(SERAPH_ENGINE_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 set(SERAPH_ENGINE_BUILD_DIR "${CMAKE_BINARY_DIR}")
 set(SERAPH_CMAKE_COMMAND "${CMAKE_COMMAND}")
@@ -79,12 +76,35 @@ set(SERAPH_CMAKE_COMMAND "${CMAKE_COMMAND}")
 # for the engine and its consumers, so `#include <config.h>` resolves.
 configure_file(Seraph/src/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
 
-# projects
+# --- SDK package: a hand-written SeraphConfig.cmake so a game project can
+# find_package(Seraph) against THIS local engine build (source-SDK model). It
+# defines an imported Seraph::Seraph target pointing at the built libSeraph plus
+# every include dir + compile def a Game module needs, and exposes the editor/
+# runtime exe paths. Paths are this machine's build tree — valid because every
+# machine builds the engine locally. A project points -DSeraph_DIR at this build.
+include(CMakePackageConfigHelpers)
+set(SERAPH_SDK_INCLUDE_DIRS
+    "${PROJECT_SOURCE_DIR}/Seraph/src"
+    "${CMAKE_BINARY_DIR}/include"
+    ${SDL3_INCLUDE_DIR} ${IMGUI_INCLUDE_DIR} ${BGFX_INCLUDE_DIR} ${BX_INCLUDE_DIR}
+    ${BIMG_INCLUDE_DIR} ${SPDLOG_INCLUDE_DIR} ${GLM_INCLUDE_DIR} ${YAML_INCLUDE_DIR}
+    ${ENTT_INCLUDE_DIR} ${IMGUIZMO_INCLUDE_DIR} ${ASSIMP_INCLUDE_DIR}
+    ${JOLT_INCLUDE_DIR})
+set(SERAPH_DYLIB_PATH
+    "${CMAKE_BINARY_DIR}/bin/${CMAKE_SHARED_LIBRARY_PREFIX}Seraph${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(SERAPH_IMPLIB_PATH "${CMAKE_BINARY_DIR}/bin/Seraph${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+set(SERAPH_EDITOR_EXE  "${CMAKE_BINARY_DIR}/bin/Seraph-Editor${CMAKE_EXECUTABLE_SUFFIX}")
+set(SERAPH_RUNTIME_EXE "${CMAKE_BINARY_DIR}/bin/Seraph-Runtime${CMAKE_EXECUTABLE_SUFFIX}")
+configure_file(cmake/SeraphConfig.cmake.in
+    "${CMAKE_BINARY_DIR}/SeraphConfig.cmake" @ONLY)
+write_basic_package_version_file(
+    "${CMAKE_BINARY_DIR}/SeraphConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
+
+# projects. Game modules are NOT built here — every project (incl. Sandbox) is a
+# standalone find_package(Seraph) build (its own dir/build), built by the editor's
+# Compile Scripts action or its own IDE. The engine build just produces the
+# engine + editor + runtime + the SeraphConfig package above.
 add_subdirectory(Seraph)         # Seraph engine (SHARED library: libSeraph)
-# The active project's native C++ scripts, built as a SHARED library (libGame)
-# that links libSeraph and is loaded at runtime via SDL_LoadObject — NOT linked
-# into the hosts. Explicit binary dir because SERAPH_GAME_DIR may be out-of-tree.
-# A default build still produces the active project's libGame (in its cache/).
-add_subdirectory(${SERAPH_GAME_DIR} ${CMAKE_BINARY_DIR}/Game)
 add_subdirectory(Seraph-Editor)  # editor tool (executable, links libSeraph)
 add_subdirectory(Seraph-Runtime) # shipped-game player (links libSeraph)
