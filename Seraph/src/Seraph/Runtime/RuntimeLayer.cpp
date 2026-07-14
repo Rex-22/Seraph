@@ -37,11 +37,20 @@ void RuntimeLayer::OnAttach()
     else
         SP_CORE_WARN_TAG(
             "Runtime", "Startup scene has no primary camera; nothing will render");
+
+    // Standalone play: the loaded scene IS the runtime scene (no editor copy),
+    // so build the physics world and create bodies up front.
+    m_Scene->OnRuntimeStart();
+}
+
+void RuntimeLayer::OnDetach()
+{
+    m_Scene->OnRuntimeStop();
 }
 
 void RuntimeLayer::OnUpdate(f64 dt)
 {
-    m_Scene->OnUpdate(dt);
+    m_Scene->OnUpdateRuntime(dt);
 
     auto [w, h] = Application::Instance().Window().Size();
     bgfx::setViewFrameBuffer(k_SceneViewId, BGFX_INVALID_HANDLE); // backbuffer

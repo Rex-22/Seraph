@@ -21,6 +21,7 @@ public:
     RuntimeLayer(Ref<Scene> scene, Ref<SceneRenderer> sceneRenderer);
 
     void OnAttach() override;
+    void OnDetach() override;
     void OnUpdate(f64 dt) override;
     void OnEvent(Event& e) override;
 
