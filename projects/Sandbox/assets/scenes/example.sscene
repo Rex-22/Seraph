@@ -22,8 +22,23 @@ Entities:
     Mesh:
       Mesh: 7500292515646999820
       MaterialOverrides: [3884254406120167305]
+    RigidBody:
+      BodyType: 0
+      LayerID: 0
+      Mass: 1
+      LinearDrag: 0.01
+      AngularDrag: 0.05
+      GravityFactor: 1
+      InitialLinearVelocity: [0, 0, 0]
+      InitialAngularVelocity: [0, 0, 0]
+    BoxCollider:
+      HalfExtents: [0.5, 0.5, 0.5]
+      Offset: [0, 0, 0]
+      IsTrigger: false
+      Friction: 0.5
+      Restitution: 0.15
     Relationship:
-      Parent: 9784779853712716575
+      Parent: 0
       Children:
         []
   - Entity: 9784779853712716575
@@ -35,16 +50,30 @@ Entities:
     Mesh:
       Mesh: 2588111291914606650
       MaterialOverrides: [9201136865809239182]
+    RigidBody:
+      BodyType: 1
+      LayerID: 1
+      Mass: 1
+      LinearDrag: 0.01
+      AngularDrag: 0.05
+      GravityFactor: 1
+      InitialLinearVelocity: [0, 0, 0]
+      InitialAngularVelocity: [0, 0, 0]
+    BoxCollider:
+      HalfExtents: [0.5, 0.5, 0.5]
+      Offset: [0, 0, 0]
+      IsTrigger: false
+      Friction: 0.5
+      Restitution: 0.15
     Relationship:
       Parent: 0
       Children:
-        - 7933459923336589363
         - 2561095505170714115
         - 17662605094292451532
   - Entity: 12403566664747799388
     Tag: Camera
     Transform:
-      Translation: [-0.2483291, 3.4835858, 4.0588417]
+      Translation: [-0.2483291, -3.8836775, 11.356907]
       Rotation: [-0.20829603, 0, 0]
       Scale: [1, 1, 1]
     Camera:
