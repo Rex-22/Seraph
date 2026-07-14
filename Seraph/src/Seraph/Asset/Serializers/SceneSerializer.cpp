@@ -4,10 +4,15 @@
 #include "Seraph/Asset/AssetRef.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Graphics/SceneCamera.h"
+#include "Seraph/Physics/PhysicsTypes.h"
+#include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
+#include "Seraph/Scene/Components/CapsuleColliderComponent.h"
 #include "Seraph/Scene/Components/IDComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Components/RelationshipComponent.h"
+#include "Seraph/Scene/Components/RigidBodyComponent.h"
+#include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
 #include "Seraph/Scene/Entity.h"
@@ -106,6 +111,56 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
         emitter << YAML::EndMap;
     }
 
+    if (entity.HasComponent<RigidBodyComponent>()) {
+        const auto& rb = entity.GetComponent<RigidBodyComponent>();
+        emitter << YAML::Key << "RigidBody" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "BodyType" << YAML::Value << static_cast<int>(rb.Type);
+        emitter << YAML::Key << "LayerID" << YAML::Value << rb.LayerID;
+        emitter << YAML::Key << "Mass" << YAML::Value << rb.Mass;
+        emitter << YAML::Key << "LinearDrag" << YAML::Value << rb.LinearDrag;
+        emitter << YAML::Key << "AngularDrag" << YAML::Value << rb.AngularDrag;
+        emitter << YAML::Key << "GravityFactor" << YAML::Value << rb.GravityFactor;
+        emitter << YAML::Key << "InitialLinearVelocity" << YAML::Value
+                << rb.InitialLinearVelocity;
+        emitter << YAML::Key << "InitialAngularVelocity" << YAML::Value
+                << rb.InitialAngularVelocity;
+        emitter << YAML::EndMap;
+    }
+
+    if (entity.HasComponent<BoxColliderComponent>()) {
+        const auto& c = entity.GetComponent<BoxColliderComponent>();
+        emitter << YAML::Key << "BoxCollider" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "HalfExtents" << YAML::Value << c.HalfExtents;
+        emitter << YAML::Key << "Offset" << YAML::Value << c.Offset;
+        emitter << YAML::Key << "IsTrigger" << YAML::Value << c.IsTrigger;
+        emitter << YAML::Key << "Friction" << YAML::Value << c.Material.Friction;
+        emitter << YAML::Key << "Restitution" << YAML::Value << c.Material.Restitution;
+        emitter << YAML::EndMap;
+    }
+
+    if (entity.HasComponent<SphereColliderComponent>()) {
+        const auto& c = entity.GetComponent<SphereColliderComponent>();
+        emitter << YAML::Key << "SphereCollider" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "Radius" << YAML::Value << c.Radius;
+        emitter << YAML::Key << "Offset" << YAML::Value << c.Offset;
+        emitter << YAML::Key << "IsTrigger" << YAML::Value << c.IsTrigger;
+        emitter << YAML::Key << "Friction" << YAML::Value << c.Material.Friction;
+        emitter << YAML::Key << "Restitution" << YAML::Value << c.Material.Restitution;
+        emitter << YAML::EndMap;
+    }
+
+    if (entity.HasComponent<CapsuleColliderComponent>()) {
+        const auto& c = entity.GetComponent<CapsuleColliderComponent>();
+        emitter << YAML::Key << "CapsuleCollider" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "Radius" << YAML::Value << c.Radius;
+        emitter << YAML::Key << "HalfHeight" << YAML::Value << c.HalfHeight;
+        emitter << YAML::Key << "Offset" << YAML::Value << c.Offset;
+        emitter << YAML::Key << "IsTrigger" << YAML::Value << c.IsTrigger;
+        emitter << YAML::Key << "Friction" << YAML::Value << c.Material.Friction;
+        emitter << YAML::Key << "Restitution" << YAML::Value << c.Material.Restitution;
+        emitter << YAML::EndMap;
+    }
+
     if (entity.HasComponent<RelationshipComponent>()) {
         const auto& rc = entity.GetComponent<RelationshipComponent>();
         emitter << YAML::Key << "Relationship" << YAML::Value << YAML::BeginMap;
@@ -193,6 +248,49 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
                     overrides && overrides.IsSequence())
                     for (const auto& o : overrides)
                         mc.MaterialOverrides.emplace_back(o.as<u64>(0));
+            }
+
+            if (const YAML::Node n = node["RigidBody"]) {
+                auto& rb = entity.AddComponent<RigidBodyComponent>();
+                rb.Type = static_cast<BodyType>(
+                    n["BodyType"].as<int>(static_cast<int>(BodyType::Static)));
+                rb.LayerID = n["LayerID"].as<u32>(0u);
+                rb.Mass = n["Mass"].as<float>(1.0f);
+                rb.LinearDrag = n["LinearDrag"].as<float>(0.01f);
+                rb.AngularDrag = n["AngularDrag"].as<float>(0.05f);
+                rb.GravityFactor = n["GravityFactor"].as<float>(1.0f);
+                rb.InitialLinearVelocity =
+                    DecodeVec3(n["InitialLinearVelocity"], glm::vec3(0.0f));
+                rb.InitialAngularVelocity =
+                    DecodeVec3(n["InitialAngularVelocity"], glm::vec3(0.0f));
+            }
+
+            if (const YAML::Node n = node["BoxCollider"]) {
+                auto& c = entity.AddComponent<BoxColliderComponent>();
+                c.HalfExtents = DecodeVec3(n["HalfExtents"], glm::vec3(0.5f));
+                c.Offset = DecodeVec3(n["Offset"], glm::vec3(0.0f));
+                c.IsTrigger = n["IsTrigger"].as<bool>(false);
+                c.Material.Friction = n["Friction"].as<float>(0.5f);
+                c.Material.Restitution = n["Restitution"].as<float>(0.15f);
+            }
+
+            if (const YAML::Node n = node["SphereCollider"]) {
+                auto& c = entity.AddComponent<SphereColliderComponent>();
+                c.Radius = n["Radius"].as<float>(0.5f);
+                c.Offset = DecodeVec3(n["Offset"], glm::vec3(0.0f));
+                c.IsTrigger = n["IsTrigger"].as<bool>(false);
+                c.Material.Friction = n["Friction"].as<float>(0.5f);
+                c.Material.Restitution = n["Restitution"].as<float>(0.15f);
+            }
+
+            if (const YAML::Node n = node["CapsuleCollider"]) {
+                auto& c = entity.AddComponent<CapsuleColliderComponent>();
+                c.Radius = n["Radius"].as<float>(0.5f);
+                c.HalfHeight = n["HalfHeight"].as<float>(0.5f);
+                c.Offset = DecodeVec3(n["Offset"], glm::vec3(0.0f));
+                c.IsTrigger = n["IsTrigger"].as<bool>(false);
+                c.Material.Friction = n["Friction"].as<float>(0.5f);
+                c.Material.Restitution = n["Restitution"].as<float>(0.15f);
             }
 
             if (const YAML::Node r = node["Relationship"]) {
