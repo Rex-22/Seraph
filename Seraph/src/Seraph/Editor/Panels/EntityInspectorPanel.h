@@ -25,6 +25,10 @@ private:
     void DrawTransformComponent();
     void DrawCameraComponent();
     void DrawMeshComponent();
+    void DrawRigidBodyComponent();
+    void DrawBoxColliderComponent();
+    void DrawSphereColliderComponent();
+    void DrawCapsuleColliderComponent();
     void DrawAddComponentMenu();
 
     Entity m_SelectedEntity;

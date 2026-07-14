@@ -11,11 +11,16 @@
 #include "Seraph/Scene/Scene.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Graphics/SceneCamera.h"
+#include "Seraph/Scene/Components/BoxColliderComponent.h"
+#include "Seraph/Scene/Components/CapsuleColliderComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
+#include "Seraph/Scene/Components/RigidBodyComponent.h"
+#include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
 #include "Seraph/Graphics/Mesh.h"
 #include "Seraph/Graphics/MeshFactory.h"
+#include "Seraph/Physics/PhysicsSettings.h"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
@@ -182,8 +187,12 @@ void EntityInspectorPanel::OnImGuiRender()
     ImGui::Spacing();
     DrawTransformComponent();
     ImGui::Spacing();
-    if (m_SelectedEntity.HasComponent<CameraComponent>())  DrawCameraComponent();
-    if (m_SelectedEntity.HasComponent<MeshComponent>())    DrawMeshComponent();
+    if (m_SelectedEntity.HasComponent<CameraComponent>())          DrawCameraComponent();
+    if (m_SelectedEntity.HasComponent<MeshComponent>())            DrawMeshComponent();
+    if (m_SelectedEntity.HasComponent<RigidBodyComponent>())       DrawRigidBodyComponent();
+    if (m_SelectedEntity.HasComponent<BoxColliderComponent>())     DrawBoxColliderComponent();
+    if (m_SelectedEntity.HasComponent<SphereColliderComponent>())  DrawSphereColliderComponent();
+    if (m_SelectedEntity.HasComponent<CapsuleColliderComponent>()) DrawCapsuleColliderComponent();
     ImGui::Spacing();
     DrawAddComponentMenu();
 
@@ -347,6 +356,123 @@ void EntityInspectorPanel::DrawMeshComponent()
         m_SelectedEntity.RemoveComponent<MeshComponent>();
 }
 
+void EntityInspectorPanel::DrawRigidBodyComponent()
+{
+    auto* rb = m_SelectedEntity.TryGetComponent<RigidBodyComponent>();
+    if (!rb)
+        return;
+
+    bool remove = false;
+    bool open = BeginComponentSection<RigidBodyComponent>("Rigid Body", m_SelectedEntity, &remove);
+
+    if (open)
+    {
+        const char* bodyTypes[] = { "Static", "Dynamic", "Kinematic" };
+        int typeIndex = static_cast<int>(rb->Type);
+        if (ImGui::Combo("Body Type", &typeIndex, bodyTypes, 3))
+            rb->Type = static_cast<BodyType>(typeIndex);
+
+        // Collision layer dropdown, sourced from the layer manager's registry.
+        const std::vector<PhysicsLayer>& layers = PhysicsLayerManager::GetLayers();
+        const char* preview = PhysicsLayerManager::IsLayerValid(rb->LayerID)
+            ? layers[rb->LayerID].Name.c_str() : "(invalid)";
+        if (ImGui::BeginCombo("Layer", preview))
+        {
+            for (const PhysicsLayer& layer : layers)
+            {
+                const bool selected = (layer.LayerID == rb->LayerID);
+                if (ImGui::Selectable(layer.Name.c_str(), selected))
+                    rb->LayerID = layer.LayerID;
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::DragFloat("Mass", &rb->Mass, 0.01f, 0.0f, 100000.0f);
+        ImGui::DragFloat("Linear Drag", &rb->LinearDrag, 0.001f, 0.0f, 100.0f);
+        ImGui::DragFloat("Angular Drag", &rb->AngularDrag, 0.001f, 0.0f, 100.0f);
+        ImGui::DragFloat("Gravity Factor", &rb->GravityFactor, 0.01f);
+        DrawVec3Control("Init Lin Vel", rb->InitialLinearVelocity, 0.0f, 0.1f);
+        DrawVec3Control("Init Ang Vel", rb->InitialAngularVelocity, 0.0f, 0.1f);
+
+        ImGui::TreePop();
+    }
+
+    if (remove)
+        m_SelectedEntity.RemoveComponent<RigidBodyComponent>();
+}
+
+void EntityInspectorPanel::DrawBoxColliderComponent()
+{
+    auto* c = m_SelectedEntity.TryGetComponent<BoxColliderComponent>();
+    if (!c)
+        return;
+
+    bool remove = false;
+    bool open = BeginComponentSection<BoxColliderComponent>("Box Collider", m_SelectedEntity, &remove);
+
+    if (open)
+    {
+        DrawVec3Control("Half Extents", c->HalfExtents, 0.5f, 0.1f);
+        DrawVec3Control("Offset", c->Offset, 0.0f, 0.1f);
+        ImGui::Checkbox("Is Trigger", &c->IsTrigger);
+        ImGui::DragFloat("Friction", &c->Material.Friction, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("Restitution", &c->Material.Restitution, 0.01f, 0.0f, 1.0f);
+        ImGui::TreePop();
+    }
+
+    if (remove)
+        m_SelectedEntity.RemoveComponent<BoxColliderComponent>();
+}
+
+void EntityInspectorPanel::DrawSphereColliderComponent()
+{
+    auto* c = m_SelectedEntity.TryGetComponent<SphereColliderComponent>();
+    if (!c)
+        return;
+
+    bool remove = false;
+    bool open = BeginComponentSection<SphereColliderComponent>("Sphere Collider", m_SelectedEntity, &remove);
+
+    if (open)
+    {
+        ImGui::DragFloat("Radius", &c->Radius, 0.01f, 0.0f, 100000.0f);
+        DrawVec3Control("Offset", c->Offset, 0.0f, 0.1f);
+        ImGui::Checkbox("Is Trigger", &c->IsTrigger);
+        ImGui::DragFloat("Friction", &c->Material.Friction, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("Restitution", &c->Material.Restitution, 0.01f, 0.0f, 1.0f);
+        ImGui::TreePop();
+    }
+
+    if (remove)
+        m_SelectedEntity.RemoveComponent<SphereColliderComponent>();
+}
+
+void EntityInspectorPanel::DrawCapsuleColliderComponent()
+{
+    auto* c = m_SelectedEntity.TryGetComponent<CapsuleColliderComponent>();
+    if (!c)
+        return;
+
+    bool remove = false;
+    bool open = BeginComponentSection<CapsuleColliderComponent>("Capsule Collider", m_SelectedEntity, &remove);
+
+    if (open)
+    {
+        ImGui::DragFloat("Radius", &c->Radius, 0.01f, 0.0f, 100000.0f);
+        ImGui::DragFloat("Half Height", &c->HalfHeight, 0.01f, 0.0f, 100000.0f);
+        DrawVec3Control("Offset", c->Offset, 0.0f, 0.1f);
+        ImGui::Checkbox("Is Trigger", &c->IsTrigger);
+        ImGui::DragFloat("Friction", &c->Material.Friction, 0.01f, 0.0f, 1.0f);
+        ImGui::DragFloat("Restitution", &c->Material.Restitution, 0.01f, 0.0f, 1.0f);
+        ImGui::TreePop();
+    }
+
+    if (remove)
+        m_SelectedEntity.RemoveComponent<CapsuleColliderComponent>();
+}
+
 void EntityInspectorPanel::DrawAddComponentMenu()
 {
     float buttonWidth = ImGui::GetContentRegionAvail().x;
@@ -391,6 +517,42 @@ void EntityInspectorPanel::DrawAddComponentMenu()
                     addPrimitive(MeshFactory::CreatePlane(), "meshes/primitives/Plane.smesh");
 
                 ImGui::EndMenu();
+            }
+        }
+
+        if (!m_SelectedEntity.HasComponent<RigidBodyComponent>())
+        {
+            if (ImGui::MenuItem("Rigid Body"))
+            {
+                m_SelectedEntity.AddComponent<RigidBodyComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
+        if (!m_SelectedEntity.HasComponent<BoxColliderComponent>())
+        {
+            if (ImGui::MenuItem("Box Collider"))
+            {
+                m_SelectedEntity.AddComponent<BoxColliderComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
+        if (!m_SelectedEntity.HasComponent<SphereColliderComponent>())
+        {
+            if (ImGui::MenuItem("Sphere Collider"))
+            {
+                m_SelectedEntity.AddComponent<SphereColliderComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
+        if (!m_SelectedEntity.HasComponent<CapsuleColliderComponent>())
+        {
+            if (ImGui::MenuItem("Capsule Collider"))
+            {
+                m_SelectedEntity.AddComponent<CapsuleColliderComponent>();
+                ImGui::CloseCurrentPopup();
             }
         }
 

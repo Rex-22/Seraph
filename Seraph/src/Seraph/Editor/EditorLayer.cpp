@@ -34,7 +34,7 @@ namespace Seraph
 
 EditorLayer::EditorLayer(Ref<Scene> scene, Ref<SceneRenderer> sceneRenderer)
     : Layer("EditorLayer")
-    , m_Scene(std::move(scene))
+    , m_EditorScene(std::move(scene))
     , m_SceneRenderer(std::move(sceneRenderer))
     , m_EditorCamera(60.0f, 1280.0f, 720.0f, 0.01f, 1000.0f)
 {
@@ -42,9 +42,8 @@ EditorLayer::EditorLayer(Ref<Scene> scene, Ref<SceneRenderer> sceneRenderer)
 
 void EditorLayer::SetScene(Ref<Scene> scene)
 {
-    m_Scene = std::move(scene);
-    m_EntityBrowser.SetScene(m_Scene);
-    m_Gizmo.SetScene(m_Scene);
+    m_EditorScene = std::move(scene);
+    PointPanelsAt(m_EditorScene, UUID(0));
 }
 
 void EditorLayer::OnAttach()
@@ -61,8 +60,7 @@ void EditorLayer::OnAttach()
     bgfx::setViewClear(k_SceneViewId,
         BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, rgba, 0.0f, 0);
 
-    m_EntityBrowser.SetScene(m_Scene);
-    m_Gizmo.SetScene(m_Scene);
+    PointPanelsAt(m_EditorScene, UUID(0));
 
     LoadRecents();
 }
@@ -74,16 +72,25 @@ void EditorLayer::OnDetach()
 
 void EditorLayer::OnUpdate(f64 dt)
 {
-    m_Scene->OnUpdate(dt);
+    // Process a deferred play/stop toggle here, at a safe point — never mid-frame
+    // while the browser still holds deferred delete/reparent actions against a
+    // scene that's about to be swapped out.
+    if (m_PendingRuntimeToggle)
+    {
+        m_PendingRuntimeToggle = false;
+        m_RuntimeMode ? ExitRuntime() : EnterRuntime();
+    }
 
     if (m_RuntimeMode)
     {
         auto [w, h] = Application::Instance().Window().Size();
         bgfx::setViewFrameBuffer(k_SceneViewId, BGFX_INVALID_HANDLE);
         bgfx::setViewRect(k_SceneViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
-        m_Scene->SetViewportBounds(0, 0, w, h);
 
-        m_Scene->OnRenderRuntime(m_SceneRenderer);
+        Ref<Scene> scene = ActiveScene();
+        scene->SetViewportBounds(0, 0, w, h);
+        scene->OnUpdateRuntime(dt);
+        scene->OnRenderRuntime(m_SceneRenderer);
     }
     else
     {
@@ -95,7 +102,8 @@ void EditorLayer::OnUpdate(f64 dt)
 
         m_EditorCamera.SetViewportHovered(m_ViewportPanel.IsHovered());
         m_EditorCamera.OnUpdate(dt);
-        m_Scene->OnRenderEditor(m_SceneRenderer, m_EditorCamera);
+        m_EditorScene->OnUpdateEditor(dt);
+        m_EditorScene->OnRenderEditor(m_SceneRenderer, m_EditorCamera);
     }
 }
 
@@ -106,14 +114,15 @@ void EditorLayer::OnEvent(Event& e)
     {
         if (!key.IsRepeat() && key.KeyCode() == Key::F5)
         {
-            m_RuntimeMode ? ExitRuntime() : EnterRuntime();
+            // Defer to the top of OnUpdate — see the note there.
+            m_PendingRuntimeToggle = true;
             return true;
         }
         return false;
     });
 
     if (m_RuntimeMode)
-        m_Scene->OnEvent(e);
+        ActiveScene()->OnEvent(e);
     else
         m_EditorCamera.OnEvent(e);
 }
@@ -168,7 +177,8 @@ void EditorLayer::SaveScene()
         return;
     }
 
-    Ref<SceneAsset> sceneAsset = Ref<SceneAsset>::Create(m_Scene);
+    // Always serialize the authored scene, never the throwaway runtime copy.
+    Ref<SceneAsset> sceneAsset = Ref<SceneAsset>::Create(m_EditorScene);
     AssetHandle handle = manager->SaveAssetAs(sceneAsset, k_ScenePath);
     if (static_cast<u64>(handle) != c_NullAssetHandle)
         SP_CORE_INFO_TAG(
@@ -356,6 +366,9 @@ void EditorLayer::OnImGuiRender()
         ImGui::End();
     }
 
+    // Play/Stop toolbar — drawn in both modes (the menu bar is hidden in play).
+    UI_Toolbar();
+
     if (!m_RuntimeMode)
     {
         m_EntityBrowser.OnImGuiRender();
@@ -387,7 +400,7 @@ void EditorLayer::OnImGuiRender()
             m_RenderTarget.Resize(
                 static_cast<u32>(sz.x), static_cast<u32>(sz.y));
             m_EditorCamera.SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
-            m_Scene->SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
+            m_EditorScene->SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
         }
     }
 }
@@ -398,15 +411,60 @@ void EditorLayer::EnterRuntime()
     m_EditorCamera.SetActive(false);
     Input::SetCursorMode(CursorMode::Normal);
 
+    const UUID selection = SelectedUUID();
+
+    // Play-in-editor runs on a throwaway copy so the authored scene is never
+    // mutated by simulation. The copy is discarded on ExitRuntime.
+    m_RuntimeScene = Scene::Copy(m_EditorScene);
+
     auto [w, h] = Application::Instance().Window().Size();
-    m_Scene->SetViewportBounds(0, 0, w, h);
+    m_RuntimeScene->SetViewportBounds(0, 0, w, h);
+    m_RuntimeScene->OnRuntimeStart();
+
+    PointPanelsAt(m_RuntimeScene, selection);
 }
 
 void EditorLayer::ExitRuntime()
 {
+    const UUID selection = SelectedUUID();
+
+    if (m_RuntimeScene)
+        m_RuntimeScene->OnRuntimeStop();
+    m_RuntimeScene = nullptr; // discard the copy; authored scene is untouched
+
     m_RuntimeMode = false;
     m_EditorCamera.SetActive(true);
     Input::SetCursorMode(CursorMode::Normal);
+
+    PointPanelsAt(m_EditorScene, selection);
+}
+
+UUID EditorLayer::SelectedUUID() const
+{
+    Entity selected = m_EntityBrowser.GetSelectedEntity();
+    return selected ? selected.GetUUID() : UUID(0);
+}
+
+void EditorLayer::PointPanelsAt(const Ref<Scene>& scene, UUID selection)
+{
+    // SetScene clears each panel's cached selection Entity (which embeds a raw
+    // Scene*), so we must re-resolve the selection against the new scene by UUID.
+    m_EntityBrowser.SetScene(scene);
+    m_Gizmo.SetScene(scene);
+
+    Entity remapped = scene->TryGetEntityWithUUID(selection);
+    m_EntityBrowser.SetSelectedEntity(remapped ? remapped : Entity{});
+}
+
+void EditorLayer::UI_Toolbar()
+{
+    ImGui::Begin("##Toolbar", nullptr,
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+    if (ImGui::Button(m_RuntimeMode ? "Stop" : "Play"))
+        m_PendingRuntimeToggle = true;
+
+    ImGui::End();
 }
 
 void EditorLayer::DrawLauncher()

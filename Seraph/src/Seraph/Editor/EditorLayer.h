@@ -49,6 +49,18 @@ private:
     void EnterRuntime();
     void ExitRuntime();
 
+    // The scene currently displayed/updated: the runtime copy while playing,
+    // otherwise the authored editor scene.
+    Ref<Scene> ActiveScene() const { return m_RuntimeScene ? m_RuntimeScene : m_EditorScene; }
+    // Repoint the browser + gizmo at `scene` and restore selection by UUID
+    // (cleared if the UUID isn't present). Call after any scene swap.
+    void PointPanelsAt(const Ref<Scene>& scene, UUID selection);
+    // UUID of the currently-selected entity, or 0 if none.
+    UUID SelectedUUID() const;
+    // Minimal Play/Stop toolbar, drawn in both modes (the menu bar is hidden
+    // during play). The button defers the actual swap via m_PendingRuntimeToggle.
+    void UI_Toolbar();
+
     void DrawMenuBar();
     void BuildAssetPack();
     void SaveScene();
@@ -76,7 +88,8 @@ private:
     // View 1 is reserved for the offscreen scene render target.
     static constexpr u16 k_SceneViewId = 1;
 
-    Ref<Scene>           m_Scene;
+    Ref<Scene>           m_EditorScene;   // authoritative scene; saved/loaded
+    Ref<Scene>           m_RuntimeScene;  // throwaway play copy (null when stopped)
     Ref<SceneRenderer>   m_SceneRenderer;
 
     EditorCamera         m_EditorCamera;
@@ -88,6 +101,7 @@ private:
     RenderTarget         m_RenderTarget;
 
     bool                 m_RuntimeMode = false;
+    bool                 m_PendingRuntimeToggle = false; // processed at top of OnUpdate
 
     std::vector<std::filesystem::path> m_Recents;
     char                 m_OpenPathBuf[512] = {};
