@@ -45,9 +45,14 @@ macro(make_executable)
         DESTINATION ${CMAKE_INSTALL_PREFIX})
 endmacro()
 
+# make_library([STATIC|SHARED]) — defaults to STATIC when no type is given.
 macro(make_library)
     make_project_()
-    add_library(${PROJECT} STATIC ${HEADERS} ${SOURCES})
+    set(SP_LIB_TYPE ${ARGN})
+    if (NOT SP_LIB_TYPE)
+        set(SP_LIB_TYPE STATIC)
+    endif ()
+    add_library(${PROJECT} ${SP_LIB_TYPE} ${HEADERS} ${SOURCES})
     make_project_options_()
 
     target_include_directories(${PROJECT} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

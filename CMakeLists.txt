@@ -9,6 +9,12 @@ set(CMAKE_CXX_STANDARD 20)
 # inherit it (spdlog/imgui/imguizmo/Jolt/SDL-static aren't PIC by default).
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Keep vendor libs STATIC so they're absorbed into libSeraph — we want ONLY
+# libSeraph (and per-project libGame) to be shared, not a scatter of vendor
+# dylibs. Our own libSeraph/libGame use an explicit SHARED type, which overrides
+# this. FORCE because it may otherwise linger ON in the CMake cache.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Vendor libs static, absorbed into libSeraph" FORCE)
+
 # Co-locate the engine dylib and the executables in one bin/ dir so the exes find
 # libSeraph via a relative rpath (and, on Windows, an adjacent DLL). Per-project
 # libGame overrides its own output dir to the project's cache/.
@@ -74,10 +80,11 @@ set(SERAPH_CMAKE_COMMAND "${CMAKE_COMMAND}")
 configure_file(Seraph/src/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
 
 # projects
-add_subdirectory(Seraph)         # Seraph engine (static library)
-# The active project's native C++ scripts, built as an OBJECT library (Game) and
-# linked into both hosts. Explicit binary dir because SERAPH_GAME_DIR may be an
-# absolute/out-of-tree path.
+add_subdirectory(Seraph)         # Seraph engine (SHARED library: libSeraph)
+# The active project's native C++ scripts, built as a SHARED library (libGame)
+# that links libSeraph and is loaded at runtime via SDL_LoadObject — NOT linked
+# into the hosts. Explicit binary dir because SERAPH_GAME_DIR may be out-of-tree.
+# A default build still produces the active project's libGame (in its cache/).
 add_subdirectory(${SERAPH_GAME_DIR} ${CMAKE_BINARY_DIR}/Game)
-add_subdirectory(Seraph-Editor)  # editor tool (executable, links Seraph + Game)
-add_subdirectory(Seraph-Runtime) # shipped-game player (links Seraph + Game)
+add_subdirectory(Seraph-Editor)  # editor tool (executable, links libSeraph)
+add_subdirectory(Seraph-Runtime) # shipped-game player (links libSeraph)

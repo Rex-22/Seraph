@@ -33,6 +33,11 @@ public:
     // For editor enumeration (the inspector class dropdown).
     static const std::unordered_map<std::string, FactoryFn>& GetAll();
 
+    // Drop all registrations. Called before unloading a script module (dylib) so
+    // no factory lambda outlives the code it points into. Only safe when no
+    // ScriptEngine/instances are live (i.e. not playing).
+    static void Clear();
+
 private:
     // Function-local static: constructed on first use, so registration from any
     // translation unit's static-init is safe regardless of init order.

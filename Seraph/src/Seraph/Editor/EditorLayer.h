@@ -24,8 +24,10 @@
 #include "Seraph/Graphics/SceneRenderer.h"
 #include "Seraph/Scene/Scene.h"
 
+#include <atomic>
 #include <filesystem>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace Seraph
@@ -63,6 +65,13 @@ private:
 
     void DrawMenuBar();
     void BuildAssetPack();
+    // Rebuild the active project's script module (async cmake build) and reload
+    // its dylib. Only valid when not playing (a live script instance's vtable is
+    // in the module being replaced).
+    void CompileScripts();
+    // Poll the async compile each frame; reloads the module on the main thread
+    // when the build finishes.
+    void PollScriptCompile();
     void SaveScene();
     void OpenScene();
     void NewMaterial();
@@ -110,6 +119,14 @@ private:
 
     bool                 m_ShowCreateShaderPopup = false;
     char                 m_ShaderNameBuf[128] = {};
+
+    // Async script-compile state. The build runs on m_ScriptCompileThread; the
+    // atomic flips to Succeeded/Failed when done, and the main thread (OnUpdate)
+    // joins + reloads. m_ScriptCompileOutput is the captured build log.
+    enum class ScriptCompileState { Idle, Building, Succeeded, Failed };
+    std::atomic<ScriptCompileState> m_ScriptCompileState{ScriptCompileState::Idle};
+    std::thread          m_ScriptCompileThread;
+    std::string          m_ScriptCompileOutput;
 };
 
 } // namespace Seraph

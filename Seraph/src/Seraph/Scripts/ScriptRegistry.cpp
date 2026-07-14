@@ -42,4 +42,9 @@ ScriptRegistry::GetAll()
     return Storage();
 }
 
+void ScriptRegistry::Clear()
+{
+    Storage().clear();
+}
+
 } // namespace Seraph

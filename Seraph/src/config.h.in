@@ -16,4 +16,12 @@
 #define SERAPH_SHADERC_PATH "@SERAPH_SHADERC_PATH@"
 #define SERAPH_SHADER_INCLUDE_DIRS "@SERAPH_SHADER_INCLUDE_DIRS@"
 
+// Dev-only engine locations + cmake, so the editor can rebuild a project's Game
+// module in place (the "Compile Scripts" action). SERAPH_ENGINE_BUILD_DIR is the
+// CMake build tree; the Compile step reconfigures it with -DSERAPH_GAME_DIR=<proj>
+// and builds the Game target.
+#define SERAPH_ENGINE_SOURCE_DIR "@SERAPH_ENGINE_SOURCE_DIR@"
+#define SERAPH_ENGINE_BUILD_DIR "@SERAPH_ENGINE_BUILD_DIR@"
+#define SERAPH_CMAKE_COMMAND "@SERAPH_CMAKE_COMMAND@"
+
 #endif //CONFIG_H_IN_H

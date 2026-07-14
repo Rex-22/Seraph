@@ -5,6 +5,7 @@
 #include "EditorLayer.h"
 
 #include "Platform/FileDialog.h"
+#include "Platform/Process.h"
 #include "Platform/Window.h"
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/EditorAssetManager.h"
@@ -19,6 +20,9 @@
 #include "Seraph/Core/Log.h"
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Project/ProjectManager.h"
+#include "Seraph/Scripts/ScriptLibrary.h"
+
+#include <config.h>
 
 #include <bgfx/bgfx.h>
 #include <imgui.h>
@@ -67,6 +71,8 @@ void EditorLayer::OnAttach()
 
 void EditorLayer::OnDetach()
 {
+    if (m_ScriptCompileThread.joinable())
+        m_ScriptCompileThread.join();
     m_RenderTarget.Destroy();
 }
 
@@ -78,8 +84,21 @@ void EditorLayer::OnUpdate(f64 dt)
     if (m_PendingRuntimeToggle)
     {
         m_PendingRuntimeToggle = false;
-        m_RuntimeMode ? ExitRuntime() : EnterRuntime();
+        const bool compiling =
+            m_ScriptCompileState.load() == ScriptCompileState::Building;
+        // Stopping is always allowed; entering play mid-compile is not (the
+        // reload would race the module swap). Guarding here covers the F5 hotkey
+        // as well as the toolbar button.
+        if (m_RuntimeMode)
+            ExitRuntime();
+        else if (!compiling)
+            EnterRuntime();
+        else
+            SP_CORE_WARN_TAG(
+                "Scripting", "Cannot enter play while scripts are compiling");
     }
+
+    PollScriptCompile();
 
     if (m_RuntimeMode)
     {
@@ -161,6 +180,21 @@ void EditorLayer::DrawMenuBar()
         ImGui::Separator();
         if (ImGui::MenuItem("Build Asset Pack"))
             BuildAssetPack();
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Scripts"))
+    {
+        const bool building =
+            m_ScriptCompileState.load() == ScriptCompileState::Building;
+        // Reload swaps the loaded module — unsafe while a live script instance
+        // holds a vtable into it, so block during play.
+        ImGui::BeginDisabled(m_RuntimeMode || building);
+        if (ImGui::MenuItem(building ? "Compiling..." : "Compile Scripts"))
+            CompileScripts();
+        ImGui::EndDisabled();
+        if (m_RuntimeMode)
+            ImGui::TextDisabled("Stop play to compile");
         ImGui::EndMenu();
     }
 
@@ -334,6 +368,88 @@ void EditorLayer::BuildAssetPack()
     AssetPackBuilder::Build(*manager, ProjectManager::ActivePackPath());
 }
 
+void EditorLayer::CompileScripts()
+{
+    if (m_RuntimeMode)
+    {
+        SP_CORE_WARN_TAG("Scripting", "Stop play before compiling scripts");
+        return;
+    }
+    if (!ProjectManager::HasActive())
+        return;
+    if (m_ScriptCompileState.load() == ScriptCompileState::Building)
+        return;
+
+    if (m_ScriptCompileThread.joinable())
+        m_ScriptCompileThread.join();
+
+    const std::string projectDir = ProjectManager::ActiveDir().string();
+    m_ScriptCompileOutput.clear();
+    m_ScriptCompileState.store(ScriptCompileState::Building);
+    SP_CORE_INFO_TAG(
+        "Scripting", "Compiling scripts for '{}'...", ProjectManager::Active().Name);
+
+    // Build off the UI thread (RunProcess blocks). The build reconfigures the
+    // engine tree at this project's Game module and builds just that target,
+    // producing <project>/cache/libGame.<ext>. The main thread reloads it in
+    // PollScriptCompile once the atomic flips.
+    m_ScriptCompileThread = std::thread(
+        [this, projectDir]()
+        {
+            std::string log;
+            const ProcessResult cfg = RunProcess(SERAPH_CMAKE_COMMAND,
+                {"-S", SERAPH_ENGINE_SOURCE_DIR, "-B", SERAPH_ENGINE_BUILD_DIR,
+                    "-DSERAPH_GAME_DIR=" + projectDir});
+            log += cfg.Output;
+            bool ok = cfg.Launched && cfg.ExitCode == 0;
+
+            if (ok)
+            {
+                const ProcessResult bld = RunProcess(SERAPH_CMAKE_COMMAND,
+                    {"--build", SERAPH_ENGINE_BUILD_DIR, "--target", "Game"});
+                log += bld.Output;
+                ok = bld.Launched && bld.ExitCode == 0;
+            }
+
+            m_ScriptCompileOutput = std::move(log);
+            m_ScriptCompileState.store(
+                ok ? ScriptCompileState::Succeeded : ScriptCompileState::Failed);
+        });
+}
+
+void EditorLayer::PollScriptCompile()
+{
+    const ScriptCompileState state = m_ScriptCompileState.load();
+    if (state != ScriptCompileState::Succeeded
+        && state != ScriptCompileState::Failed)
+        return;
+
+    // Defer applying a successful build until play stops — reload swaps the
+    // module a live script instance's vtable points into.
+    if (state == ScriptCompileState::Succeeded && m_RuntimeMode)
+        return;
+
+    if (m_ScriptCompileThread.joinable())
+        m_ScriptCompileThread.join();
+
+    if (state == ScriptCompileState::Succeeded)
+    {
+        const std::filesystem::path gameLib = ProjectManager::ActiveDir()
+            / "cache" / ScriptLibrary::LibraryFileName();
+        if (ScriptLibrary::Reload(gameLib))
+            SP_CORE_INFO_TAG("Scripting", "Scripts recompiled and reloaded");
+        else
+            SP_CORE_ERROR_TAG("Scripting", "Reload failed after compile");
+    }
+    else
+    {
+        SP_CORE_ERROR_TAG(
+            "Scripting", "Script compile failed:\n{}", m_ScriptCompileOutput);
+    }
+
+    m_ScriptCompileState.store(ScriptCompileState::Idle);
+}
+
 void EditorLayer::OnImGuiRender()
 {
     if (!ProjectManager::HasActive())
@@ -468,8 +584,22 @@ void EditorLayer::UI_Toolbar()
     ImGui::Begin("##Toolbar", nullptr,
         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
+    const bool compiling =
+        m_ScriptCompileState.load() == ScriptCompileState::Building;
+
+    // Block entering play while scripts are compiling — the reload lands after
+    // the build, and starting play mid-build would race the module swap. Stop
+    // stays enabled so an in-progress session can always be ended.
+    ImGui::BeginDisabled(compiling && !m_RuntimeMode);
     if (ImGui::Button(m_RuntimeMode ? "Stop" : "Play"))
         m_PendingRuntimeToggle = true;
+    ImGui::EndDisabled();
+
+    if (compiling && !m_RuntimeMode)
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled("compiling scripts...");
+    }
 
     ImGui::End();
 }

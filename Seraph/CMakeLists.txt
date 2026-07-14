@@ -4,7 +4,16 @@ set(PROJECT Seraph)
 # and must only be compiled into a consuming executable (Seraph-Editor /
 # Seraph-Runtime), never the library. They are headers, so the *.cpp glob never
 # picks them up here.
-make_library()
+#
+# SHARED so the editor and each project's loadable Game module link ONE libSeraph
+# — giving a single ScriptRegistry/ShaderManager and consistent ScriptableEntity
+# vtables across the dylib boundary.
+make_library(SHARED)
+
+# Windows: auto-export all symbols so the Game dylib resolves engine symbols
+# without annotating every class with __declspec (no-op on macOS/Linux, where
+# default visibility already exports).
+set_target_properties(Seraph PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 # Disable specific warnings for third-party STB library
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")

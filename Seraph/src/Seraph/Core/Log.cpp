@@ -32,7 +32,7 @@ namespace Seraph {
 		{ "Project",           TagDetails{  true, Level::Warn  } },
 		{ "Renderer",          TagDetails{  true, Level::Info  } },
 		{ "Scene",             TagDetails{  true, Level::Info  } },
-		{ "Scripting",         TagDetails{  true, Level::Warn  } },
+		{ "Scripting",         TagDetails{  true, Level::Info  } },
 		{ "Sound Spatializer", TagDetails{  true, Level::Warn  } },
 		{ "Timer",             TagDetails{ false, Level::Trace } },
 		{ "miniaudio",         TagDetails{  true, Level::Error } },

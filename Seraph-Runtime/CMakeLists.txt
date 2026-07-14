@@ -2,11 +2,16 @@ set(PROJECT Seraph-Runtime)
 
 make_executable()
 
-# Link the engine + this project's Game module (native C++ scripts). Seraph
-# propagates its PUBLIC include dirs and vendor libraries transitively, so the
-# runtime does not repeat them. Game is an OBJECT library, so its self-registering
-# scripts link directly into the runtime and appear in ScriptRegistry.
-target_link_libraries(${PROJECT} PRIVATE Seraph Game)
+# Link the shared engine. The project's Game module is NOT linked — the runtime
+# loads it at startup (ScriptLibrary / SDL_LoadObject). Ship libGame + libSeraph
+# alongside the runtime.
+target_link_libraries(${PROJECT} PRIVATE Seraph)
+
+# libSeraph is a shared library co-located in bin/; resolve it at runtime via a
+# relative rpath (macOS @executable_path / Linux $ORIGIN; Windows: adjacent DLL).
+set_target_properties(${PROJECT} PROPERTIES
+    BUILD_RPATH "${SP_EXECUTABLE_RPATH}"
+    INSTALL_RPATH "${SP_EXECUTABLE_RPATH}")
 
 # The default material embeds the compiled bgfx shaders (generated headers), so
 # the Shaders target must run before the runtime is compiled.

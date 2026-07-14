@@ -7,6 +7,7 @@
 #include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Project/ProjectTemplates.h"
+#include "Seraph/Scripts/ScriptLibrary.h"
 
 #include <utility>
 
@@ -47,6 +48,19 @@ bool ProjectManager::Open(const std::filesystem::path& sprojPath, AssetMode mode
     SP_CORE_INFO_TAG(
         "Project", "Opened '{}' ({})", s_Project.Name,
         mode == AssetMode::Runtime ? "runtime" : "editor");
+
+    // Load the project's compiled native-script module if built; its scripts
+    // self-register on load. Absent is fine — the editor builds it via "Compile
+    // Scripts"; a shipped runtime ships it alongside.
+    const std::filesystem::path gameLib =
+        s_Dir / "cache" / ScriptLibrary::LibraryFileName();
+    if (std::filesystem::exists(gameLib))
+        ScriptLibrary::Load(gameLib);
+    else
+        SP_CORE_INFO_TAG("Scripting",
+            "No script module for '{}' yet — build it with Compile Scripts",
+            s_Project.Name);
+
     return true;
 }
 
@@ -89,6 +103,7 @@ void ProjectManager::Close()
 {
     if (!s_HasActive)
         return;
+    ScriptLibrary::Unload();
     AssetManager::Shutdown();
     FileSystem::SetProjectRoot({});
     s_Project = Project{};

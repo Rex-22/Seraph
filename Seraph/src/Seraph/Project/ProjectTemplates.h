@@ -11,24 +11,34 @@
 namespace Seraph::ProjectTemplates
 {
 
-// CMakeLists.txt for a project's Game module — the same OBJECT-library shape the
-// bundled Sandbox uses, so self-registering scripts are never dead-stripped.
+// CMakeLists.txt for a project's Game module — the same SHARED-library shape the
+// bundled Sandbox uses. libGame is loaded at runtime by the editor/runtime, so
+// switching/updating a project's scripts needs no host rebuild.
 inline std::string GameCMakeLists()
 {
     return R"cmake(# Game module: this project's native C++ gameplay scripts.
 #
-# Built as an OBJECT library (not STATIC) so self-registering scripts
-# (SP_REGISTER_SCRIPT) link directly into the editor/runtime and are never
-# dead-stripped the way an unreferenced static-archive member would be.
+# Built as a SHARED library (libGame) loaded at runtime by the editor/runtime via
+# SDL_LoadObject. On load, its SP_REGISTER_SCRIPT initializers register into
+# libSeraph's ScriptRegistry. NOT linked into the hosts.
 set(PROJECT Game)
 
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
-add_library(Game OBJECT ${GAME_SOURCES})
-target_link_libraries(Game PUBLIC Seraph)
-set_target_properties(Game PROPERTIES FOLDER Libraries)
+add_library(Game SHARED ${GAME_SOURCES})
+target_link_libraries(Game PRIVATE Seraph)
+
+# libGame in the project's cache/ (ships with the project); rpath to the engine
+# bin/ so it resolves libSeraph when loaded. DEBUG_POSTFIX "" keeps the filename
+# stable (libGame, never libGamed) so the loader finds it in any build type.
+set_target_properties(Game PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/cache"
+    BUILD_RPATH "${CMAKE_BINARY_DIR}/bin"
+    INSTALL_RPATH "${CMAKE_BINARY_DIR}/bin"
+    DEBUG_POSTFIX ""
+    FOLDER Libraries)
 )cmake";
 }
 
