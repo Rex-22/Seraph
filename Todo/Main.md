@@ -415,8 +415,8 @@ Implemented as designed, reusing every existing helper.
 ---
 
 ### 8. Physics 8 — Debug line renderer & shader
-- **Status:** Todo
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -453,14 +453,26 @@ Add a small static `DebugRenderer` in the engine's existing bgfx style that batc
 7. Call `DebugRenderer::Init()`/`Shutdown()` alongside `Renderer::Init()`/`Cleanup()`.
 8. Smoke test: temporarily call `DebugRenderer::Begin/DrawBox/Flush/End` in `Scene::OnRenderEditor` (after the mesh loop, before `EndScene`) to draw a box; verify it renders and occludes correctly, then remove the temporary call (real usage lands in Physics 9).
 
+## Changes
+
+Implemented as designed. One deviation, forced by init ordering:
+
+* **The `debug` program is resolved lazily on first `Flush`, not in `Init`.** `ShaderManager::GetHandle("debug")` needs an active `AssetManager`, which `ProjectManager` installs only when a project opens — well after `Renderer::Init`/`DebugRenderer::Init` run in the `Application` ctor. Resolving in `Init` would always return null. `Flush` resolves the program each call (a cheap name→handle map lookup + `AssetManager::GetAsset`) and warns once if unavailable; this is also robust across project reloads, where a cached handle would dangle. `DebugVertex` carries no texcoord (Position + Color0 only) to match the `debug` shader inputs.
+* **No temporary smoke-test draw was left in `Scene::OnRenderEditor`** — Physics 9 landed in the same session and provides the real `RenderDebug` call, so the throwaway box was unnecessary.
+* `DrawBox` builds 8 corners from the transform + 12 edges; `DrawSphere` draws 3 great-circle rings; `DrawCapsule` (Y-up) draws two end rings, 4 vertical connectors, and 4 half-circle cap arcs. All feed the line batch. Overflow clamps to `getAvailTransientVertexBuffer` (rounded down to whole primitives) and warns once.
+
+**Verification performed:** shaders cook (`vs_debug`/`fs_debug` `.bin.h` generated for all profiles) and the generated registry contains `RegisterEmbedded("debug", ...)`, so `ShaderManager::GetHandle("debug")` resolves. `Seraph` + `Seraph-Editor` + `Seraph-Runtime` compile and link clean (Debug, AppleClang `-Werror`). **Visual correctness (wireframes render, reversed-Z occlusion, on-top mode) is part of the deferred behavioural gate** — not observable from a headless build.
+
+**Files:** new `shader/debug/{varying.def.sc,vs_debug.sc,fs_debug.sc}`, `Graphics/DebugRenderer.{h,cpp}`; modified `Core/Application.cpp` (Init/Shutdown wiring).
+
 **Documentation:**
 - `jolt-physics-plan.md`
 
 ---
 
 ### 9. Physics 9 — Jolt DebugRenderer bridge & collider wireframes
-- **Status:** Todo
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -494,6 +506,21 @@ Add a `Scene::RenderDebug` pass that, when enabled, draws collider wireframes. I
 6. Play-mode branch (runtime == true): hold a static `JoltDebugRenderer` instance; `JPH::BodyManager::DrawSettings ds; ds.mDrawShape = true; ds.mDrawShapeWireframe = true;` then `DebugRenderer::Begin(...); joltSystem.DrawBodies(ds, &bridge); DebugRenderer::Flush(); End();`. Reach the `JPH::PhysicsSystem` via `GetPhysicsScene()` → a backend accessor exposed on `JoltScene`.
 7. Call `RenderDebug` from `Scene::OnRenderEditor` (runtime=false, editor camera viewProj) and `OnRenderRuntime` (runtime=true, primary camera viewProj), after the mesh loop and before `EndScene`.
 8. Verify: toggle on → edit-mode wireframes match collider sizes; press Play → Jolt bridge draws simulated shapes; toggle off → nothing renders.
+
+## Changes
+
+Implemented as designed, with one architectural refinement to preserve the "no Jolt in engine code" rule:
+
+* **Play-mode `DrawBodies` lives in the backend, not `Scene::RenderDebug`.** The plan had `Scene::RenderDebug` reach the `JPH::PhysicsSystem` and call `DrawBodies` directly, which would pull `<Jolt/...>` + `JoltScene` + the bridge into `Scene.cpp` — breaking the confinement rule. Instead a Jolt-free `virtual void PhysicsScene::RenderDebugBodies()` (default no-op) is overridden in `JoltScene`, which holds the static `JoltDebugRenderer` bridge and calls `m_JoltSystem.DrawBodies(ds, &bridge)` (guarded by `#ifdef JPH_DEBUG_RENDERER`). The bridge forwards `DrawLine`/`DrawTriangle` to `Seraph::DebugRenderer`, which appends to the batch `Scene::RenderDebug` already opened with `Begin`. So `Scene.cpp` stays Jolt-free and only touches the engine `DebugRenderer` + the abstract `PhysicsScene`.
+* **`RenderDebug` signature is `(Ref<SceneRenderer>, u16 viewId, bool runtime)`** — takes the concrete view id (needed by `DebugRenderer::Begin`) sourced from the active camera's `GetViewId()` in `OnRenderEditor`/`OnRenderRuntime`, rather than the plan's `const glm::mat4& viewProj`. `DebugRenderer::Begin` ignores `viewProj` (piggybacks the scene view transform), so it was dropped from `RenderDebug`; the `SceneRenderer` is passed so the pass can read the `ShowPhysicsColliders` toggle.
+* **Bridge `DrawLine`/`DrawTriangle` fully-qualify `Seraph::DebugRenderer`.** Unqualified `DebugRenderer` inside a `JPH::DebugRendererSimple` subclass resolves to the inherited `JPH::DebugRenderer` injected-class-name — first compile failed on `glm::vec3 → JPH::Vec3`; qualifying fixed it.
+* **Color via `EncodeColorRgba8`** (portable) rather than passing `JPH::Color::mU32` through. Colors are `c.{r,g,b,a}/255`.
+* **`SceneRenderer::GetSettings()` gained a non-const overload** so the `View`-menu `MenuItem` can bind `&...ShowPhysicsColliders`.
+* Edit-mode sphere uses `Radius × length(worldMatrix column0)` as an approximate uniform scale (a sphere can't depict non-uniform scale) — documented in-code.
+
+**Verification performed:** `JPH_DEBUG_RENDERER` confirmed defined in the `Seraph` target's compile flags (via `compile_commands.json`); the bridge object exports real `JoltDebugRenderer::DrawLine/DrawTriangle/DrawText3D` symbols and references `Seraph::DebugRenderer::DrawLine` (so the guard is active, not stripped). All three targets compile + link clean (Debug, AppleClang `-Werror`). **Visual verification (edit wireframes match collider sizes, play-mode bridge draws simulated shapes, reversed-Z occlusion, toggle off = nothing drawn) is part of the deferred behavioural gate** — not observable headless.
+
+**Files:** new `Physics/JoltPhysics/JoltDebugRenderer.{h,cpp}`; modified `Graphics/SceneRenderer.h` (toggle + non-const accessor), `Physics/PhysicsScene.h` (`RenderDebugBodies` hook), `Physics/JoltPhysics/JoltScene.{h,cpp}` (override), `Scene/Scene.{h,cpp}` (`RenderDebug` + calls), `Editor/EditorLayer.cpp` (View menu).
 
 **Documentation:**
 - `jolt-physics-plan.md`
