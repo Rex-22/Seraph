@@ -16,6 +16,11 @@
 set(OVERRIDE_CXX_FLAGS               OFF CACHE BOOL   "" FORCE)
 set(INTERPROCEDURAL_OPTIMIZATION     OFF CACHE BOOL   "" FORCE)
 
+# Static so libJolt is absorbed into libSeraph — we ship only libSeraph + the
+# per-project libGame, not a scatter of vendor dylibs. FORCE because
+# JPH_BUILD_SHARED_LIBS defaults to BUILD_SHARED_LIBS and can linger ON in cache.
+set(JPH_BUILD_SHARED_LIBS            OFF CACHE BOOL   "" FORCE)
+
 # --- ABI / feature toggles (identical Debug & Release) -----------------------
 set(DOUBLE_PRECISION                 OFF CACHE BOOL   "" FORCE)
 set(CROSS_PLATFORM_DETERMINISTIC     OFF CACHE BOOL   "" FORCE)
