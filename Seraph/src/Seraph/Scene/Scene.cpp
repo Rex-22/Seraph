@@ -4,16 +4,24 @@
 
 #include "Scene.h"
 
+#include "Components/BoxColliderComponent.h"
 #include "Components/CameraComponent.h"
+#include "Components/CapsuleColliderComponent.h"
 #include "Components/IDComponent.h"
 #include "Components/MeshComponent.h"
+#include "Components/RelationshipComponent.h"
+#include "Components/RigidBodyComponent.h"
+#include "Components/SphereColliderComponent.h"
 #include "Components/TagComponent.h"
 #include "Components/TransformComponent.h"
+#include "CopyableComponents.h"
 #include "Seraph/Core/Assert.h"
 #include "Seraph/Editor/EditorCamera.h"
 #include "Seraph/Graphics/Mesh.h"
 #include "Seraph/Graphics/Renderer.h"
 #include "Seraph/Graphics/SceneRenderer.h"
+#include "Seraph/Physics/PhysicsScene.h"
+#include "Seraph/Physics/PhysicsSystem.h"
 #include "Seraph/Scene/Entity.h"
 
 namespace Seraph
@@ -22,6 +30,8 @@ namespace Seraph
 Scene::Scene(const std::string& name) : m_Name(name)
 {
 }
+
+Scene::~Scene() = default;
 
 Entity Scene::CreateEntity(const std::string& name)
 {
@@ -68,14 +78,113 @@ void Scene::DestroyEntity(Entity entity)
     m_DestroyQueue.push(entity);
 }
 
-void Scene::OnUpdate([[maybe_unused]] f64 dt)
+void Scene::DrainDestroyQueue()
 {
     while (!m_DestroyQueue.empty()) {
         auto handle = m_DestroyQueue.front();
+        Entity entity{handle, this};
+        // Release the Jolt body before the entity leaves the registry — the
+        // physics body map keys on the entity's UUID, still readable here.
+        if (m_PhysicsScene && entity.HasComponent<RigidBodyComponent>())
+            m_PhysicsScene->DestroyBody(entity);
         m_EntityIDMap.erase(m_Registry.get<IDComponent>(handle).ID);
         m_Registry.destroy(handle);
         m_DestroyQueue.pop();
     }
+}
+
+void Scene::OnUpdateEditor([[maybe_unused]] f64 dt)
+{
+    DrainDestroyQueue();
+}
+
+void Scene::OnUpdateRuntime([[maybe_unused]] f64 dt)
+{
+    DrainDestroyQueue();
+    if (m_PhysicsScene)
+        m_PhysicsScene->Simulate(static_cast<f32>(dt));
+    // Drain again — the step (or a contact callback) may have queued destroys.
+    DrainDestroyQueue();
+}
+
+void Scene::OnRuntimeStart()
+{
+    if (m_IsPlaying)
+        return;
+
+    m_PhysicsScene = PhysicsSystem::CreateScene(this);
+
+    // Create a body for every entity with a rigid body. CreateBody builds the
+    // shape from whichever collider is present and warns + skips a rigid body
+    // that has no (valid) collider — Jolt cannot create a body without a shape.
+    for (auto handle : m_Registry.view<RigidBodyComponent>()) {
+        Entity entity{handle, this};
+        m_PhysicsScene->CreateBody(entity);
+    }
+
+    m_IsPlaying = true;
+}
+
+void Scene::OnRuntimeStop()
+{
+    if (!m_IsPlaying)
+        return;
+
+    m_PhysicsScene = nullptr; // JoltScene dtor removes/destroys all bodies
+    m_IsPlaying = false;
+}
+
+namespace
+{
+    // Copy component T from every source entity that has it onto the matching
+    // destination entity, resolved by UUID. Destination entities must already
+    // exist (created in Scene::Copy pass 1).
+    template<typename T>
+    void CopyComponentTo(entt::registry& dst, const entt::registry& src,
+        const std::unordered_map<UUID, entt::entity>& enttMap)
+    {
+        for (auto srcHandle : src.view<T>()) {
+            const UUID id = src.get<IDComponent>(srcHandle).ID;
+            const auto it = enttMap.find(id);
+            if (it == enttMap.end())
+                continue;
+            dst.emplace_or_replace<T>(it->second, src.get<T>(srcHandle));
+        }
+    }
+} // namespace
+
+Ref<Scene> Scene::Copy(const Ref<Scene>& src)
+{
+    Ref<Scene> dst = Ref<Scene>::Create(src->m_Name);
+    dst->m_ViewportLeft = src->m_ViewportLeft;
+    dst->m_ViewportTop = src->m_ViewportTop;
+    dst->m_ViewportRight = src->m_ViewportRight;
+    dst->m_ViewportBottom = src->m_ViewportBottom;
+
+    // Pass 1: recreate every entity with its original UUID + tag. This rebuilds
+    // dst's EntityIDMap with dst-owned handles (the map is never memcpy'd — its
+    // Entity values embed a Scene*, which must point at dst).
+    std::unordered_map<UUID, entt::entity> enttMap;
+    for (auto srcHandle : src->m_Registry.view<IDComponent>()) {
+        const UUID id = src->m_Registry.get<IDComponent>(srcHandle).ID;
+        std::string tag;
+        if (const auto* t = src->m_Registry.try_get<TagComponent>(srcHandle))
+            tag = t->Tag;
+        Entity e = dst->CreateEntityWithUUID(id, tag);
+        enttMap[id] = static_cast<entt::entity>(e);
+    }
+
+    // Pass 2: copy the independent components in bulk, then the two that must be
+    // sequenced explicitly — RelationshipComponent verbatim (pure UUIDs, so the
+    // hierarchy stays valid), and RigidBodyComponent last (after transforms +
+    // colliders exist).
+    CopyableComponents::InvokeOnRegisteredTypes([&]<typename T>() {
+        CopyComponentTo<T>(dst->m_Registry, src->m_Registry, enttMap);
+    });
+    CopyComponentTo<RelationshipComponent>(dst->m_Registry, src->m_Registry, enttMap);
+    CopyComponentTo<RigidBodyComponent>(dst->m_Registry, src->m_Registry, enttMap);
+
+    return dst;
 }
 
 Entity Scene::GetEntityWithUUID(UUID id) const

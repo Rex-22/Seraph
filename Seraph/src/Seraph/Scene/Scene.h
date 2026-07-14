@@ -10,6 +10,10 @@
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Core/UUID.h"
 #include "Seraph/Events/Events.h"
+// Full definition (not just a forward decl): Scene holds a Ref<PhysicsScene>
+// member and an inline accessor, so the type must be complete here. The header
+// is Jolt-free, so this stays a light include.
+#include "Seraph/Physics/PhysicsScene.h"
 
 #include <entt/entt.hpp>
 #include <queue>
@@ -25,6 +29,9 @@ class Scene: public RefCounted
 {
 public:
     Scene(const std::string& name);
+    // Out-of-line so the Ref<PhysicsScene> member is destroyed in a TU where
+    // PhysicsScene is complete (Scene.cpp), not inline in every includer.
+    ~Scene() override;
 
     Entity CreateEntity(const std::string& name = std::string());
 	Entity CreateChildEntity(Entity parent, const std::string& name);
@@ -38,7 +45,25 @@ public:
     Entity TryGetEntityWithUUID(UUID id) const;
 
     virtual void OnLoaded() {}
-    virtual void OnUpdate([[maybe_unused]] f64 dt);
+
+    // Per-frame update, split by mode. Editor drains the deferred-destroy queue
+    // only; runtime additionally steps physics once per frame (Simulate runs
+    // 0..N fixed sub-steps internally).
+    virtual void OnUpdateEditor([[maybe_unused]] f64 dt);
+    virtual void OnUpdateRuntime([[maybe_unused]] f64 dt);
+
+    // Deep-copy a scene: same UUIDs, all copyable components, and the full
+    // parent/child hierarchy. Used to play-in-editor on a throwaway copy so the
+    // authored scene is never mutated by simulation. The copy has no physics
+    // scene and no playing flag — the caller runs OnRuntimeStart on it.
+    static Ref<Scene> Copy(const Ref<Scene>& src);
+
+    // Runtime (play) lifecycle. OnRuntimeStart builds the physics world and
+    // creates bodies for eligible entities; OnRuntimeStop tears it down.
+    void OnRuntimeStart();
+    void OnRuntimeStop();
+    bool IsPlaying() const { return m_IsPlaying; }
+    Ref<PhysicsScene> GetPhysicsScene() const { return m_PhysicsScene; }
     // Render using the primary CameraComponent entity (runtime/play mode).
     virtual void OnRenderRuntime(Ref<SceneRenderer> sceneRenderer);
     // Render using an external editor camera (editor mode). Caller is
@@ -69,12 +94,19 @@ public:
     const std::string& GetName() const { return m_Name; }
     void SetName(const std::string& name) { m_Name = name; }
 private:
+    // Destroy every entity queued via DestroyEntity since the last drain,
+    // releasing each one's physics body (if any) before it leaves the registry.
+    void DrainDestroyQueue();
+
 	UUID m_SceneID;
 	std::string m_Name;
 
     entt::registry m_Registry;
     std::queue<entt::entity> m_DestroyQueue;
     EntityMap m_EntityIDMap;
+
+    Ref<PhysicsScene> m_PhysicsScene;
+    bool m_IsPlaying = false;
 
     u32 m_ViewportLeft  = 0;
     u32 m_ViewportTop = 0;
