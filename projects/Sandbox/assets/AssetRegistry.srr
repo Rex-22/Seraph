@@ -3,6 +3,9 @@ Assets:
   - Handle: 6600000042
     Type: Material
     FilePath: materials/Fancy.smaterial
+  - Handle: 1295801298320
+    Type: Texture2D
+    FilePath: textures/test_texture.png
   - Handle: 2588111291914606650
     Type: Mesh
     FilePath: meshes/primitives/Cube.smesh

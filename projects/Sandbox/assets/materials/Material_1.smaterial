@@ -13,5 +13,5 @@ Material:
       Range: [0, 1]
     - Name: s_texColor
       Type: Texture
-      Texture: 10102685020214783571
+      Texture: 1295801298320
       Stage: 0
