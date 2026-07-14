@@ -41,6 +41,7 @@ target_include_directories(${PROJECT} SYSTEM PUBLIC
         ${ENTT_INCLUDE_DIR}
         ${IMGUIZMO_INCLUDE_DIR}
         ${ASSIMP_INCLUDE_DIR}
+        ${JOLT_INCLUDE_DIR}
 )
 
 # PUBLIC so the static library's dependencies propagate to consumers at link time.
@@ -54,4 +55,5 @@ target_link_libraries(${PROJECT} PUBLIC
         ${ENTT_LIBRARIES}
         ${IMGUIZMO_LIBRARIES}
         ${ASSIMP_LIBRARIES}
+        ${JOLT_LIBRARIES}
 )

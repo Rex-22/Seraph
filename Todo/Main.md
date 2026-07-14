@@ -8,7 +8,7 @@ statuses:
 ---
 
 ### 1. Physics 1 — Vendor Jolt Physics & global init
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Critical
 
@@ -29,7 +29,7 @@ Add Jolt as a vendored dependency using the same convention as the other native 
 
 ## Technical Notes
 
-* Vendoring pattern: each `cmake/<lib>.cmake` sets `<LIB>_INCLUDE_DIR` + `<LIB>_LIBRARIES`, is `include()`d in `cmake/vendor.cmake`, and consumed PUBLIC in `Seraph/CMakeLists.txt` (include block \~L32-44, link block \~L47-56). Editor/Runtime inherit transitively.
+* Vendoring pattern: each `cmake/<lib>.cmake` sets `<LIB>_INCLUDE_DIR` + `<LIB>_LIBRARIES`, is `include()`d in `cmake/vendor.cmake`, and consumed PUBLIC in `Seraph/CMakeLists.txt` (include block ~L32-44, link block ~L47-56). Editor/Runtime inherit transitively.
 * Jolt's CMakeLists is in its `Build/` subdirectory and creates the `Jolt` target, which propagates its `JPH_*` interface defines to anything that links it. These defines change `sizeof()` of Jolt structs, so the lib and every consumer MUST agree — the only safe way is to link the target and set toggles as cache vars BEFORE `add_subdirectory`, identical across Debug/Release.
 * macOS AppleClang applies no `-Werror` here (`make_project_options_` only matches `Clang`/`GNU`/`MSVC`), so Jolt builds clean.
 * Global init must live where both executables funnel through: `Seraph/src/Seraph/Core/EntryPoint.h` `main()`, alongside the existing `Log::Init`/`FileSystem::Init` (+ symmetric shutdown, reverse order).
@@ -38,16 +38,34 @@ Add Jolt as a vendored dependency using the same convention as the other native 
 
 ## Implementation Steps
 
-1. Add submodule: `vendor/JoltPhysics` → [`https://github.com/jrouwe/JoltPhysics`](https://github.com/jrouwe/JoltPhysics), pinned to a stable release tag (e.g. latest `v5.x.x`). Add the entry to `.gitmodules`.
+1. Add submodule: `vendor/JoltPhysics` → `https://github.com/jrouwe/JoltPhysics`, pinned to a stable release tag (e.g. latest `v5.x.x`). Add the entry to `.gitmodules`.
 2. Create `cmake/jolt.cmake`. Before `add_subdirectory`, set these as `CACHE ... FORCE` (identical Debug/Release): `DEBUG_RENDERER_IN_DEBUG_AND_RELEASE ON` (needed by the debug-bridge ticket), `PROFILER_IN_DEBUG_AND_RELEASE OFF`, `ENABLE_OBJECT_STREAM OFF`, `DOUBLE_PRECISION OFF`, `OBJECT_LAYER_BITS 16`, `FLOATING_POINT_EXCEPTIONS_ENABLED OFF`, `CPP_EXCEPTIONS_ENABLED ON`, `CPP_RTTI_ENABLED ON`, `USE_ASSERTS OFF`; disable `TARGET_UNIT_TESTS/HELLO_WORLD/PERFORMANCE_TEST/SAMPLES/VIEWER`. Leave ISA options at default (auto-NEON on Apple Silicon). Then `add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/JoltPhysics/Build ${CMAKE_BINARY_DIR}/vendor/JoltPhysics SYSTEM)`. End with `set(JOLT_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/vendor/JoltPhysics CACHE PATH "")` and `set(JOLT_LIBRARIES Jolt CACHE STRING "")`.
 3. `cmake/vendor.cmake`: add `include(cmake/jolt.cmake)` after the assimp include.
 4. `Seraph/CMakeLists.txt`: add `${JOLT_INCLUDE_DIR}` to the SYSTEM PUBLIC include block and `${JOLT_LIBRARIES}` to the PUBLIC link block.
 5. Create `Seraph/src/Seraph/Physics/PhysicsSystem.{h,cpp}`. Header is Jolt-free (forward decls / opaque pointers only). Public static API: `Init()`, `Shutdown()`, `PhysicsSettings& GetSettings()`, `Ref<PhysicsScene> CreateScene(const Ref<Scene>&)`, `JPH::JobSystem* GetJobSystem()`, `JPH::TempAllocator* GetTempAllocator()` (last two declared in a Jolt-visible section used only by the backend, or expose via `void*` and cast in the backend).
-6. In `PhysicsSystem.cpp`: `Init()` \= `JPH::RegisterDefaultAllocator()`, `JPH::Factory::sInstance = new JPH::Factory()`, `JPH::RegisterTypes()`, create `JPH::JobSystemThreadPool(cMaxPhysicsJobs=2048, cMaxPhysicsBarriers=8, std::thread::hardware_concurrency()-1)` and `JPH::TempAllocatorImpl(32 * 1024 * 1024)` held in file-static storage, install `Trace`/`AssertFailed` callbacks. `Shutdown()` destroys them, `JPH::UnregisterTypes()`, `delete JPH::Factory::sInstance; Factory::sInstance = nullptr`.
+6. In `PhysicsSystem.cpp`: `Init()` = `JPH::RegisterDefaultAllocator()`, `JPH::Factory::sInstance = new JPH::Factory()`, `JPH::RegisterTypes()`, create `JPH::JobSystemThreadPool(cMaxPhysicsJobs=2048, cMaxPhysicsBarriers=8, std::thread::hardware_concurrency()-1)` and `JPH::TempAllocatorImpl(32 * 1024 * 1024)` held in file-static storage, install `Trace`/`AssertFailed` callbacks. `Shutdown()` destroys them, `JPH::UnregisterTypes()`, `delete JPH::Factory::sInstance; Factory::sInstance = nullptr`.
 7. Add `PhysicsSystem::Init()` after `FileSystem::Init()` and `PhysicsSystem::Shutdown()` before `FileSystem::Shutdown()` in `Core/EntryPoint.h`.
 8. Build + run both executables; confirm the Jolt trace line logs under `Physics`.
 
 Note: `CreateScene` returns a `Ref<PhysicsScene>` (`JoltScene`) — it can be stubbed to return null until the backend ticket lands; the important deliverable here is that everything links and global init runs.
+
+## Changes
+
+Deviations from the original plan, discovered during implementation (all verified building + running):
+
+* **Jolt pinned to `v5.6.0`** (latest stable release at implementation time). Added as submodule `vendor/JoltPhysics` + `.gitmodules` entry.
+* **Extra Jolt v5.6.0 options disabled in `cmake/jolt.cmake`** (not in the original plan, but required):
+  * `JPH_USE_MTL`/`JPH_USE_VK`/`JPH_USE_DX12`/`JPH_USE_CPU_COMPUTE` → **OFF**. v5.6.0 introduced GPU-compute / hair-sim backends that default **ON** and pull shader/compute sources into the core `Jolt` lib; `JPH_USE_MTL` in particular would add a **Metal** dependency on macOS. Disabled to keep the core lib to rigid-body physics only.
+  * `OVERRIDE_CXX_FLAGS` → **OFF** (defaults ON; it rewrites `CMAKE_CXX_FLAGS_DEBUG/RELEASE`, which is unwanted when Jolt is an `add_subdirectory` subproject).
+  * `INTERPROCEDURAL_OPTIMIZATION` → **OFF** (defaults ON; produces an LTO-bitcode `libJolt.a` that fails to link from our non-LTO targets with "file format not recognized").
+* **`TARGET_UNIT_TESTS/HELLO_WORLD/PERFORMANCE_TEST/SAMPLES/VIEWER` NOT set** — in v5.6.0 these `option()`s are declared only inside Jolt's "am I the top-level project?" guard, so under `add_subdirectory` they are never defined and setting them is a no-op. Sample/test targets don't build regardless.
+* **`add_subdirectory` uses `EXCLUDE_FROM_ALL SYSTEM`** (added `EXCLUDE_FROM_ALL`) — matches the existing bgfx pattern; Jolt builds only because the engine links it.
+* **`PhysicsSystem::CreateScene()` and `GetSettings()` deferred** — `CreateScene` needs the `PhysicsScene`/`JoltScene` type (Physics 3/4) and `GetSettings` needs `PhysicsSettings` (Physics 2); neither type exists yet. `PhysicsSystem` currently exposes `Init` / `Shutdown` / `GetJobSystem` / `GetTempAllocator`. **Action for later tickets:** add `CreateScene` in Physics 4; add `GetSettings` + call `PhysicsLayerManager::InitDefaults()` from `Init()` in Physics 2.
+* **`Physics` log tag level lowered `Warn` → `Info`** (`Core/Log.cpp:31`) so subsystem lifecycle messages are visible (matches `Scene`/`Renderer`). Without this the init line was filtered and nothing showed. Jolt's `Trace` callback is still at Trace level (filtered), so no per-frame Jolt spam.
+
+**Verification performed:** `cmake -S . -B cmake-build-debug` configures clean; `Seraph`, `Seraph-Editor`, `Seraph-Runtime` all build + link with Jolt; launching the editor logs `[Physics] Jolt Physics initialized (11 worker threads)` immediately after FileSystem init and before BGFX, confirming `PhysicsSystem::Init()` runs.
+
+**Files:** new `cmake/jolt.cmake`, `Seraph/src/Seraph/Physics/PhysicsSystem.{h,cpp}`; modified `.gitmodules`, `cmake/vendor.cmake`, `Seraph/CMakeLists.txt`, `Seraph/src/Seraph/Core/EntryPoint.h`, `Seraph/src/Seraph/Core/Log.cpp`; added submodule `vendor/JoltPhysics @ v5.6.0`.
 
 **Documentation:**
 - `jolt-physics-plan.md`
@@ -55,7 +73,7 @@ Note: `CreateScene` returns a `Ref<PhysicsScene>` (`JoltScene`) — it can be st
 ---
 
 ### 2. Physics 2 — Physics types, settings & collision layers
-- **Status:** Todo
+- **Status:** In Progress
 - **Completed:** false
 - **Priority:** High
 
