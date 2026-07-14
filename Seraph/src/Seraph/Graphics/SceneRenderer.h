@@ -19,6 +19,7 @@ class Scene;
 struct SceneRendererSettings
 {
     glm::vec3 ClearColor{0.3f, 0.3f, 0.3f};
+    bool ShowPhysicsColliders = false; // draw collider wireframes / simulated shapes
 };
 
 struct SceneRendererCamera
@@ -46,6 +47,7 @@ public:
     void Clear(u16 flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
 
     const SceneRendererSettings& GetSettings() const { return m_Settings; }
+    SceneRendererSettings& GetSettings() { return m_Settings; }
 
 private:
     Ref<Scene> m_Scene;

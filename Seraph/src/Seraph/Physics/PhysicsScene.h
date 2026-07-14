@@ -50,6 +50,13 @@ public:
     // Closest-hit ray query. Returns false on a miss.
     virtual bool CastRay(const RayCastInfo& ray, SceneQueryHit& outHit) = 0;
 
+    // Draw the simulated body shapes (wireframe) via the engine DebugRenderer.
+    // Called between DebugRenderer::Begin/Flush by Scene::RenderDebug in play
+    // mode. Default no-op; the Jolt backend forwards JPH::PhysicsSystem::DrawBodies
+    // through a DebugRendererSimple bridge (only when JPH_DEBUG_RENDERER is set).
+    // Jolt-free signature so this header stays backend-agnostic.
+    virtual void RenderDebugBodies() {}
+
     // Map lookups (non-virtual, backend-independent).
     Ref<PhysicsBody> GetBody(Entity entity) const;
     Ref<PhysicsBody> GetBodyByEntityID(UUID id) const;

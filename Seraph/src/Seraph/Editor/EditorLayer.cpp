@@ -164,6 +164,13 @@ void EditorLayer::DrawMenuBar()
         ImGui::EndMenu();
     }
 
+    if (ImGui::BeginMenu("View"))
+    {
+        ImGui::MenuItem("Physics Colliders", nullptr,
+            &m_SceneRenderer->GetSettings().ShowPhysicsColliders);
+        ImGui::EndMenu();
+    }
+
     ImGui::EndMainMenuBar();
 }
 

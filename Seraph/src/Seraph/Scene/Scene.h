@@ -69,6 +69,13 @@ public:
     // Render using an external editor camera (editor mode). Caller is
     // responsible for setting the correct bgfx view and framebuffer.
     virtual void OnRenderEditor(Ref<SceneRenderer> sceneRenderer, const EditorCamera& editorCamera);
+
+    // Collider-visualization pass. Draws collider wireframes from component data
+    // in edit mode, or the actual simulated body shapes via the physics backend
+    // in play mode. No-op unless SceneRendererSettings::ShowPhysicsColliders is
+    // set. Piggybacks the scene view's transform, so it must run while `viewId`
+    // is the live scene view (after the mesh loop, before EndScene).
+    void RenderDebug(Ref<SceneRenderer> sceneRenderer, u16 viewId, bool runtime);
     virtual void OnDestroy() {}
     virtual void OnEvent([[maybe_unused]] Event& e) {}
 

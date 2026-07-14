@@ -17,12 +17,15 @@
 #include "CopyableComponents.h"
 #include "Seraph/Core/Assert.h"
 #include "Seraph/Editor/EditorCamera.h"
+#include "Seraph/Graphics/DebugRenderer.h"
 #include "Seraph/Graphics/Mesh.h"
 #include "Seraph/Graphics/Renderer.h"
 #include "Seraph/Graphics/SceneRenderer.h"
 #include "Seraph/Physics/PhysicsScene.h"
 #include "Seraph/Physics/PhysicsSystem.h"
 #include "Seraph/Scene/Entity.h"
+
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace Seraph
 {
@@ -229,6 +232,7 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
                 *mesh, GetWorldSpaceTransformMatrix(entity), mc.MaterialOverrides);
         }
     }
+    RenderDebug(sceneRenderer, camera.GetViewId(), /*runtime=*/true);
     sceneRenderer->EndScene();
 }
 
@@ -251,7 +255,50 @@ void Scene::OnRenderEditor(Ref<SceneRenderer> sceneRenderer, const EditorCamera&
                 *mesh, GetWorldSpaceTransformMatrix(entity), mc.MaterialOverrides);
         }
     }
+    RenderDebug(sceneRenderer, editorCamera.GetViewId(), /*runtime=*/false);
     sceneRenderer->EndScene();
+}
+
+void Scene::RenderDebug(Ref<SceneRenderer> sceneRenderer, u16 viewId, bool runtime)
+{
+    if (!sceneRenderer->GetSettings().ShowPhysicsColliders)
+        return;
+
+    const glm::vec4 colliderColor{0.2f, 0.9f, 0.3f, 1.0f}; // green wireframe
+
+    DebugRenderer::Begin(viewId, glm::mat4(1.0f));
+
+    if (runtime && m_PhysicsScene) {
+        // Draw the actual simulated shapes via the backend bridge.
+        m_PhysicsScene->RenderDebugBodies();
+    } else {
+        // Edit mode: bodies don't exist yet — draw from collider component data,
+        // positioned by the entity's world transform combined with the offset.
+        for (auto [handle, c] : m_Registry.view<BoxColliderComponent>().each()) {
+            Entity e{handle, this};
+            const glm::mat4 world = GetWorldSpaceTransformMatrix(e) *
+                glm::translate(glm::mat4(1.0f), c.Offset);
+            DebugRenderer::DrawBox(world, c.HalfExtents, colliderColor);
+        }
+        for (auto [handle, c] : m_Registry.view<SphereColliderComponent>().each()) {
+            Entity e{handle, this};
+            const glm::mat4 world = GetWorldSpaceTransformMatrix(e) *
+                glm::translate(glm::mat4(1.0f), c.Offset);
+            const glm::vec3 center = glm::vec3(world[3]);
+            // Sphere can't show non-uniform scale; approximate with the X axis length.
+            const float scale = glm::length(glm::vec3(world[0]));
+            DebugRenderer::DrawSphere(center, c.Radius * scale, colliderColor);
+        }
+        for (auto [handle, c] : m_Registry.view<CapsuleColliderComponent>().each()) {
+            Entity e{handle, this};
+            const glm::mat4 world = GetWorldSpaceTransformMatrix(e) *
+                glm::translate(glm::mat4(1.0f), c.Offset);
+            DebugRenderer::DrawCapsule(world, c.Radius, c.HalfHeight, colliderColor);
+        }
+    }
+
+    DebugRenderer::Flush();
+    DebugRenderer::End();
 }
 
 void Scene::ConvertToLocalSpace(Entity entity)

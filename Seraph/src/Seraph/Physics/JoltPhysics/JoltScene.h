@@ -35,6 +35,10 @@ public:
 
     bool CastRay(const RayCastInfo& ray, SceneQueryHit& outHit) override;
 
+    // Forward JPH::PhysicsSystem::DrawBodies through the DebugRendererSimple
+    // bridge to the engine DebugRenderer. No-op unless JPH_DEBUG_RENDERER is set.
+    void RenderDebugBodies() override;
+
     // For JoltBody.
     JPH::BodyInterface& GetBodyInterface() { return m_JoltSystem.GetBodyInterface(); }
     const JPH::BodyLockInterface& GetBodyLockInterface() const

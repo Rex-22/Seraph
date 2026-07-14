@@ -5,6 +5,7 @@
 #include "JoltScene.h"
 
 #include "JoltBody.h"
+#include "JoltDebugRenderer.h"
 #include "JoltShapes.h"
 #include "JoltUtils.h"
 
@@ -20,6 +21,7 @@
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyLock.h>
+#include <Jolt/Physics/Body/BodyManager.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/EActivation.h>
@@ -266,6 +268,20 @@ bool JoltScene::CastRay(const RayCastInfo& ray, SceneQueryHit& outHit)
             result.mSubShapeID2, JoltUtils::ToJoltRVec3(outHit.Position)));
     }
     return true;
+}
+
+void JoltScene::RenderDebugBodies()
+{
+#ifdef JPH_DEBUG_RENDERER
+    // Persist across frames: DebugRendererSimple allocates internal batch state.
+    static JoltDebugRenderer s_bridge;
+
+    JPH::BodyManager::DrawSettings ds;
+    ds.mDrawShape = true;
+    ds.mDrawShapeWireframe = true;
+
+    m_JoltSystem.DrawBodies(ds, &s_bridge);
+#endif
 }
 
 } // namespace Seraph
