@@ -29,6 +29,7 @@ private:
     void DrawBoxColliderComponent();
     void DrawSphereColliderComponent();
     void DrawCapsuleColliderComponent();
+    void DrawScriptComponent();
     void DrawAddComponentMenu();
 
     Entity m_SelectedEntity;

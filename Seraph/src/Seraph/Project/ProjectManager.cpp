@@ -3,8 +3,10 @@
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Asset/Pack/RuntimeAssetManager.h"
+#include "Seraph/Core/Buffer.h"
 #include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
+#include "Seraph/Project/ProjectTemplates.h"
 
 #include <utility>
 
@@ -64,6 +66,21 @@ bool ProjectManager::Create(const std::filesystem::path& dir, const std::string&
         SP_CORE_ERROR_TAG("Project", "Failed to scaffold project at '{}'", dir.string());
         return false;
     }
+
+    // Scaffold the native C++ game module (CMakeLists + a starter script +
+    // README) at the project ROOT — not under assets/ — so the project is
+    // buildable immediately. Idempotent: never clobber an existing file.
+    const auto writeIfAbsent =
+        [](const std::filesystem::path& rel, const std::string& contents) {
+            if (FileSystem::Exists(Root::Absolute, rel))
+                return;
+            FileSystem::Write(Root::Absolute, rel,
+                Buffer::Copy(contents.data(), contents.size()));
+        };
+    writeIfAbsent(dir / "CMakeLists.txt", ProjectTemplates::GameCMakeLists());
+    writeIfAbsent(dir / "src" / "ExampleScript.h", ProjectTemplates::ExampleScriptHeader());
+    writeIfAbsent(dir / "src" / "ExampleScript.cpp", ProjectTemplates::ExampleScriptSource());
+    writeIfAbsent(dir / "README.md", ProjectTemplates::Readme(name));
 
     return Open(sproj, AssetMode::Editor);
 }

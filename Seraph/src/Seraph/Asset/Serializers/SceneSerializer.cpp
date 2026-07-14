@@ -17,6 +17,7 @@
 #include "Seraph/Scene/Components/TransformComponent.h"
 #include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/SceneAsset.h"
+#include "Seraph/Scripts/ScriptComponent.h"
 #include "Seraph/Utilities/YAMLSerializationHelpers.h"
 
 #include <glm/glm.hpp>
@@ -291,6 +292,11 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
                 c.IsTrigger = n["IsTrigger"].as<bool>(false);
                 c.Material.Friction = n["Friction"].as<float>(0.5f);
                 c.Material.Restitution = n["Restitution"].as<float>(0.15f);
+            }
+
+            if (const YAML::Node s = node["Script"]) {
+                auto& sc = entity.AddComponent<ScriptComponent>();
+                sc.ScriptClass = s["ScriptClass"].as<std::string>(std::string());
             }
 
             if (const YAML::Node r = node["Relationship"]) {

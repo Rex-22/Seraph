@@ -2,9 +2,11 @@ set(PROJECT Seraph-Runtime)
 
 make_executable()
 
-# Link the engine. Seraph propagates its PUBLIC include dirs and vendor
-# libraries transitively, so the runtime does not repeat them.
-target_link_libraries(${PROJECT} PRIVATE Seraph)
+# Link the engine + this project's Game module (native C++ scripts). Seraph
+# propagates its PUBLIC include dirs and vendor libraries transitively, so the
+# runtime does not repeat them. Game is an OBJECT library, so its self-registering
+# scripts link directly into the runtime and appear in ScriptRegistry.
+target_link_libraries(${PROJECT} PRIVATE Seraph Game)
 
 # The default material embeds the compiled bgfx shaders (generated headers), so
 # the Shaders target must run before the runtime is compiled.

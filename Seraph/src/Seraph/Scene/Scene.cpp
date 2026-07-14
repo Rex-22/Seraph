@@ -24,6 +24,8 @@
 #include "Seraph/Physics/PhysicsScene.h"
 #include "Seraph/Physics/PhysicsSystem.h"
 #include "Seraph/Scene/Entity.h"
+#include "Seraph/Scripts/ScriptComponent.h"
+#include "Seraph/Scripts/ScriptEngine.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -86,6 +88,10 @@ void Scene::DrainDestroyQueue()
     while (!m_DestroyQueue.empty()) {
         auto handle = m_DestroyQueue.front();
         Entity entity{handle, this};
+        // Run the script's OnDestroy + free its instance before the entity
+        // leaves the registry.
+        if (m_ScriptEngine)
+            m_ScriptEngine->DestroyInstance(entity);
         // Release the Jolt body before the entity leaves the registry — the
         // physics body map keys on the entity's UUID, still readable here.
         if (m_PhysicsScene && entity.HasComponent<RigidBodyComponent>())
@@ -101,9 +107,14 @@ void Scene::OnUpdateEditor([[maybe_unused]] f64 dt)
     DrainDestroyQueue();
 }
 
-void Scene::OnUpdateRuntime([[maybe_unused]] f64 dt)
+void Scene::OnUpdateRuntime(f64 dt)
 {
     DrainDestroyQueue();
+    // Scripts run before physics: a script sets intent (force/velocity/target)
+    // this frame and Simulate integrates it; contact callbacks then fire inside
+    // Simulate with every instance already live.
+    if (m_ScriptEngine)
+        m_ScriptEngine->OnUpdate(dt);
     if (m_PhysicsScene)
         m_PhysicsScene->Simulate(static_cast<f32>(dt));
     // Drain again — the step (or a contact callback) may have queued destroys.
@@ -125,6 +136,17 @@ void Scene::OnRuntimeStart()
         m_PhysicsScene->CreateBody(entity);
     }
 
+    // Scripts start after bodies exist, so a script's OnCreate can already reach
+    // its physics body. Route physics contacts into the script engine — this is
+    // the first (and only) consumer of PhysicsScene's contact callback.
+    m_ScriptEngine = Ref<ScriptEngine>::Create(this);
+    m_PhysicsScene->SetContactCallback(
+        [this](ContactType type, Entity a, Entity b) {
+            if (m_ScriptEngine)
+                m_ScriptEngine->OnContact(type, a, b);
+        });
+    m_ScriptEngine->InstantiateAll();
+
     m_IsPlaying = true;
 }
 
@@ -133,6 +155,12 @@ void Scene::OnRuntimeStop()
     if (!m_IsPlaying)
         return;
 
+    // Tear down scripts before physics — a script's OnDestroy may read final
+    // body state.
+    if (m_ScriptEngine) {
+        m_ScriptEngine->DestroyAll();
+        m_ScriptEngine = nullptr;
+    }
     m_PhysicsScene = nullptr; // JoltScene dtor removes/destroys all bodies
     m_IsPlaying = false;
 }

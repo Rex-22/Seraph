@@ -23,10 +23,14 @@
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
+#include "Seraph/Scripts/ScriptComponent.h"
 
 namespace Seraph
 {
 
+//   - ScriptComponent : only ScriptClass matters; Copy runs on the authored
+//                       (non-playing) scene where Instance is always null, so
+//                       duplicating the pointer never aliases a live instance.
 using CopyableComponents = TypeRegistry<
     TagComponent,
     TransformComponent,
@@ -34,6 +38,7 @@ using CopyableComponents = TypeRegistry<
     CameraComponent,
     BoxColliderComponent,
     SphereColliderComponent,
-    CapsuleColliderComponent>;
+    CapsuleColliderComponent,
+    ScriptComponent>;
 
 } // namespace Seraph

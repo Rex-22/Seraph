@@ -1,0 +1,11 @@
+MaterialInstance:
+  Parent: 6600000042
+  Overrides:
+    - Name: u_warp
+      Type: Float
+      Value: [0.585, 0, 0, 0]
+      Range: [0, 1]
+    - Name: u_tiling
+      Type: Float
+      Value: [12.528, 0, 0, 0]
+      Range: [1, 40]

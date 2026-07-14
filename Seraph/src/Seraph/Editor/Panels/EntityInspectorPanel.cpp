@@ -21,6 +21,8 @@
 #include "Seraph/Graphics/Mesh.h"
 #include "Seraph/Graphics/MeshFactory.h"
 #include "Seraph/Physics/PhysicsSettings.h"
+#include "Seraph/Scripts/ScriptComponent.h"
+#include "Seraph/Scripts/ScriptRegistry.h"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
@@ -193,6 +195,7 @@ void EntityInspectorPanel::OnImGuiRender()
     if (m_SelectedEntity.HasComponent<BoxColliderComponent>())     DrawBoxColliderComponent();
     if (m_SelectedEntity.HasComponent<SphereColliderComponent>())  DrawSphereColliderComponent();
     if (m_SelectedEntity.HasComponent<CapsuleColliderComponent>()) DrawCapsuleColliderComponent();
+    if (m_SelectedEntity.HasComponent<ScriptComponent>())          DrawScriptComponent();
     ImGui::Spacing();
     DrawAddComponentMenu();
 
@@ -473,6 +476,47 @@ void EntityInspectorPanel::DrawCapsuleColliderComponent()
         m_SelectedEntity.RemoveComponent<CapsuleColliderComponent>();
 }
 
+void EntityInspectorPanel::DrawScriptComponent()
+{
+    auto* sc = m_SelectedEntity.TryGetComponent<ScriptComponent>();
+    if (!sc)
+        return;
+
+    bool remove = false;
+    bool open = BeginComponentSection<ScriptComponent>("Script", m_SelectedEntity, &remove);
+
+    if (open)
+    {
+        // Unresolved = a name no linked module registers (renamed class, or an
+        // editor not linked against this project's Game module).
+        if (!sc->ScriptClass.empty() && !ScriptRegistry::Exists(sc->ScriptClass))
+            ImGui::TextColored(ImVec4(0.9f, 0.5f, 0.2f, 1.0f), "Unresolved script class");
+
+        const char* preview = sc->ScriptClass.empty() ? "(none)" : sc->ScriptClass.c_str();
+        if (ImGui::BeginCombo("Class", preview))
+        {
+            if (ImGui::Selectable("(none)", sc->ScriptClass.empty()))
+                sc->ScriptClass.clear();
+
+            for (const auto& entry : ScriptRegistry::GetAll())
+            {
+                const std::string& name = entry.first;
+                const bool selected = (name == sc->ScriptClass);
+                if (ImGui::Selectable(name.c_str(), selected))
+                    sc->ScriptClass = name;
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::TreePop();
+    }
+
+    if (remove)
+        m_SelectedEntity.RemoveComponent<ScriptComponent>();
+}
+
 void EntityInspectorPanel::DrawAddComponentMenu()
 {
     float buttonWidth = ImGui::GetContentRegionAvail().x;
@@ -552,6 +596,15 @@ void EntityInspectorPanel::DrawAddComponentMenu()
             if (ImGui::MenuItem("Capsule Collider"))
             {
                 m_SelectedEntity.AddComponent<CapsuleColliderComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
+        if (!m_SelectedEntity.HasComponent<ScriptComponent>())
+        {
+            if (ImGui::MenuItem("Script"))
+            {
+                m_SelectedEntity.AddComponent<ScriptComponent>();
                 ImGui::CloseCurrentPopup();
             }
         }

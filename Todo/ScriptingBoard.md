@@ -8,7 +8,7 @@ statuses:
 ---
 
 ### 1. Scripting 1 — Script core types (ScriptableEntity, ScriptComponent, ScriptRegistry)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Critical
 
@@ -58,7 +58,7 @@ Linked doc `scripting-plan.md`: **A** (dead-strip / self-registration — requir
 ---
 
 ### 2. Scripting 2 — ScriptEngine per-scene driver
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -109,7 +109,7 @@ Linked doc `scripting-plan.md`: **C** (tick timeline), **E** (lazy instantiation
 ---
 
 ### 3. Scripting 3 — Scene lifecycle integration, copy & contact routing
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -165,7 +165,7 @@ Linked doc `scripting-plan.md`: **B** (copy-safety invariant), **C** (tick order
 ---
 
 ### 4. Scripting 4 — Scene serialization for ScriptComponent
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -215,7 +215,7 @@ None specific — straightforward hand-written serialization. Depends on the `Sc
 ---
 
 ### 5. Scripting 5 — Game module, build wiring & demo Rotator script
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -270,7 +270,7 @@ Linked doc `scripting-plan.md`: **A** (static-lib dead-strip & the OBJECT-librar
 ---
 
 ### 6. Scripting 6 — Editor inspector authoring (Add Component ▸ Script + class dropdown)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -321,7 +321,7 @@ None specific — standard ImGui panel wiring. See `scripting-plan.md` "Editor a
 ---
 
 ### 7. Scripting 7 — New-project scaffolding (ProjectManager::Create + ProjectTemplates)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -413,7 +413,6 @@ Cross-references all of `scripting-plan.md` Part 2 — especially **A** (check 2
 - [ ] Check 4 — runtime tick: cube spins; OnCreate logs once (runtime + F5 play-in-editor)
 - [ ] Check 5 — contacts: rigid body + collider over floor → OnCollisionBegin logs on landing
 - [ ] Check 6 — play-in-editor isolation: authored scene unchanged after exit; no leak/crash; OnDestroy once
-- [ ] Check 7 — scaffolding: new project has CMakeLists/src/README; SERAPH_GAME_DIR rebuild runs ExampleScript
 
 **Documentation:**
 - `scripting-plan.md`

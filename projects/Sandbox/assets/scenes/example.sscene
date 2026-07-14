@@ -3,12 +3,12 @@ Entities:
   - Entity: 2561095505170714115
     Tag: Cube 3
     Transform:
-      Translation: [3.8735034, 0, 0]
+      Translation: [4.2221837, 0, -2.6506805]
       Rotation: [0, -0, 0]
       Scale: [0.52, 0.52, 0.52]
     Mesh:
       Mesh: 2588111291914606650
-      MaterialOverrides: [15603322866813599139]
+      MaterialOverrides: [4431270448959175583]
     Relationship:
       Parent: 9784779853712716575
       Children:
@@ -16,9 +16,9 @@ Entities:
   - Entity: 7933459923336589363
     Tag: Plane
     Transform:
-      Translation: [0, -4.990764, 0]
+      Translation: [0.056358278, -4.990764, 0.020184278]
       Rotation: [0, -0, 0]
-      Scale: [2.85, 2.85, 2.85]
+      Scale: [17.13192, 17.13192, 17.13192]
     Mesh:
       Mesh: 7500292515646999820
       MaterialOverrides: [3884254406120167305]
@@ -70,6 +70,34 @@ Entities:
       Children:
         - 2561095505170714115
         - 17662605094292451532
+  - Entity: 10465575276937791739
+    Tag: Entity
+    Transform:
+      Translation: [-0.21553159, 7.5948563, -0.99050415]
+      Rotation: [0, -0, 0]
+      Scale: [0.64, 0.64, 0.64]
+    Mesh:
+      Mesh: 2588111291914606650
+      MaterialOverrides: [4431270448959175583]
+    RigidBody:
+      BodyType: 1
+      LayerID: 1
+      Mass: 25.33
+      LinearDrag: 0.01
+      AngularDrag: 0.05
+      GravityFactor: 0.69
+      InitialLinearVelocity: [0, 0, 0]
+      InitialAngularVelocity: [0, 0, 0]
+    SphereCollider:
+      Radius: 1.51
+      Offset: [0, 0, 0]
+      IsTrigger: false
+      Friction: 0.74
+      Restitution: 0.15
+    Relationship:
+      Parent: 0
+      Children:
+        []
   - Entity: 12403566664747799388
     Tag: Camera
     Transform:

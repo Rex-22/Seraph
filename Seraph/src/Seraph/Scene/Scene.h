@@ -22,6 +22,7 @@ namespace Seraph
 {
 class SceneRenderer;
 class EditorCamera;
+class ScriptEngine;
 
 using EntityMap = std::unordered_map<UUID, Entity>;
 
@@ -113,6 +114,9 @@ private:
     EntityMap m_EntityIDMap;
 
     Ref<PhysicsScene> m_PhysicsScene;
+    // Created in OnRuntimeStart, dropped in OnRuntimeStop. Incomplete type here
+    // is fine — ~Scene() is out-of-line (Scene.cpp), like m_PhysicsScene.
+    Ref<ScriptEngine> m_ScriptEngine;
     bool m_IsPlaying = false;
 
     u32 m_ViewportLeft  = 0;
