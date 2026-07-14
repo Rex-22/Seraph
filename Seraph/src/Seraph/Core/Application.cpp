@@ -16,6 +16,7 @@
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Events/MouseEvent.h"
 #include "Seraph/Events/WindowEvent.h"
+#include "Seraph/Graphics/DebugRenderer.h"
 #include "Seraph/Graphics/Renderer.h"
 
 #include <SDL3/SDL_init.h>
@@ -43,6 +44,7 @@ Application::Application(const ApplicationSpecification& specification)
     s_Instance = this;
 
     Renderer::Init();
+    DebugRenderer::Init();
 
     // Register serializers (needs the renderer up). The asset manager itself is
     // installed later by ProjectManager when a project is opened.
@@ -62,6 +64,7 @@ Application::~Application()
     AssetManager::Shutdown();
     AssetImporter::Shutdown();
 
+    DebugRenderer::Shutdown();
     Renderer::Cleanup();
     m_Window->Shutdown();
 
