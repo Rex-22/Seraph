@@ -7,6 +7,9 @@
 
 #pragma once
 
+#include "PhysicsSettings.h"
+#include "Seraph/Core/Ref.h"
+
 // Forward-declare the Jolt types we hand back to the backend, to keep <Jolt/...>
 // out of this header. Only the physics backend (.cpp) ever dereferences them.
 namespace JPH
@@ -18,11 +21,21 @@ class TempAllocator;
 namespace Seraph
 {
 
+class Scene;
+class PhysicsScene;
+
 class PhysicsSystem
 {
 public:
     static void Init();
     static void Shutdown();
+
+    // Global simulation tuning, read when a scene starts.
+    static PhysicsSettings& GetSettings();
+
+    // Create a physics world bound to an entity scene (returns a JoltScene).
+    // Takes a raw Scene* — the world is owned by and scoped within that scene.
+    static Ref<PhysicsScene> CreateScene(Scene* scene);
 
     // Used by the Jolt backend's PhysicsSystem::Update — long-lived singletons.
     static JPH::JobSystem* GetJobSystem();

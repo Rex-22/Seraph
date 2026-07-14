@@ -4,7 +4,9 @@
 
 #include "PhysicsSystem.h"
 
+#include "PhysicsSettings.h"
 #include "Seraph/Core/Log.h"
+#include "Seraph/Physics/JoltPhysics/JoltScene.h"
 
 #include <Jolt/Jolt.h>
 
@@ -25,6 +27,8 @@ namespace
     // Long-lived singletons handed to JPH::PhysicsSystem::Update every step.
     std::unique_ptr<JPH::TempAllocatorImpl> s_TempAllocator;
     std::unique_ptr<JPH::JobSystemThreadPool> s_JobSystem;
+
+    PhysicsSettings s_Settings;
 
     // Recommended Jolt limits (see Jolt HelloWorld). Job/barrier pool sizes.
     constexpr uint32_t k_MaxPhysicsJobs = 2048;
@@ -56,6 +60,9 @@ namespace
 
 void PhysicsSystem::Init()
 {
+    // Collision-layer matrix is process-global; set up the defaults once.
+    PhysicsLayerManager::InitDefaults();
+
     // Install Jolt's default malloc/free before anything allocates.
     JPH::RegisterDefaultAllocator();
 
@@ -86,6 +93,16 @@ void PhysicsSystem::Shutdown()
     JPH::Factory::sInstance = nullptr;
 
     SP_CORE_INFO_TAG("Physics", "Jolt Physics shut down");
+}
+
+PhysicsSettings& PhysicsSystem::GetSettings()
+{
+    return s_Settings;
+}
+
+Ref<PhysicsScene> PhysicsSystem::CreateScene(Scene* scene)
+{
+    return Ref<JoltScene>::Create(scene);
 }
 
 JPH::JobSystem* PhysicsSystem::GetJobSystem()
