@@ -174,6 +174,13 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
         emitter << YAML::EndMap;
     }
 
+    if (entity.HasComponent<ScriptComponent>()) {
+        const auto& sc = entity.GetComponent<ScriptComponent>();
+        emitter << YAML::Key << "Script" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "ScriptClass" << YAML::Value << sc.ScriptClass;
+        emitter << YAML::EndMap;
+    }
+
     emitter << YAML::EndMap;
 }
 
