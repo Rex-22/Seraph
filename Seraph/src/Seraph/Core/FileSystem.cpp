@@ -38,7 +38,7 @@ void FileSystem::Init()
     if (const char* base = SDL_GetBasePath()) // owned by SDL; do not free
         s_EngineRoot = base;
 
-    if (char* pref = SDL_GetPrefPath("BitCube", "Seraph")) {
+    if (char* pref = SDL_GetPrefPath(nullptr, "Seraph")) {
         s_UserConfigDir = pref;
         SDL_free(pref);
     }
