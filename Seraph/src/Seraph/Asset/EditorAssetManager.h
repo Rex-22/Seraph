@@ -49,7 +49,35 @@ public:
     // Register a loose file (relative to the asset root) as an asset and return
     // its handle. Returns the existing handle if already imported.
     AssetHandle ImportAsset(const std::filesystem::path& relativePath);
-    void RemoveAsset(AssetHandle handle);
+
+    // Drop the asset from the registry (and caches). When `deleteFile` is true,
+    // the backing file on disk is removed too (ignored for memory assets).
+    void RemoveAsset(AssetHandle handle, bool deleteFile = false);
+
+    // Scan the asset root on disk and reconcile it with the registry: import any
+    // known-type file that isn't registered yet, and flag registry entries whose
+    // backing file has disappeared (AssetMetadata::IsMissing). The registry is
+    // written to disk only when something new was imported.
+    void ReconcileWithDisk();
+
+    // Rename the file backing `handle`, keeping it in the same directory.
+    // `newName` may include an extension; if omitted the current one is kept.
+    // Fails for memory assets, shaders, or when the target already exists.
+    bool RenameAsset(AssetHandle handle, const std::string& newName);
+
+    // Move the file backing `handle` into `newRelativeDir` (relative to the
+    // asset root), keeping its filename. Fails for memory assets or shaders.
+    bool MoveAsset(AssetHandle handle, const std::filesystem::path& newRelativeDir);
+
+    // Copy the file backing `handle` to a uniquely-named sibling ("<name> Copy")
+    // and register the copy as a new asset. Returns the new handle, or null.
+    AssetHandle DuplicateAsset(AssetHandle handle);
+
+    // Size of the asset's backing file on disk in bytes (0 if unknown / memory).
+    u64 GetSizeOnDisk(AssetHandle handle);
+
+    // Map a path's extension to an asset type (None if unrecognized).
+    static AssetType GetAssetTypeFromPath(const std::filesystem::path& path);
 
     // Serialize a single asset's bytes back to disk (via its serializer).
     bool SaveAsset(AssetHandle handle);

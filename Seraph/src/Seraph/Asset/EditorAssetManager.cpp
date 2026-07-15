@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <ranges>
 #include <string>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace Seraph
@@ -342,16 +344,243 @@ AssetHandle EditorAssetManager::ImportAsset(const std::filesystem::path& relativ
     return metadata.Handle;
 }
 
-void EditorAssetManager::RemoveAsset(AssetHandle handle)
+void EditorAssetManager::RemoveAsset(AssetHandle handle, bool deleteFile)
 {
+    std::filesystem::path fileToDelete;
     {
         std::unique_lock lock(m_Mutex);
+        if (deleteFile) {
+            if (auto it = m_Registry.find(handle);
+                it != m_Registry.end() && !it->second.IsMemoryAsset)
+                fileToDelete = it->second.FilePath;
+        }
         m_Registry.erase(handle);
         m_LoadedAssets.erase(handle);
         m_MemoryAssets.erase(handle);
         m_Status.erase(handle);
     }
+
+    if (!fileToDelete.empty()) {
+        std::error_code ec;
+        std::filesystem::remove(FileSystem::Resolve(Root::Project, fileToDelete), ec);
+        if (ec)
+            SP_CORE_WARN_TAG(
+                "AssetManager", "Could not delete file '{}': {}",
+                fileToDelete.string(), ec.message());
+    }
+
     SerializeAssetRegistry();
+}
+
+AssetType EditorAssetManager::GetAssetTypeFromPath(const std::filesystem::path& path)
+{
+    return AssetTypeFromExtension(path.extension().string());
+}
+
+u64 EditorAssetManager::GetSizeOnDisk(AssetHandle handle)
+{
+    const AssetMetadata md = GetMetadata(handle);
+    if (md.FilePath.empty())
+        return 0;
+
+    std::error_code ec;
+    const std::uintmax_t size =
+        std::filesystem::file_size(FileSystem::Resolve(Root::Project, md.FilePath), ec);
+    return ec ? 0 : static_cast<u64>(size);
+}
+
+bool EditorAssetManager::RenameAsset(AssetHandle handle, const std::string& newName)
+{
+    namespace fs = std::filesystem;
+    const AssetMetadata md = GetMetadata(handle);
+    if (!md.IsValid() || md.IsMemoryAsset || md.FilePath.empty())
+        return false;
+    if (md.Type == AssetType::Shader) {
+        SP_CORE_WARN_TAG(
+            "AssetManager", "Renaming shader assets is not supported (use Reload Shaders)");
+        return false;
+    }
+
+    fs::path newRel = md.FilePath.parent_path() / newName;
+    if (newRel.extension().empty())
+        newRel.replace_extension(md.FilePath.extension());
+    if (newRel == md.FilePath)
+        return true;
+
+    if (static_cast<u64>(GetAssetHandleFromFilePath(newRel)) != c_NullAssetHandle ||
+        FileSystem::Exists(Root::Project, newRel)) {
+        SP_CORE_WARN_TAG(
+            "AssetManager", "Rename target '{}' already exists", newRel.generic_string());
+        return false;
+    }
+
+    std::error_code ec;
+    fs::rename(
+        FileSystem::Resolve(Root::Project, md.FilePath),
+        FileSystem::Resolve(Root::Project, newRel), ec);
+    if (ec) {
+        SP_CORE_ERROR_TAG("AssetManager", "Rename failed: {}", ec.message());
+        return false;
+    }
+
+    {
+        std::unique_lock lock(m_Mutex);
+        if (auto it = m_Registry.find(handle); it != m_Registry.end())
+            it->second.FilePath = newRel;
+    }
+    SerializeAssetRegistry();
+    return true;
+}
+
+bool EditorAssetManager::MoveAsset(
+    AssetHandle handle, const std::filesystem::path& newRelativeDir)
+{
+    namespace fs = std::filesystem;
+    const AssetMetadata md = GetMetadata(handle);
+    if (!md.IsValid() || md.IsMemoryAsset || md.FilePath.empty())
+        return false;
+    if (md.Type == AssetType::Shader) {
+        SP_CORE_WARN_TAG("AssetManager", "Moving shader assets is not supported");
+        return false;
+    }
+
+    const fs::path newRel = newRelativeDir / md.FilePath.filename();
+    if (newRel == md.FilePath)
+        return true;
+
+    if (static_cast<u64>(GetAssetHandleFromFilePath(newRel)) != c_NullAssetHandle ||
+        FileSystem::Exists(Root::Project, newRel)) {
+        SP_CORE_WARN_TAG(
+            "AssetManager", "Move target '{}' already exists", newRel.generic_string());
+        return false;
+    }
+
+    FileSystem::CreateDirectories(Root::Project, newRelativeDir);
+
+    std::error_code ec;
+    fs::rename(
+        FileSystem::Resolve(Root::Project, md.FilePath),
+        FileSystem::Resolve(Root::Project, newRel), ec);
+    if (ec) {
+        SP_CORE_ERROR_TAG("AssetManager", "Move failed: {}", ec.message());
+        return false;
+    }
+
+    {
+        std::unique_lock lock(m_Mutex);
+        if (auto it = m_Registry.find(handle); it != m_Registry.end())
+            it->second.FilePath = newRel;
+    }
+    SerializeAssetRegistry();
+    return true;
+}
+
+AssetHandle EditorAssetManager::DuplicateAsset(AssetHandle handle)
+{
+    namespace fs = std::filesystem;
+    const AssetMetadata md = GetMetadata(handle);
+    if (!md.IsValid() || md.IsMemoryAsset || md.FilePath.empty())
+        return c_NullAssetHandle;
+    if (md.Type == AssetType::Shader) {
+        SP_CORE_WARN_TAG("AssetManager", "Duplicating shader assets is not supported");
+        return c_NullAssetHandle;
+    }
+
+    const fs::path dir = md.FilePath.parent_path();
+    const std::string stem = md.FilePath.stem().string();
+    const std::string ext = md.FilePath.extension().string();
+
+    // Find a unique "<stem> Copy" / "<stem> Copy N" name in the same directory.
+    fs::path candidate;
+    for (int i = 0;; ++i) {
+        const std::string suffix = i == 0 ? " Copy" : (" Copy " + std::to_string(i + 1));
+        candidate = dir / (stem + suffix + ext);
+        if (!FileSystem::Exists(Root::Project, candidate) &&
+            static_cast<u64>(GetAssetHandleFromFilePath(candidate)) == c_NullAssetHandle)
+            break;
+    }
+
+    std::error_code ec;
+    fs::copy_file(
+        FileSystem::Resolve(Root::Project, md.FilePath),
+        FileSystem::Resolve(Root::Project, candidate), ec);
+    if (ec) {
+        SP_CORE_ERROR_TAG("AssetManager", "Duplicate failed: {}", ec.message());
+        return c_NullAssetHandle;
+    }
+
+    // A byte copy shares no self-identity with the source (handles live in the
+    // registry, not the file), so a fresh import mints a distinct handle.
+    return ImportAsset(candidate);
+}
+
+void EditorAssetManager::ReconcileWithDisk()
+{
+    namespace fs = std::filesystem;
+    if (!FileSystem::HasProjectRoot())
+        return;
+
+    std::error_code ec;
+    const fs::path root = FileSystem::ProjectRoot(); // == the active asset root
+    if (!fs::is_directory(root, ec))
+        return;
+
+    // 1. Collect on-disk, known-type files (relative to the asset root).
+    std::unordered_set<std::string> onDisk; // generic_string keys
+    std::vector<std::pair<fs::path, AssetType>> candidates;
+    for (fs::recursive_directory_iterator it(root, ec), end; it != end;
+         it.increment(ec)) {
+        if (ec)
+            break;
+        if (!it->is_regular_file(ec))
+            continue;
+        const AssetType type = AssetTypeFromExtension(it->path().extension().string());
+        if (type == AssetType::None)
+            continue;
+        const fs::path rel = fs::relative(it->path(), root, ec);
+        if (ec)
+            continue;
+        onDisk.insert(rel.generic_string());
+        candidates.emplace_back(rel, type);
+    }
+
+    // 2. Import new files and refresh the "missing" flag under one lock.
+    std::vector<std::pair<fs::path, AssetType>> imported;
+    {
+        std::unique_lock lock(m_Mutex);
+
+        std::unordered_set<std::string> registered;
+        for (const auto& [h, existing] : m_Registry)
+            if (!existing.IsMemoryAsset && !existing.FilePath.empty())
+                registered.insert(existing.FilePath.generic_string());
+
+        for (const auto& [rel, type] : candidates) {
+            if (registered.count(rel.generic_string()) != 0)
+                continue;
+            AssetMetadata added;
+            added.Handle = AssetHandle();
+            added.Type = type;
+            added.FilePath = rel;
+            m_Registry[added.Handle] = added;
+            m_Status[added.Handle] = AssetStatus::None;
+            imported.emplace_back(rel, type);
+        }
+
+        for (auto& [h, existing] : m_Registry) {
+            if (existing.IsMemoryAsset || existing.FilePath.empty())
+                continue;
+            existing.IsMissing =
+                onDisk.find(existing.FilePath.generic_string()) == onDisk.end();
+        }
+    }
+
+    if (!imported.empty()) {
+        for (const auto& [rel, type] : imported)
+            SP_CORE_INFO_TAG(
+                "AssetManager", "Discovered {} asset '{}'", AssetTypeToString(type),
+                rel.generic_string());
+        SerializeAssetRegistry();
+    }
 }
 
 bool EditorAssetManager::SaveAsset(AssetHandle handle)

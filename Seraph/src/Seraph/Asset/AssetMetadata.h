@@ -22,6 +22,9 @@ struct AssetMetadata
     // Runtime-only; never serialized to the registry.
     bool IsDataLoaded = false;
     bool IsMemoryAsset = false;
+    // File-backed asset whose backing file was not found on disk during the
+    // last reconcile. Set by EditorAssetManager::ReconcileWithDisk.
+    bool IsMissing = false;
 
     [[nodiscard]] bool IsValid() const
     {
