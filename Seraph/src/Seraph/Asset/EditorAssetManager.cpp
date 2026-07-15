@@ -389,6 +389,57 @@ u64 EditorAssetManager::GetSizeOnDisk(AssetHandle handle)
     return ec ? 0 : static_cast<u64>(size);
 }
 
+std::vector<AssetHandle> EditorAssetManager::GetDependents(AssetHandle handle)
+{
+    // Only asset types that can reference `handle`'s type are worth inspecting.
+    std::vector<AssetType> candidateTypes;
+    switch (GetAssetType(handle)) {
+        case AssetType::Texture2D:
+            candidateTypes = {AssetType::Material, AssetType::MaterialInstance};
+            break;
+        case AssetType::Shader:
+            candidateTypes = {AssetType::Material};
+            break;
+        case AssetType::Material:
+        case AssetType::MaterialInstance:
+            candidateTypes = {
+                AssetType::MaterialInstance, AssetType::Mesh, AssetType::Scene};
+            break;
+        case AssetType::Mesh:
+            candidateTypes = {AssetType::Scene};
+            break;
+        default:
+            return {}; // scenes (and unknown) are not referenced by other assets
+    }
+
+    // Snapshot candidate handles under the lock, then load + inspect them without
+    // holding it (GetAsset re-enters the manager).
+    std::vector<AssetHandle> candidates;
+    {
+        std::shared_lock lock(m_Mutex);
+        for (const auto& [candidateHandle, metadata] : m_Registry) {
+            if (metadata.IsMemoryAsset || candidateHandle == handle)
+                continue;
+            if (std::find(candidateTypes.begin(), candidateTypes.end(), metadata.Type) !=
+                candidateTypes.end())
+                candidates.push_back(candidateHandle);
+        }
+    }
+
+    std::vector<AssetHandle> dependents;
+    for (const AssetHandle candidate : candidates) {
+        Ref<Asset> asset = GetAsset(candidate);
+        if (!asset)
+            continue;
+        for (const AssetHandle dependency : asset->GetDependencies())
+            if (dependency == handle) {
+                dependents.push_back(candidate);
+                break;
+            }
+    }
+    return dependents;
+}
+
 bool EditorAssetManager::RenameAsset(AssetHandle handle, const std::string& newName)
 {
     namespace fs = std::filesystem;

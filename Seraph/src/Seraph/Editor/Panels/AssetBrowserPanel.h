@@ -17,6 +17,7 @@
 #include "Seraph/Editor/ThumbnailService.h"
 
 #include <filesystem>
+#include <vector>
 
 namespace Seraph
 {
@@ -45,9 +46,11 @@ private:
     void DrawToolbar();
     void DrawFolderTree(const ContentFolder& folder);
     void DrawGrid(const ContentFolder& folder);
+    void DrawFolderTile(const ContentFolder& folder, float tileSize);
     void DrawTile(const ContentEntry& entry, float tileSize);
     void DrawTileContextMenu(const ContentEntry& entry);
-    void DrawInfoPanel();
+    void DrawCreateMenuItems(); // shared by the toolbar button and grid right-click
+    void DrawAssetTooltip(AssetHandle handle);
     void DrawPopups();
 
     ContentTree m_Tree;
@@ -66,9 +69,11 @@ private:
     char m_RenameBuffer[256] = {};
     bool m_StartedRename = false;
 
-    // Delete-confirm modal.
+    // Delete-confirm modal. m_DeleteBlockers holds assets that depend on the
+    // target (non-empty => deletion is blocked, computed when Delete is chosen).
     AssetHandle m_HandleToDelete = c_NullAssetHandle;
     bool m_StartedDelete = false;
+    std::vector<AssetHandle> m_DeleteBlockers;
 
     // New-folder modal.
     bool m_StartedNewFolder = false;

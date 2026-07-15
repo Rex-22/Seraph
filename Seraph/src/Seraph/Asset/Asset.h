@@ -10,6 +10,7 @@
 #include "Seraph/Core/Ref.h"
 
 #include <string_view>
+#include <vector>
 
 namespace Seraph
 {
@@ -50,6 +51,12 @@ public:
     // effort). 0 means "unknown / not tracked". Editor tooling surfaces this in
     // the asset browser; it is not used by the runtime.
     [[nodiscard]] virtual u64 GetMemoryFootprint() const { return 0; }
+
+    // Handles of other assets this asset directly references (a Material's
+    // shader + textures, a Mesh's default materials, a Scene's meshes, ...).
+    // The editor uses these to build a dependency graph and block deleting an
+    // asset that others still depend on. Empty for leaf assets.
+    [[nodiscard]] virtual std::vector<AssetHandle> GetDependencies() const { return {}; }
 
     [[nodiscard]] bool IsFlagSet(AssetFlag flag) const
     {

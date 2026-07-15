@@ -126,6 +126,16 @@ public:
         return static_cast<u64>(m_Vertices.size()) + m_Indices.size();
     }
 
+    // The mesh's baked per-slot default materials.
+    [[nodiscard]] std::vector<AssetHandle> GetDependencies() const override
+    {
+        std::vector<AssetHandle> deps;
+        for (const AssetHandle h : m_MaterialSlotDefaults)
+            if (h != c_NullAssetHandle)
+                deps.push_back(h);
+        return deps;
+    }
+
 private:
     bool CreateBuffers();
 

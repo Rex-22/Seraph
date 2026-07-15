@@ -10,6 +10,21 @@
 namespace Seraph
 {
 
+std::vector<AssetHandle> Material::GetDependencies() const
+{
+    std::vector<AssetHandle> deps;
+    // Shader is stored by name; ShaderHandleFromName is a pure hash (no bgfx),
+    // matching the handle a cooked shader is registered under.
+    if (!m_ShaderName.empty())
+        if (const AssetHandle shader = ShaderHandleFromName(m_ShaderName);
+            static_cast<u64>(shader) != c_NullAssetHandle)
+            deps.push_back(shader);
+    for (const MaterialParameter& p : m_Parameters)
+        if (p.IsTexture() && static_cast<u64>(p.Texture.Texture) != c_NullAssetHandle)
+            deps.push_back(p.Texture.Texture);
+    return deps;
+}
+
 void Material::SetParameter(const MaterialParameter& param)
 {
     for (MaterialParameter& existing : m_Parameters) {

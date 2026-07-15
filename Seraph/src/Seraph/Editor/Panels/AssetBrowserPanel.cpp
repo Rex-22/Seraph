@@ -208,24 +208,15 @@ void AssetBrowserPanel::OnImGuiRender()
         folder = &m_Tree.Root();
     }
 
-    const float infoHeight = 150.0f;
-    const float spacing = ImGui::GetStyle().ItemSpacing.y;
-    float bodyHeight = ImGui::GetContentRegionAvail().y - infoHeight - spacing;
-    if (bodyHeight < 60.0f)
-        bodyHeight = 60.0f;
-
-    ImGui::BeginChild("##tree", ImVec2(200.0f, bodyHeight), ImGuiChildFlags_Borders);
+    // Tree + grid fill the panel; asset details are shown as a hover tooltip.
+    ImGui::BeginChild("##tree", ImVec2(200.0f, 0.0f), ImGuiChildFlags_Borders);
     DrawFolderTree(m_Tree.Root());
     ImGui::EndChild();
 
     ImGui::SameLine();
 
-    ImGui::BeginChild("##grid", ImVec2(0.0f, bodyHeight), ImGuiChildFlags_Borders);
+    ImGui::BeginChild("##grid", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
     DrawGrid(*folder);
-    ImGui::EndChild();
-
-    ImGui::BeginChild("##info", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders);
-    DrawInfoPanel();
     ImGui::EndChild();
 
     DrawPopups();
@@ -286,19 +277,7 @@ void AssetBrowserPanel::DrawToolbar()
     if (ImGui::Button("Create New"))
         ImGui::OpenPopup("create_new_popup");
     if (ImGui::BeginPopup("create_new_popup")) {
-        if (ImGui::MenuItem("Material")) {
-            CreateMaterialAsset(m_CurrentDir);
-            m_TreeDirty = true;
-        }
-        if (ImGui::MenuItem("Material Instance")) {
-            CreateMaterialInstanceAsset(m_CurrentDir);
-            m_TreeDirty = true;
-        }
-        ImGui::Separator();
-        if (ImGui::MenuItem("Folder")) {
-            m_NewFolderBuffer[0] = '\0';
-            m_StartedNewFolder = true;
-        }
+        DrawCreateMenuItems();
         ImGui::EndPopup();
     }
 
@@ -352,30 +331,86 @@ void AssetBrowserPanel::DrawFolderTree(const ContentFolder& folder)
 
 void AssetBrowserPanel::DrawGrid(const ContentFolder& folder)
 {
-    std::vector<const ContentEntry*> visible;
+    // Sub-folders are shown as navigable tiles (this is what makes folders
+    // visible in the main area, especially at the root). Search filters them by
+    // name; the type filter only applies to files.
+    std::vector<const ContentFolder*> folders;
+    for (const ContentFolder& sub : folder.SubFolders)
+        if (m_SearchBuffer[0] == '\0' || FuzzyMatch(m_SearchBuffer, sub.Name))
+            folders.push_back(&sub);
+
+    std::vector<const ContentEntry*> files;
     for (const ContentEntry& entry : folder.Files) {
         if (m_TypeFilter != -1 && static_cast<int>(entry.Type) != m_TypeFilter)
             continue;
         if (m_SearchBuffer[0] != '\0' && !FuzzyMatch(m_SearchBuffer, entry.Name))
             continue;
-        visible.push_back(&entry);
+        files.push_back(&entry);
     }
 
-    if (visible.empty()) {
-        ImGui::TextDisabled("(no assets)");
-        return;
+    if (folders.empty() && files.empty()) {
+        ImGui::TextDisabled("(empty — right-click to create)");
+    } else {
+        const float cell = k_TileSize + ImGui::GetStyle().ItemSpacing.x;
+        const float avail = ImGui::GetContentRegionAvail().x;
+        const int columns = std::max(1, static_cast<int>(avail / cell));
+
+        // Folders first, then files, wrapping to `columns` per row.
+        int index = 0;
+        for (const ContentFolder* sub : folders) {
+            if (index % columns != 0)
+                ImGui::SameLine();
+            DrawFolderTile(*sub, k_TileSize);
+            ++index;
+        }
+        for (const ContentEntry* entry : files) {
+            if (index % columns != 0)
+                ImGui::SameLine();
+            DrawTile(*entry, k_TileSize);
+            ++index;
+        }
     }
 
-    const float cell = k_TileSize + ImGui::GetStyle().ItemSpacing.x;
-    const float avail = ImGui::GetContentRegionAvail().x;
-    const int columns = std::max(1, static_cast<int>(avail / cell));
-
-    for (std::size_t i = 0; i < visible.size(); ++i) {
-        DrawTile(*visible[i], k_TileSize);
-        const bool endOfRow = (i + 1) % static_cast<std::size_t>(columns) == 0;
-        if (!endOfRow && i + 1 < visible.size())
-            ImGui::SameLine();
+    // Right-click empty grid space -> create menu. Called after the tiles so
+    // NoOpenOverItems can see whether a tile is hovered (tile menus win there).
+    if (ImGui::BeginPopupContextWindow(
+            "grid_context",
+            ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems)) {
+        DrawCreateMenuItems();
+        ImGui::EndPopup();
     }
+}
+
+void AssetBrowserPanel::DrawFolderTile(const ContentFolder& folder, float tileSize)
+{
+    ImGui::PushID(folder.RelativePath.generic_string().c_str());
+    ImGui::BeginGroup();
+
+    const ImVec4 color(0.82f, 0.70f, 0.34f, 1.0f); // folder yellow
+    ImGui::PushStyleColor(ImGuiCol_Button, color);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.92f, 0.80f, 0.44f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, color);
+    const bool entered = ImGui::Button("DIR", ImVec2(tileSize, tileSize));
+    ImGui::PopStyleColor(3);
+    if (entered)
+        m_CurrentDir = folder.RelativePath; // takes effect next frame
+
+    // Drop an asset onto a folder to move it in.
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload =
+                ImGui::AcceptDragDropPayload(k_AssetPayloadType)) {
+            m_HandleToMove = AssetHandle(*static_cast<const u64*>(payload->Data));
+            m_MoveTargetDir = folder.RelativePath;
+        }
+        ImGui::EndDragDropTarget();
+    }
+
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + tileSize);
+    ImGui::TextWrapped("%s", folder.Name.c_str());
+    ImGui::PopTextWrapPos();
+
+    ImGui::EndGroup();
+    ImGui::PopID();
 }
 
 void AssetBrowserPanel::DrawTile(const ContentEntry& entry, float tileSize)
@@ -412,6 +447,15 @@ void AssetBrowserPanel::DrawTile(const ContentEntry& entry, float tileSize)
     }
 
     DrawTileContextMenu(entry);
+
+    // Hover the tile for a moment to reveal a details popup (replaces the old
+    // always-on info panel). References the tile button as the hovered item.
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
+        if (ImGui::BeginTooltip()) {
+            DrawAssetTooltip(entry.Handle);
+            ImGui::EndTooltip();
+        }
+    }
 
     // Label under the thumbnail, wrapped to the tile width.
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + tileSize);
@@ -468,6 +512,9 @@ void AssetBrowserPanel::DrawTileContextMenu(const ContentEntry& entry)
 
     if (ImGui::MenuItem("Delete")) {
         m_HandleToDelete = entry.Handle;
+        m_DeleteBlockers.clear();
+        if (Ref<EditorAssetManager> ed = Editor())
+            m_DeleteBlockers = ed->GetDependents(entry.Handle);
         m_StartedDelete = true;
         ImGui::CloseCurrentPopup();
     }
@@ -475,14 +522,26 @@ void AssetBrowserPanel::DrawTileContextMenu(const ContentEntry& entry)
     ImGui::EndPopup();
 }
 
-void AssetBrowserPanel::DrawInfoPanel()
+void AssetBrowserPanel::DrawCreateMenuItems()
 {
-    if (static_cast<u64>(m_SelectedHandle) == c_NullAssetHandle) {
-        ImGui::TextDisabled("Select an asset to see its details.");
-        return;
+    if (ImGui::MenuItem("Material")) {
+        CreateMaterialAsset(m_CurrentDir);
+        m_TreeDirty = true;
     }
+    if (ImGui::MenuItem("Material Instance")) {
+        CreateMaterialInstanceAsset(m_CurrentDir);
+        m_TreeDirty = true;
+    }
+    ImGui::Separator();
+    if (ImGui::MenuItem("Folder")) {
+        m_NewFolderBuffer[0] = '\0';
+        m_StartedNewFolder = true;
+    }
+}
 
-    const AssetInfo info = BuildAssetInfo(m_SelectedHandle);
+void AssetBrowserPanel::DrawAssetTooltip(AssetHandle handle)
+{
+    const AssetInfo info = BuildAssetInfo(handle);
     if (!info.Valid) {
         ImGui::TextDisabled("Asset unavailable.");
         return;
@@ -546,24 +605,44 @@ void AssetBrowserPanel::DrawPopups()
         m_StartedDelete = false;
     }
     if (ImGui::BeginPopupModal("Delete Asset", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        Ref<EditorAssetManager> ed = Editor();
         std::string name;
-        if (Ref<EditorAssetManager> ed = Editor())
+        if (ed)
             name = ed->GetMetadata(m_HandleToDelete).FilePath.filename().string();
-        ImGui::Text("Delete '%s'?", name.c_str());
-        ImGui::TextDisabled("This removes the file from disk.");
-        if (ImGui::Button("Delete")) {
-            if (Ref<EditorAssetManager> ed = Editor())
-                ed->RemoveAsset(m_HandleToDelete, true);
-            if (m_HandleToDelete == m_SelectedHandle)
-                m_SelectedHandle = c_NullAssetHandle;
-            m_HandleToDelete = c_NullAssetHandle;
-            m_TreeDirty = true;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            m_HandleToDelete = c_NullAssetHandle;
-            ImGui::CloseCurrentPopup();
+
+        if (!m_DeleteBlockers.empty()) {
+            // Blocked: other assets reference this one.
+            ImGui::Text("Cannot delete '%s'.", name.c_str());
+            ImGui::TextColored(
+                ImVec4(0.9f, 0.6f, 0.2f, 1.0f), "It is used by %zu other asset(s):",
+                m_DeleteBlockers.size());
+            if (ed)
+                for (const AssetHandle blocker : m_DeleteBlockers)
+                    ImGui::BulletText(
+                        "%s", ed->GetMetadata(blocker).FilePath.filename().string().c_str());
+            ImGui::TextDisabled("Remove those references first.");
+            if (ImGui::Button("OK")) {
+                m_HandleToDelete = c_NullAssetHandle;
+                m_DeleteBlockers.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        } else {
+            ImGui::Text("Delete '%s'?", name.c_str());
+            ImGui::TextDisabled("This removes the file from disk.");
+            if (ImGui::Button("Delete")) {
+                if (ed)
+                    ed->RemoveAsset(m_HandleToDelete, true);
+                if (m_HandleToDelete == m_SelectedHandle)
+                    m_SelectedHandle = c_NullAssetHandle;
+                m_HandleToDelete = c_NullAssetHandle;
+                m_TreeDirty = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) {
+                m_HandleToDelete = c_NullAssetHandle;
+                ImGui::CloseCurrentPopup();
+            }
         }
         ImGui::EndPopup();
     }

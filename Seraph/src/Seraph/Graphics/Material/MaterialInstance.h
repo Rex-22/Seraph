@@ -46,6 +46,9 @@ public:
 
     const ResolvedMaterial& Resolve() override;
 
+    // Parent material + any texture overrides.
+    [[nodiscard]] std::vector<AssetHandle> GetDependencies() const override;
+
 private:
     AssetHandle m_Parent = c_NullAssetHandle;
     std::vector<MaterialParameter> m_Overrides;

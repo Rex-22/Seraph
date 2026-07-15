@@ -6,6 +6,17 @@
 namespace Seraph
 {
 
+std::vector<AssetHandle> MaterialInstance::GetDependencies() const
+{
+    std::vector<AssetHandle> deps;
+    if (static_cast<u64>(m_Parent) != c_NullAssetHandle)
+        deps.push_back(m_Parent);
+    for (const MaterialParameter& p : m_Overrides)
+        if (p.IsTexture() && static_cast<u64>(p.Texture.Texture) != c_NullAssetHandle)
+            deps.push_back(p.Texture.Texture);
+    return deps;
+}
+
 namespace
 {
 // Guards against a cyclic parent chain (self-parenting, A->B->A, ...). Resolve()

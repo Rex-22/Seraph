@@ -9,8 +9,11 @@
 #pragma once
 
 #include "Seraph/Asset/Asset.h"
+#include "Seraph/Asset/AssetHandle.h"
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Scene/Scene.h"
+
+#include <vector>
 
 namespace Seraph
 {
@@ -25,6 +28,9 @@ public:
 
     const Ref<Scene>& GetScene() const { return m_Scene; }
     void SetScene(Ref<Scene> scene) { m_Scene = std::move(scene); }
+
+    // Meshes + material overrides referenced by the scene's MeshComponents.
+    [[nodiscard]] std::vector<AssetHandle> GetDependencies() const override;
 
 private:
     Ref<Scene> m_Scene;

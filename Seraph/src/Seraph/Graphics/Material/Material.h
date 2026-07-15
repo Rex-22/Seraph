@@ -61,6 +61,9 @@ public:
     // --- MaterialAsset -----------------------------------------------------
     const ResolvedMaterial& Resolve() override;
 
+    // Shader (resolved from its name) + any texture parameters.
+    [[nodiscard]] std::vector<AssetHandle> GetDependencies() const override;
+
     // --- Engine default material -------------------------------------------
     // The built-in default: the embedded "simple" shader with a white color and
     // the default white texture. Main thread only (may create GPU resources).

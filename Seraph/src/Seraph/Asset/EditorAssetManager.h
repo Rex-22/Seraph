@@ -76,6 +76,11 @@ public:
     // Size of the asset's backing file on disk in bytes (0 if unknown / memory).
     u64 GetSizeOnDisk(AssetHandle handle);
 
+    // Handles of registered assets that directly reference `handle`. Loads
+    // candidate assets synchronously to inspect their GetDependencies(). Used to
+    // block deleting an asset that others still depend on.
+    std::vector<AssetHandle> GetDependents(AssetHandle handle);
+
     // Map a path's extension to an asset type (None if unrecognized).
     static AssetType GetAssetTypeFromPath(const std::filesystem::path& path);
 
