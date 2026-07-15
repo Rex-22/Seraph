@@ -179,6 +179,13 @@ public:
     [[nodiscard]] u32 Height() const { return m_Height; }
     [[nodiscard]] const char* Name() const { return m_DebugName; }
 
+    // Parsed image data is normalized to RGBA8 (4 bytes/texel); a coarse
+    // estimate of the resident texture memory.
+    [[nodiscard]] u64 GetMemoryFootprint() const override
+    {
+        return static_cast<u64>(m_Width) * m_Height * 4;
+    }
+
     [[nodiscard]] bool IsValid() const;
 
     // Phase 2 (main thread): create the bgfx texture from the CPU image parsed

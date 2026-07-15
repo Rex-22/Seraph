@@ -119,6 +119,13 @@ public:
         return m_IndexSize != 0 ? static_cast<u32>(m_Indices.size()) / m_IndexSize : 0;
     }
 
+    // Retained CPU geometry (kept after upload for serialization); the GPU
+    // buffers mirror it, so this is a reasonable footprint estimate.
+    [[nodiscard]] u64 GetMemoryFootprint() const override
+    {
+        return static_cast<u64>(m_Vertices.size()) + m_Indices.size();
+    }
+
 private:
     bool CreateBuffers();
 

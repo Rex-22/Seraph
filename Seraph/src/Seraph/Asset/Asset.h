@@ -46,6 +46,11 @@ public:
     static AssetType GetStaticType() { return AssetType::None; }
     virtual AssetType GetAssetType() const { return AssetType::None; }
 
+    // Approximate in-memory footprint of this asset in bytes (CPU + GPU, best
+    // effort). 0 means "unknown / not tracked". Editor tooling surfaces this in
+    // the asset browser; it is not used by the runtime.
+    [[nodiscard]] virtual u64 GetMemoryFootprint() const { return 0; }
+
     [[nodiscard]] bool IsFlagSet(AssetFlag flag) const
     {
         return (Flags & static_cast<u16>(flag)) != 0;
