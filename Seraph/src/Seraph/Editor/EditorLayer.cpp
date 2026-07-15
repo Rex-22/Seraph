@@ -10,6 +10,7 @@
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Asset/Pack/AssetPackBuilder.h"
+#include "Seraph/Editor/AssetFactory.h"
 #include "Seraph/Graphics/Material/Material.h"
 #include "Seraph/Graphics/Material/MaterialInstance.h"
 #include "Seraph/Scene/SceneAsset.h"
@@ -21,6 +22,9 @@
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Project/GamePackager.h"
 #include "Seraph/Project/ProjectManager.h"
+#include "Seraph/Scene/Components/MeshComponent.h"
+#include "Seraph/Scene/Entity.h"
+#include "Seraph/Scene/EntityTemplates.h"
 #include "Seraph/Scripts/ScriptLibrary.h"
 
 #include <config.h>
@@ -266,38 +270,16 @@ void EditorLayer::OpenScene()
 
 void EditorLayer::NewMaterial()
 {
-    Ref<EditorAssetManager> manager = AssetManager::Get().As<EditorAssetManager>();
-    if (!manager)
-        return;
-
-    // Seed from the engine default (simple shader + color + texture params).
-    Ref<Material> material = Material::CreateDefault();
-    const std::size_t n = manager->GetAllAssetsOfType(AssetType::Material).size();
-    const std::string path = "materials/Material_" + std::to_string(n) + ".smaterial";
-
-    AssetHandle handle = manager->SaveAssetAs(material, path);
-    if (static_cast<u64>(handle) != c_NullAssetHandle) {
+    const AssetHandle handle = CreateMaterialAsset("materials");
+    if (static_cast<u64>(handle) != c_NullAssetHandle)
         m_MaterialEditor.SetSelected(handle);
-        SP_CORE_INFO_TAG("Editor", "Created material '{}'", path);
-    }
 }
 
 void EditorLayer::NewMaterialInstance()
 {
-    Ref<EditorAssetManager> manager = AssetManager::Get().As<EditorAssetManager>();
-    if (!manager)
-        return;
-
-    auto instance = Ref<MaterialInstance>::Create();
-    const std::size_t n = manager->GetAllAssetsOfType(AssetType::MaterialInstance).size();
-    const std::string path =
-        "materials/MaterialInstance_" + std::to_string(n) + ".smatinst";
-
-    AssetHandle handle = manager->SaveAssetAs(instance, path);
-    if (static_cast<u64>(handle) != c_NullAssetHandle) {
+    const AssetHandle handle = CreateMaterialInstanceAsset("materials");
+    if (static_cast<u64>(handle) != c_NullAssetHandle)
         m_MaterialEditor.SetSelected(handle);
-        SP_CORE_INFO_TAG("Editor", "Created material instance '{}'", path);
-    }
 }
 
 void EditorLayer::CreateShader()
@@ -524,6 +506,8 @@ void EditorLayer::OnImGuiRender()
 
         m_MaterialEditor.OnImGuiRender();
 
+        m_AssetBrowser.OnImGuiRender();
+
         DrawCreateShaderPopup();
 
         m_Gizmo.SetSelectedEntity(selected);
@@ -537,6 +521,11 @@ void EditorLayer::OnImGuiRender()
             m_Gizmo.OnImGuiRender();
         }
         m_ViewportPanel.End();
+
+        // An asset dropped onto the viewport spawns an entity in the scene.
+        AssetHandle droppedAsset;
+        if (m_ViewportPanel.ConsumeDroppedAsset(droppedAsset))
+            InstantiateAsset(droppedAsset);
 
         const ImVec2 sz = m_ViewportPanel.GetContentSize();
         if (sz.x > 0.0f && sz.y > 0.0f &&
@@ -588,6 +577,28 @@ UUID EditorLayer::SelectedUUID() const
 {
     Entity selected = m_EntityBrowser.GetSelectedEntity();
     return selected ? selected.GetUUID() : UUID(0);
+}
+
+void EditorLayer::InstantiateAsset(AssetHandle handle)
+{
+    if (m_RuntimeMode || static_cast<u64>(handle) == c_NullAssetHandle)
+        return;
+
+    // v1 supports dropping meshes into the scene; other types are ignored.
+    if (AssetManager::GetAssetType(handle) != AssetType::Mesh)
+        return;
+
+    std::string name = "Mesh";
+    if (Ref<EditorAssetManager> ed = AssetManager::Get().As<EditorAssetManager>()) {
+        const std::filesystem::path path = ed->GetMetadata(handle).FilePath;
+        if (!path.empty())
+            name = path.stem().string();
+    }
+
+    Entity entity = m_EditorScene->CreateEntity(name);
+    entity.AddComponent<MeshComponent>().Mesh = handle;
+    m_EntityBrowser.SetSelectedEntity(entity);
+    SP_CORE_INFO_TAG("Editor", "Instantiated mesh asset as entity '{}'", name);
 }
 
 void EditorLayer::PointPanelsAt(const Ref<Scene>& scene, UUID selection)
@@ -726,6 +737,7 @@ void EditorLayer::NewProjectAt(const std::filesystem::path& dir, const std::stri
 
 void EditorLayer::CloseProject()
 {
+    m_AssetBrowser.OnProjectClosed();
     ProjectManager::Close();
     SetScene(Ref<Scene>::Create("Untitled"));
 }

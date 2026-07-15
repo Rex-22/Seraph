@@ -15,6 +15,7 @@
 #include "Seraph/Core/Layer.h"
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Editor/EditorCamera.h"
+#include "Seraph/Editor/Panels/AssetBrowserPanel.h"
 #include "Seraph/Editor/Panels/EditorGizmo.h"
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
 #include "Seraph/Editor/Panels/EntityInspectorPanel.h"
@@ -63,6 +64,9 @@ private:
     void PointPanelsAt(const Ref<Scene>& scene, UUID selection);
     // UUID of the currently-selected entity, or 0 if none.
     UUID SelectedUUID() const;
+    // Spawn an entity for an asset dropped into the viewport (mesh -> entity
+    // with a MeshComponent). No-op for unsupported types or during play.
+    void InstantiateAsset(AssetHandle handle);
     // Minimal Play/Stop toolbar, drawn in both modes (the menu bar is hidden
     // during play). The button defers the actual swap via m_PendingRuntimeToggle.
     void UI_Toolbar();
@@ -112,6 +116,7 @@ private:
     EntityBrowserPanel   m_EntityBrowser;
     EntityInspectorPanel m_EntityInspector;
     MaterialEditorPanel  m_MaterialEditor;
+    AssetBrowserPanel    m_AssetBrowser;
     EditorGizmo          m_Gizmo;
     RenderTarget         m_RenderTarget;
 

@@ -4,6 +4,7 @@
 
 #include "ViewportPanel.h"
 
+#include "Seraph/Editor/AssetPayload.h"
 #include "Seraph/Graphics/ImGui/bgfx-imgui/imgui_impl_bgfx.h"
 #include "Seraph/Graphics/RenderTarget.h"
 
@@ -32,6 +33,16 @@ bool ViewportPanel::Begin(const RenderTarget& rt)
         {
             ImTextureID texId = toId(rt.color, 0, 0);
             ImGui::Image(texId, size);
+
+            // Accept an asset dropped from the Asset Browser onto the scene
+            // image; the owner (EditorLayer) consumes it after End().
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload =
+                        ImGui::AcceptDragDropPayload(k_AssetPayloadType))
+                    m_DroppedAsset = AssetHandle(*static_cast<const u64*>(payload->Data));
+                ImGui::EndDragDropTarget();
+            }
         }
     }
 
@@ -41,6 +52,15 @@ bool ViewportPanel::Begin(const RenderTarget& rt)
 void ViewportPanel::End()
 {
     ImGui::End();
+}
+
+bool ViewportPanel::ConsumeDroppedAsset(AssetHandle& outHandle)
+{
+    if (static_cast<u64>(m_DroppedAsset) == c_NullAssetHandle)
+        return false;
+    outHandle = m_DroppedAsset;
+    m_DroppedAsset = c_NullAssetHandle;
+    return true;
 }
 
 } // namespace Seraph
