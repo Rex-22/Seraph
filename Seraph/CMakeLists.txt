@@ -70,3 +70,8 @@ target_link_libraries(${PROJECT} PUBLIC
         ${ASSIMP_LIBRARIES}
         ${JOLT_LIBRARIES}
 )
+
+# CoreServices provides FSEvents, the macOS backend for Platform/FileWatcher.
+if (APPLE)
+    target_link_libraries(${PROJECT} PUBLIC "-framework CoreServices")
+endif ()
