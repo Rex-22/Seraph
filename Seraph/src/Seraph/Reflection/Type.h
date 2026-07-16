@@ -178,6 +178,11 @@ struct Type
     // macro (Reflection 4); nullptr means "no dynamic resolution — static type".
     const Type* (*DynamicType)(const void* obj) = nullptr;
 
+    // Default-construct a fresh value into an Any. Auto-populated for reflected
+    // types that are default- and copy-constructible; null otherwise. For
+    // deserialization / "new instance" flows.
+    Any (*DefaultConstruct)() = nullptr;
+
     [[nodiscard]] const Property* FindProperty(std::string_view name) const noexcept
     {
         for (const Property& p : Properties)

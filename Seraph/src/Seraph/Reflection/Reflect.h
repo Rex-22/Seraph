@@ -162,6 +162,10 @@ public:
         m_Type.Kind = TypeKind::Struct;
         m_Type.Size = static_cast<u32>(sizeof(T));
         m_Type.Align = static_cast<u32>(alignof(T));
+        // Free default-construct factory for value-like reflected types.
+        if constexpr (std::is_default_constructible_v<T>
+                      && std::is_copy_constructible_v<T>)
+            m_Type.DefaultConstruct = +[]() -> Any { return Any(T{}); };
     }
 
     // Data-member property. Member is a pointer-to-data-member NTTP, e.g.
