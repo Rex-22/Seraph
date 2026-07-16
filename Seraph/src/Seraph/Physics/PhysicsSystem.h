@@ -33,6 +33,11 @@ public:
     // Global simulation tuning, read when a scene starts.
     static PhysicsSettings& GetSettings();
 
+    // Register the engine.physics.* settings (bound to the global GetSettings()
+    // fields). Call after Settings::Init and before Settings::LoadEngineUser so
+    // persisted values apply. See docs/reflection-system.md / settings-plan.md.
+    static void RegisterSettings();
+
     // Create a physics world bound to an entity scene (returns a JoltScene).
     // Takes a raw Scene* — the world is owned by and scoped within that scene.
     static Ref<PhysicsScene> CreateScene(Scene* scene);

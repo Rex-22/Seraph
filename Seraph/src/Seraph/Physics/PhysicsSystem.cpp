@@ -7,6 +7,7 @@
 #include "PhysicsSettings.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Physics/JoltPhysics/JoltScene.h"
+#include "Seraph/Settings/Settings.h"
 
 #include <Jolt/Jolt.h>
 
@@ -98,6 +99,34 @@ void PhysicsSystem::Shutdown()
 PhysicsSettings& PhysicsSystem::GetSettings()
 {
     return s_Settings;
+}
+
+void PhysicsSystem::RegisterSettings()
+{
+    PhysicsSettings& s = GetSettings();
+    Settings::Register("engine.physics.fixedTimestep")
+        .Bind(&s.FixedTimestep).Scope(SettingScope::Project)
+        .Section("Physics").Display("Fixed Timestep")
+        .Tooltip("Fixed simulation step (seconds)").Min(0.001f).Max(0.1f);
+    Settings::Register("engine.physics.gravity")
+        .Bind(&s.Gravity).Scope(SettingScope::Project)
+        .Section("Physics").Display("Gravity")
+        .Tooltip("World gravity vector (m/s^2)");
+    Settings::Register("engine.physics.maxBodies")
+        .Bind(&s.MaxBodies).Scope(SettingScope::Project)
+        .Section("Physics").Display("Max Bodies");
+    Settings::Register("engine.physics.maxBodyPairs")
+        .Bind(&s.MaxBodyPairs).Scope(SettingScope::Project)
+        .Section("Physics").Display("Max Body Pairs");
+    Settings::Register("engine.physics.maxContactConstraints")
+        .Bind(&s.MaxContactConstraints).Scope(SettingScope::Project)
+        .Section("Physics").Display("Max Contact Constraints");
+    Settings::Register("engine.physics.positionSolverIterations")
+        .Bind(&s.PositionSolverIterations).Scope(SettingScope::Project)
+        .Section("Physics").Display("Position Solver Iterations").Min(1u).Max(64u);
+    Settings::Register("engine.physics.velocitySolverIterations")
+        .Bind(&s.VelocitySolverIterations).Scope(SettingScope::Project)
+        .Section("Physics").Display("Velocity Solver Iterations").Min(1u).Max(64u);
 }
 
 Ref<PhysicsScene> PhysicsSystem::CreateScene(Scene* scene)

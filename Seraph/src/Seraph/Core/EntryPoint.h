@@ -26,10 +26,11 @@ int main(int argc, char** argv)
     // File access is available before the Application exists, so a client's
     // CreateApplication() can read a project file to shape its window/spec.
     Seraph::FileSystem::Init();
-    // Settings registry: install the backend, then load Engine + User scopes.
-    // (Engine settings register during subsystem init below; their persisted
-    // values apply because they bind to stable static setting structs.)
+    // Settings registry: install the backend, register engine settings (bound to
+    // stable static setting structs), then load Engine + User scopes so persisted
+    // values apply to those fields before any subsystem consumes them.
     Seraph::Settings::Init();
+    Seraph::PhysicsSystem::RegisterSettings();
     Seraph::Settings::LoadEngineUser();
     // Process-global Jolt state; must outlive any scene that creates bodies.
     Seraph::PhysicsSystem::Init();
