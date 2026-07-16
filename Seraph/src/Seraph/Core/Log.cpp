@@ -31,6 +31,7 @@ namespace Seraph {
 		{ "Packaging",         TagDetails{  true, Level::Info  } },
 		{ "Physics",           TagDetails{  true, Level::Info  } },
 		{ "Project",           TagDetails{  true, Level::Warn  } },
+		{ "Reflection",        TagDetails{  true, Level::Info  } },
 		{ "Renderer",          TagDetails{  true, Level::Info  } },
 		{ "Scene",             TagDetails{  true, Level::Info  } },
 		{ "Scripting",         TagDetails{  true, Level::Info  } },
