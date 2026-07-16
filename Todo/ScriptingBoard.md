@@ -8,8 +8,8 @@ statuses:
 ---
 
 ### 1. Scripting 1 — Script core types (ScriptableEntity, ScriptComponent, ScriptRegistry)
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Critical
 
 **Description:**
@@ -33,7 +33,7 @@ Four/five new files in `Seraph/src/Seraph/Script/`. These compile into the `Sera
 - **Input needs no plumbing:** `Seraph::Input` is a global static; scripts call `Seraph::Input::IsKeyDown(...)` directly.
 - Use `SP_CORE_WARN_TAG("Scripting", …)` on duplicate registration — the `"Scripting"` log tag already exists (`Core/Log.cpp:35`).
 - House style: PascalCase, `m_`/`s_`/`k_` prefixes, `.clang-format` Allman braces / 80 col, `f32`/`u32` aliases from `Core/Base.h`.
-- **READ `scripting-plan.md` example A** before writing the macro — the self-registration static-init pattern is what the whole dead-strip decision (Scripting 5) hinges on. **READ example B** for why `ScriptComponent::Instance` is a raw, non-owning pointer.
+- **READ `plans/scripting-plan.md` example A** before writing the macro — the self-registration static-init pattern is what the whole dead-strip decision (Scripting 5) hinges on. **READ example B** for why `ScriptComponent::Instance` is a raw, non-owning pointer.
 
 ## Implementation Steps
 1. Create `Script/ScriptableEntity.h` — the base class with 7 virtuals + protected helpers + `friend class ScriptEngine;`.
@@ -43,7 +43,7 @@ Four/five new files in `Seraph/src/Seraph/Script/`. These compile into the `Sera
 5. Build all three targets; confirm clean.
 
 ## Difficult concepts
-Linked doc `scripting-plan.md`: **A** (dead-strip / self-registration — required for the macro), **B** (instance ownership — why `Instance` is a raw pointer).
+Linked doc `plans/scripting-plan.md`: **A** (dead-strip / self-registration — required for the macro), **B** (instance ownership — why `Instance` is a raw pointer).
 
 **Subtasks:**
 - [ ] Create Script/ScriptableEntity.h — 7 lifecycle virtuals + protected Entity/Scene helpers + friend ScriptEngine
@@ -53,13 +53,13 @@ Linked doc `scripting-plan.md`: **A** (dead-strip / self-registration — requir
 - [ ] Build Seraph + Seraph-Editor + Seraph-Runtime clean (-Werror)
 
 **Documentation:**
-- `scripting-plan.md`
+- `plans/scripting-plan.md`
 
 ---
 
 ### 2. Scripting 2 — ScriptEngine per-scene driver
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -84,7 +84,7 @@ Add `Script/ScriptEngine.h` + `ScriptEngine.cpp`. `ScriptEngine : RefCounted`, c
 - `DestroyAll()`: same OnDestroy+delete+null over every surviving `ScriptComponent`.
 - Bind entities as `Entity{handle, m_Scene}` using the ScriptEngine's own `m_Scene` — never a handle carried from another scene. See example D.
 - Include `Physics/PhysicsTypes.h` for `ContactType`.
-- **READ `scripting-plan.md` example C** (frame timeline — where OnUpdate sits and when contacts fire) and **example E** (lazy instantiation, `m_Failed`, view-iteration safety) before implementing.
+- **READ `plans/scripting-plan.md` example C** (frame timeline — where OnUpdate sits and when contacts fire) and **example E** (lazy instantiation, `m_Failed`, view-iteration safety) before implementing.
 
 ## Implementation Steps
 1. `Script/ScriptEngine.h` — class decl with the methods above + `Scene* m_Scene` + `std::unordered_set<entt::entity> m_Failed`.
@@ -92,7 +92,7 @@ Add `Script/ScriptEngine.h` + `ScriptEngine.cpp`. `ScriptEngine : RefCounted`, c
 3. Build `Seraph`; confirm clean.
 
 ## Difficult concepts
-Linked doc `scripting-plan.md`: **C** (tick timeline), **E** (lazy instantiation vs EnTT signals, iteration safety).
+Linked doc `plans/scripting-plan.md`: **C** (tick timeline), **E** (lazy instantiation vs EnTT signals, iteration safety).
 
 **Subtasks:**
 - [ ] Create Script/ScriptEngine.h — ctor(Scene*), method decls, Scene* m_Scene + unordered_set<entt::entity> m_Failed
@@ -101,7 +101,7 @@ Linked doc `scripting-plan.md`: **C** (tick timeline), **E** (lazy instantiation
 - [ ] Implement OnContact — dispatch to both entities (each receives the other) switching ContactType; build Seraph clean
 
 **Documentation:**
-- `scripting-plan.md`
+- `plans/scripting-plan.md`
 
 **Dependencies:**
 - Scripting 1 — Script core types (ScriptableEntity, ScriptComponent, ScriptRegistry)
@@ -109,8 +109,8 @@ Linked doc `scripting-plan.md`: **C** (tick timeline), **E** (lazy instantiation
 ---
 
 ### 3. Scripting 3 — Scene lifecycle integration, copy & contact routing
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -133,7 +133,7 @@ Edit `Scene.h`, `Scene.cpp`, and `CopyableComponents.h`. `Scene` gains a `Ref<Sc
 - The existing double-`DrainDestroyQueue` in `OnUpdateRuntime` already covers destroys queued during the script tick and during contact dispatch — do not remove it.
 - Narrow `f64 dt → f32` once at the `OnUpdateRuntime` boundary, matching the existing `Simulate(static_cast<f32>(dt))` cast.
 - `SetContactCallback` signature: `std::function<void(ContactType, Entity, Entity)>` (`PhysicsScene.h:64`).
-- **READ `scripting-plan.md` examples B, C, D** — this ticket is where all three land: **C** (exact ordering in the three lifecycle methods), **B** (why adding `ScriptComponent` to `CopyableComponents` and copying a null `Instance` is safe), **D** (the raw `Scene*` inside `Entity` and binding on the correct scene).
+- **READ `plans/scripting-plan.md` examples B, C, D** — this ticket is where all three land: **C** (exact ordering in the three lifecycle methods), **B** (why adding `ScriptComponent` to `CopyableComponents` and copying a null `Instance` is safe), **D** (the raw `Scene*` inside `Entity` and binding on the correct scene).
 
 ## Implementation Steps
 1. `Scene.h`: fwd decl + `m_ScriptEngine` member.
@@ -145,7 +145,7 @@ Edit `Scene.h`, `Scene.cpp`, and `CopyableComponents.h`. `Scene` gains a `Ref<Sc
 7. Build all targets; confirm clean; sanity-run play-in-editor to ensure no crash on enter/exit.
 
 ## Difficult concepts
-Linked doc `scripting-plan.md`: **B** (copy-safety invariant), **C** (tick ordering & contact timing), **D** (play-in-editor copy / raw `Scene*`).
+Linked doc `plans/scripting-plan.md`: **B** (copy-safety invariant), **C** (tick ordering & contact timing), **D** (play-in-editor copy / raw `Scene*`).
 
 **Subtasks:**
 - [ ] Scene.h — fwd-declare class ScriptEngine; add Ref<ScriptEngine> m_ScriptEngine after m_PhysicsScene
@@ -157,7 +157,7 @@ Linked doc `scripting-plan.md`: **B** (copy-safety invariant), **C** (tick order
 - [ ] Build all targets; sanity-run play-in-editor enter/exit with no crash
 
 **Documentation:**
-- `scripting-plan.md`
+- `plans/scripting-plan.md`
 
 **Dependencies:**
 - Scripting 2 — ScriptEngine per-scene driver
@@ -165,8 +165,8 @@ Linked doc `scripting-plan.md`: **B** (copy-safety invariant), **C** (tick order
 ---
 
 ### 4. Scripting 4 — Scene serialization for ScriptComponent
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -198,7 +198,7 @@ Edit `Asset/Serializers/SceneSerializer.cpp` only. Add a `Script` block to both 
 4. Round-trip test: put `Script: { ClassName: Rotator }` on an entity in `projects/Sandbox/assets/scenes/example.sscene`, load in editor, save, diff — must be stable.
 
 ## Difficult concepts
-None specific — straightforward hand-written serialization. Depends on the `ScriptComponent` type from Scripting 1 and its use in the scene from Scripting 3. See `scripting-plan.md` "Edits to existing engine files #4".
+None specific — straightforward hand-written serialization. Depends on the `ScriptComponent` type from Scripting 1 and its use in the scene from Scripting 3. See `plans/scripting-plan.md` "Edits to existing engine files #4".
 
 **Subtasks:**
 - [ ] Add #include Script/ScriptComponent.h to SceneSerializer.cpp
@@ -207,7 +207,7 @@ None specific — straightforward hand-written serialization. Depends on the `Sc
 - [ ] Round-trip test — add Script to example.sscene, load→save→diff stable
 
 **Documentation:**
-- `scripting-plan.md`
+- `plans/scripting-plan.md`
 
 **Dependencies:**
 - Scripting 3 — Scene lifecycle integration, copy & contact routing
@@ -215,8 +215,8 @@ None specific — straightforward hand-written serialization. Depends on the `Sc
 ---
 
 ### 5. Scripting 5 — Game module, build wiring & demo Rotator script
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -234,7 +234,7 @@ The `Game` module is a per-project CMake **OBJECT library** (NOT static — see 
 - All targets build & link clean; editor and runtime both see `"Rotator"` in the registry.
 
 ## Technical Notes
-- **CRITICAL — this is the dead-strip ticket. READ `scripting-plan.md` example A in full before starting.** A self-registering `.o` inside a *static archive* is silently dropped by the linker (no undefined symbol references it). An **OBJECT library** hands its objects directly to the exe link line (like `target_sources`), so static initializers always run. Do NOT make `Game` a `STATIC` lib.
+- **CRITICAL — this is the dead-strip ticket. READ `plans/scripting-plan.md` example A in full before starting.** A self-registering `.o` inside a *static archive* is silently dropped by the linker (no undefined symbol references it). An **OBJECT library** hands its objects directly to the exe link line (like `target_sources`), so static initializers always run. Do NOT make `Game` a `STATIC` lib.
 - The repo precedent: `SERAPH_SHADER_REGISTRY_SRC` is self-registering and added via `target_sources(... PRIVATE)` directly to each exe for exactly this reason (see its header comment).
 - `add_subdirectory` with an absolute/out-of-tree `SERAPH_GAME_DIR` requires the explicit binary-dir second arg (`${CMAKE_BINARY_DIR}/Game`).
 - One game linked at a time, so the fixed target name `Game` never collides.
@@ -251,7 +251,7 @@ The `Game` module is a per-project CMake **OBJECT library** (NOT static — see 
 6. Configure + build both exes; run; confirm `"Rotator"` is registered. Remove/keep the trace as desired.
 
 ## Difficult concepts
-Linked doc `scripting-plan.md`: **A** (static-lib dead-strip & the OBJECT-library fix) — the whole point of this ticket.
+Linked doc `plans/scripting-plan.md`: **A** (static-lib dead-strip & the OBJECT-library fix) — the whole point of this ticket.
 
 **Subtasks:**
 - [ ] Root CMakeLists — SERAPH_GAME_DIR cache var + add_subdirectory(${SERAPH_GAME_DIR} ${CMAKE_BINARY_DIR}/Game) after Seraph
@@ -262,7 +262,7 @@ Linked doc `scripting-plan.md`: **A** (static-lib dead-strip & the OBJECT-librar
 - [ ] SMOKE TEST (gate) — build+run, confirm "Rotator" registered (size ≥ 1); if 0, apply dead-strip fallback
 
 **Documentation:**
-- `scripting-plan.md`
+- `plans/scripting-plan.md`
 
 **Dependencies:**
 - Scripting 1 — Script core types (ScriptableEntity, ScriptComponent, ScriptRegistry)
@@ -270,8 +270,8 @@ Linked doc `scripting-plan.md`: **A** (static-lib dead-strip & the OBJECT-librar
 ---
 
 ### 6. Scripting 6 — Editor inspector authoring (Add Component ▸ Script + class dropdown)
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -302,7 +302,7 @@ Edit `Editor/Panels/EntityInspectorPanel.h` and `.cpp` only. Add one draw method
 5. Build editor; add a Script component to an entity, pick `Rotator`, save, and confirm the YAML.
 
 ## Difficult concepts
-None specific — standard ImGui panel wiring. See `scripting-plan.md` "Editor authoring".
+None specific — standard ImGui panel wiring. See `plans/scripting-plan.md` "Editor authoring".
 
 **Subtasks:**
 - [ ] EntityInspectorPanel.h — declare void DrawScriptComponent(); add includes (ScriptComponent.h, ScriptRegistry.h)
@@ -312,7 +312,7 @@ None specific — standard ImGui panel wiring. See `scripting-plan.md` "Editor a
 - [ ] Build editor; add Script to an entity, pick Rotator, save, verify .sscene YAML
 
 **Documentation:**
-- `scripting-plan.md`
+- `plans/scripting-plan.md`
 
 **Dependencies:**
 - Scripting 3 — Scene lifecycle integration, copy & contact routing
@@ -321,8 +321,8 @@ None specific — standard ImGui panel wiring. See `scripting-plan.md` "Editor a
 ---
 
 ### 7. Scripting 7 — New-project scaffolding (ProjectManager::Create + ProjectTemplates)
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -347,7 +347,7 @@ Edit `Project/ProjectManager.cpp` (`Create`) and add a new `Project/ProjectTempl
 - Insertion point: `ProjectManager.cpp:51-69`, between the `.sproj` `Save` (~line 63) and `Open` (~line 68). You have the raw `dir` there; `Open` hasn't run yet.
 - `Buffer::Copy(str…)` is the idiom for writing a `std::string` (see `Project.cpp:32`, `EditorLayer.cpp:610`).
 - Keep templates as small literals in `ProjectTemplates.h` to keep `ProjectManager.cpp` readable.
-- **The rebuild caveat is the honest cost of native C++** — the editor can't hot-load new scripts. See `scripting-plan.md` "Inherent constraint" and "New-project scaffolding".
+- **The rebuild caveat is the honest cost of native C++** — the editor can't hot-load new scripts. See `plans/scripting-plan.md` "Inherent constraint" and "New-project scaffolding".
 
 ## Implementation Steps
 1. Create `Project/ProjectTemplates.h` with the four template strings (+ a small name-substitution helper).
@@ -356,7 +356,7 @@ Edit `Project/ProjectManager.cpp` (`Create`) and add a new `Project/ProjectTempl
 4. (Optional) point `SERAPH_GAME_DIR` at the new project, rebuild, and confirm `ExampleScript` registers.
 
 ## Difficult concepts
-Project-root vs asset-root distinction (`ActiveDir()` vs `ActiveAssetRoot()`), and the native-C++ rebuild constraint. See `scripting-plan.md` "New-project scaffolding" + "Inherent constraint".
+Project-root vs asset-root distinction (`ActiveDir()` vs `ActiveAssetRoot()`), and the native-C++ rebuild constraint. See `plans/scripting-plan.md` "New-project scaffolding" + "Inherent constraint".
 
 **Subtasks:**
 - [ ] Create Project/ProjectTemplates.h — CMakeLists / ExampleScript.h / ExampleScript.cpp / README string templates (+ name substitution)
@@ -365,7 +365,7 @@ Project-root vs asset-root distinction (`ActiveDir()` vs `ActiveAssetRoot()`), a
 - [ ] (Optional) point SERAPH_GAME_DIR at the new project, rebuild, confirm ExampleScript registers
 
 **Documentation:**
-- `scripting-plan.md`
+- `plans/scripting-plan.md`
 
 **Dependencies:**
 - Scripting 5 — Game module, build wiring & demo Rotator script
@@ -373,8 +373,8 @@ Project-root vs asset-root distinction (`ActiveDir()` vs `ActiveAssetRoot()`), a
 ---
 
 ### 8. Scripting 8 — End-to-end verification
-- **Status:** Todo
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -404,7 +404,7 @@ Run the 7 checks below against a Debug build of both `Seraph-Editor` and `Seraph
 4. Record results in this ticket's Changes section (mirror the physics-board write-up style).
 
 ## Difficult concepts
-Cross-references all of `scripting-plan.md` Part 2 — especially **A** (check 2), **B** (check 6), **C** (checks 4/5).
+Cross-references all of `plans/scripting-plan.md` Part 2 — especially **A** (check 2), **B** (check 6), **C** (checks 4/5).
 
 **Subtasks:**
 - [ ] Check 1 — Seraph + Editor + Runtime build & link clean with Game linked
@@ -415,7 +415,7 @@ Cross-references all of `scripting-plan.md` Part 2 — especially **A** (check 2
 - [ ] Check 6 — play-in-editor isolation: authored scene unchanged after exit; no leak/crash; OnDestroy once
 
 **Documentation:**
-- `scripting-plan.md`
+- `plans/scripting-plan.md`
 
 **Dependencies:**
 - Scripting 4 — Scene serialization for ScriptComponent

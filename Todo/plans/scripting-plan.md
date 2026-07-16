@@ -122,7 +122,7 @@ run — no whole-archive flags, no central registration list).
 
 - **Root `CMakeLists.txt`:** add a build-time twin of `SERAPH_DEFAULT_PROJECT`:
   ```cmake
-  set(SERAPH_GAME_DIR "${PROJECT_SOURCE_DIR}/projects/Sandbox"
+  set(SERAPH_GAME_DIR "../../projects/Sandbox"
       CACHE PATH "Project whose C++ scripts (Game module) are compiled in")
   # after add_subdirectory(Seraph), before the exe subdirs:
   add_subdirectory(${SERAPH_GAME_DIR} ${CMAKE_BINARY_DIR}/Game)

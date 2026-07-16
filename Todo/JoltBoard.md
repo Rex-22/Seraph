@@ -56,7 +56,7 @@ Implemented as designed, with these deviations discovered against the real Jolt 
 **Files (all new unless noted):** `Physics/JoltPhysics/JoltUtils.h`, `JoltLayerInterface.{h,cpp}`, `JoltShapes.{h,cpp}`, `JoltContactListener.{h,cpp}`, `JoltBody.{h,cpp}`, `JoltScene.{h,cpp}`; `Scene/Components/{RigidBody,BoxCollider,SphereCollider,CapsuleCollider}Component.h` (+ `Components/Components.cpp`); modified `Physics/PhysicsSystem.{h,cpp}` (`CreateScene`).
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 **Dependencies:**
 - Physics 3 — Abstract PhysicsScene / PhysicsBody interfaces
@@ -105,7 +105,7 @@ Implemented as planned. One minor deviation:
 **Files:** new `Seraph/src/Seraph/Physics/SceneQueries.h`, `PhysicsBody.h`, `PhysicsScene.h`, `PhysicsScene.cpp`.
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 **Dependencies:**
 - Physics 2 — Physics types, settings & collision layers
@@ -162,7 +162,7 @@ Minor additions beyond the original plan (all additive, no rework):
 **Files:** new `Seraph/src/Seraph/Physics/PhysicsTypes.h`, `PhysicsSettings.h`, `PhysicsSettings.cpp`; modified `PhysicsSystem.{h,cpp}`.
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 **Dependencies:**
 - Physics 1 — Vendor Jolt Physics & global init
@@ -230,7 +230,7 @@ Deviations from the original plan, discovered during implementation (all verifie
 **Files:** new `cmake/jolt.cmake`, `Seraph/src/Seraph/Physics/PhysicsSystem.{h,cpp}`; modified `.gitmodules`, `cmake/vendor.cmake`, `Seraph/CMakeLists.txt`, `Seraph/src/Seraph/Core/EntryPoint.h`, `Seraph/src/Seraph/Core/Log.cpp`; added submodule `vendor/JoltPhysics @ v5.6.0`.
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 ---
 
@@ -286,7 +286,7 @@ The bulk was already in place: the four components (+ `Components.cpp` include) 
 **Files:** modified `Scene/Scene.cpp` (drop the collider guard); components + remaining wiring pre-existed from Physics 4 and earlier in this ticket.
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 **Dependencies:**
 - Physics 4 — Jolt backend implementation
@@ -352,7 +352,7 @@ Implemented as designed. Deviations / clarifications:
 **Files:** new `Reflection/TypeRegistry.h`, `Scene/CopyableComponents.h`; modified `Scene/Scene.{h,cpp}`, `Editor/EditorLayer.{h,cpp}`, `Runtime/RuntimeLayer.{h,cpp}`.
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 **Dependencies:**
 - Physics 5 — Physics components & Scene runtime lifecycle
@@ -407,7 +407,7 @@ Implemented as designed, reusing every existing helper.
 **Files:** modified `Asset/Serializers/SceneSerializer.cpp`, `Editor/Panels/EntityInspectorPanel.{h,cpp}`.
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 **Dependencies:**
 - Physics 5 — Physics components & Scene runtime lifecycle
@@ -466,7 +466,7 @@ Implemented as designed. One deviation, forced by init ordering:
 **Files:** new `shader/debug/{varying.def.sc,vs_debug.sc,fs_debug.sc}`, `Graphics/DebugRenderer.{h,cpp}`; modified `Core/Application.cpp` (Init/Shutdown wiring).
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 ---
 
@@ -523,7 +523,7 @@ Implemented as designed, with one architectural refinement to preserve the "no J
 **Files:** new `Physics/JoltPhysics/JoltDebugRenderer.{h,cpp}`; modified `Graphics/SceneRenderer.h` (toggle + non-const accessor), `Physics/PhysicsScene.h` (`RenderDebugBodies` hook), `Physics/JoltPhysics/JoltScene.{h,cpp}` (override), `Scene/Scene.{h,cpp}` (`RenderDebug` + calls), `Editor/EditorLayer.cpp` (View menu).
 
 **Documentation:**
-- `jolt-physics-plan.md`
+- `plans/jolt-physics-plan.md`
 
 **Dependencies:**
 - Physics 8 — Debug line renderer & shader
