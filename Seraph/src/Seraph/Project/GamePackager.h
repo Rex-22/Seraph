@@ -15,6 +15,7 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 namespace Seraph
 {
@@ -23,13 +24,17 @@ class GamePackager
 {
 public:
     // Build the active project's scripts, cook its assets, and assemble `outDir`.
-    // Returns false (with logs) on any failure.
-    static bool Package(const std::filesystem::path& outDir);
+    // `config` is the CMake build type for the Game module (Debug/Release/...);
+    // empty means "match the engine's own build config". Returns false (with
+    // logs) on any failure.
+    static bool Package(
+        const std::filesystem::path& outDir, const std::string& config = {});
 
 private:
-    // Configure + build the project's Game target (standalone find_package build),
-    // synchronously. Returns false on failure.
-    static bool BuildScripts(const std::filesystem::path& projectDir);
+    // Configure + build the project's Game target (standalone find_package build)
+    // in `config`, synchronously. Returns false on failure.
+    static bool BuildScripts(
+        const std::filesystem::path& projectDir, const std::string& config);
 };
 
 } // namespace Seraph

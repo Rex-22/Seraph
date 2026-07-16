@@ -64,7 +64,8 @@ Seraph::Application* Seraph::CreateApplication()
             out = Seraph::ProjectManager::ActiveDir() / "dist"
                 / Seraph::ProjectManager::Active().Name;
 
-        const bool ok = Seraph::GamePackager::Package(out);
+        const bool ok = Seraph::GamePackager::Package(
+            out, Seraph::CommandLine::Get("--config"));
         // Headless one-shot: _Exit skips static-destructor teardown (subsystems
         // were never fully started for a windowless run, and tearing global
         // logging/physics/asset state down out of order can fault). Logs already
