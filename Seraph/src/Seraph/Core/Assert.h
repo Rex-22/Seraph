@@ -61,7 +61,7 @@
 	#endif
 
 	#define SP_CORE_ENSURE(condition, ...) [&]{ if(!(condition)) { SP_CORE_ENSURE_MESSAGE_INTERNAL(__VA_ARGS__); SP_DEBUG_BREAK; } return (condition); }()
-	#define SP_ENSURE(condition, ...) [&]{ if(!(condition)) { SP_ENSURE_MESSAGE_INTERNAL(__VA_ARGS__); SP_DEBUG_BREAK; } return (condition) }()
+	#define SP_ENSURE(condition, ...) [&]{ if(!(condition)) { SP_ENSURE_MESSAGE_INTERNAL(__VA_ARGS__); SP_DEBUG_BREAK; } return (condition); }()
 
 #else
 	#define SP_CORE_ENSURE(condition, ...) (condition)
