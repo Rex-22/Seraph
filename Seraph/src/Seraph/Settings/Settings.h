@@ -136,9 +136,33 @@ public:
     static const SettingDescriptor* Find(std::string_view key);
     static const std::vector<SettingDescriptor*>& All();
 
-    // Type-erased get/set.
+    // Type-erased get/set. SetAny is a USER EDIT: it marks the setting's scope
+    // dirty (unless the setting is CLI-overridden, which is never persisted).
     static Any GetAny(std::string_view key);
     static void SetAny(std::string_view key, const Any& value);
+
+    // --- Override chain + dirty tracking (Settings 2) ---
+    //
+    // Load precedence (low -> high), applied by the store (Settings 3) + lifecycle
+    // (Settings 5); each later layer overwrites the current value for keys it has:
+    //   Engine -> Engine.<platform> -> Project -> Project.<platform>
+    //          -> User -> User.<platform> -> CLI(--set)
+    //
+    // ApplyLoaded sets a value WITHOUT dirtying (it came from disk, not a user
+    // edit). Type-checked like SetAny; ignores unknown keys.
+    static void ApplyLoaded(std::string_view key, const Any& value);
+
+    // Parse and apply `--set key=value` overrides from the command line. These
+    // are highest precedence and are NEVER persisted (the setting is flagged
+    // CLI-overridden, excluding it from saves and from further dirtying).
+    static void ApplyCommandLineOverrides();
+    static bool IsCommandLineOverridden(std::string_view key);
+
+    // Per-scope dirty tracking: SetAny marks a scope dirty; the store saves only
+    // dirty scopes, then clears them.
+    static bool IsScopeDirty(SettingScope scope);
+    static void MarkScopeDirty(SettingScope scope);
+    static void ClearScopeDirty(SettingScope scope);
 
     // Typed convenience.
     template<class T>

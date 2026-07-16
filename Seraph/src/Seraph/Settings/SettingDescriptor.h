@@ -72,6 +72,10 @@ struct SettingDescriptor
     Any OwnedValue;
     bool IsBound = false;
 
+    // Set by a --set command-line override: this value is highest-precedence and
+    // is never persisted or dirtied. See Settings::ApplyCommandLineOverrides.
+    bool CliOverridden = false;
+
     // Read/write the current value regardless of binding kind.
     [[nodiscard]] Any Read() const { return IsBound ? BoundGet() : OwnedValue; }
     void Write(const Any& v)
