@@ -5,9 +5,9 @@
 // DrainEvents(), so any follow-up work (asset reload, bgfx uploads) stays on
 // the main thread.
 //
-// Only macOS has a real backend today; other platforms compile a no-op stub
-// (IsWatching() stays false and DrainEvents() returns empty). TODO: add
-// inotify (Linux) and ReadDirectoryChangesW (Windows) backends.
+// Backends: FSEvents (macOS), inotify (Linux), ReadDirectoryChangesW (Windows).
+// Any other platform compiles a no-op stub (IsWatching() stays false and
+// DrainEvents() returns empty).
 //
 
 #pragma once
