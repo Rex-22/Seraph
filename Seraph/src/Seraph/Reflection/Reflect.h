@@ -30,8 +30,10 @@
 #include "Seraph/Reflection/Type.h"
 #include "Seraph/Reflection/TypeId.h"
 
+#include <cstddef>
 #include <memory>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -51,6 +53,52 @@ struct MemberPointerTraits<M C::*>
     using ClassType = C;
     using MemberType = M;
 };
+
+// Method signature traits (const + non-const member functions).
+template<class F>
+struct MethodTraits;
+
+template<class C, class R, class... A>
+struct MethodTraits<R (C::*)(A...)>
+{
+    using Class = C;
+    using Ret = R;
+    using Args = std::tuple<A...>;
+};
+
+template<class C, class R, class... A>
+struct MethodTraits<R (C::*)(A...) const>
+{
+    using Class = C;
+    using Ret = R;
+    using Args = std::tuple<A...>;
+};
+
+template<class Tuple, std::size_t... I>
+std::vector<const Type*> ParamTypeList(std::index_sequence<I...>)
+{
+    return {Reflection::TryGet<
+        std::decay_t<std::tuple_element_t<I, Tuple>>>()...};
+}
+
+template<auto Method, class T, class Ret, class ArgsTuple, std::size_t... I>
+Any InvokeMethodImpl(void* obj, const Any* args, std::index_sequence<I...>)
+{
+    T* self = static_cast<T*>(obj);
+    if constexpr (std::is_void_v<Ret>)
+    {
+        (self->*Method)(
+            *args[I].template Cast<
+                std::decay_t<std::tuple_element_t<I, ArgsTuple>>>()...);
+        return Any{};
+    }
+    else
+    {
+        return Any((self->*Method)(
+            *args[I].template Cast<
+                std::decay_t<std::tuple_element_t<I, ArgsTuple>>>()...));
+    }
+}
 
 template<class T>
 struct VectorTraits
@@ -194,6 +242,34 @@ public:
                 Setter(*static_cast<T*>(obj), *m);
         };
         AddProperty(std::move(p));
+        return *this;
+    }
+
+    // Register an invocable method. Args/return cross as Any (empty for void).
+    //   .Method<&Enemy::TakeDamage>("TakeDamage")
+    template<auto Fn>
+    TypeBuilder& Method(std::string_view name)
+    {
+        using Tr = Detail::MethodTraits<decltype(Fn)>;
+        using Ret = typename Tr::Ret;
+        using ArgsTuple = typename Tr::Args;
+        constexpr std::size_t N = std::tuple_size_v<ArgsTuple>;
+
+        MethodInfo m;
+        m.Name = name;
+        m.ReturnType =
+            std::is_void_v<Ret> ? nullptr : Reflection::TryGet<std::decay_t<Ret>>();
+        m.ParamTypes =
+            Detail::ParamTypeList<ArgsTuple>(std::make_index_sequence<N>{});
+        m.Invoke = +[](void* obj, const Any* args, std::size_t argc) -> Any
+        {
+            SP_CORE_ASSERT(argc == N, "Method::Invoke: wrong arg count");
+            if (argc != N)
+                return Any{};
+            return Detail::InvokeMethodImpl<Fn, T, Ret, ArgsTuple>(
+                obj, args, std::make_index_sequence<N>{});
+        };
+        m_Type.Methods.push_back(std::move(m));
         return *this;
     }
 

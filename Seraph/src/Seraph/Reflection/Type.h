@@ -121,6 +121,17 @@ struct ContainerInfo
     void (*Resize)(void* container, std::size_t size) = nullptr; // default-fills new
 };
 
+// A reflected, invocable method. Args and the return value cross as Any (return
+// is empty for void). Invoke asserts on arg-count mismatch. The `obj` pointer is
+// a live instance of the owning Type.
+struct MethodInfo
+{
+    std::string_view Name;
+    const Type* ReturnType = nullptr; // null for void
+    std::vector<const Type*> ParamTypes;
+    Any (*Invoke)(void* obj, const Any* args, std::size_t argc) = nullptr;
+};
+
 struct EnumInfo
 {
     struct Entry
@@ -159,6 +170,7 @@ struct Type
     std::vector<Property> Properties;    // own + inherited, resolved at registration
     std::unique_ptr<EnumInfo> Enum;      // owned; non-null iff Kind == Enum
     std::unique_ptr<ContainerInfo> Container; // owned; non-null iff Kind == Container
+    std::vector<MethodInfo> Methods;     // reflected invocable methods
     AttributeSet Attrs;
 
     // Given a pointer to an instance held as this (base) type, return its most-
@@ -171,6 +183,14 @@ struct Type
         for (const Property& p : Properties)
             if (p.Name == name)
                 return &p;
+        return nullptr;
+    }
+
+    [[nodiscard]] const MethodInfo* FindMethod(std::string_view name) const noexcept
+    {
+        for (const MethodInfo& m : Methods)
+            if (m.Name == name)
+                return &m;
         return nullptr;
     }
 };
