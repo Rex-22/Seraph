@@ -16,6 +16,21 @@ set(SERAPH_EDITOR_EXECUTABLE  "@SERAPH_EDITOR_EXE@")
 set(SERAPH_RUNTIME_EXECUTABLE "@SERAPH_RUNTIME_EXE@")
 set(SERAPH_ENGINE_BUILD_DIR   "@CMAKE_BINARY_DIR@")
 
+# Source-SDK model: every path in this file is absolute and points at the engine
+# build tree on the machine that generated it. If the baked engine binary is not
+# where it was built (config copied to another machine, or the engine build tree
+# moved/deleted), fail here with an actionable message instead of a confusing
+# link-time or downstream error. Rebuild the engine and re-point Seraph_DIR at
+# that build's SeraphConfig.cmake.
+if(NOT EXISTS "@SERAPH_DYLIB_PATH@")
+    message(FATAL_ERROR
+        "Seraph: the engine library baked into this SeraphConfig.cmake is missing:\n"
+        "    @SERAPH_DYLIB_PATH@\n"
+        "SeraphConfig.cmake uses absolute paths from the machine/build tree that "
+        "generated it (source-SDK model) and is NOT relocatable. Build the engine "
+        "on THIS machine and set -DSeraph_DIR to that build tree.")
+endif()
+
 if(NOT TARGET Seraph::Seraph)
     add_library(Seraph::Seraph SHARED IMPORTED)
     set_target_properties(Seraph::Seraph PROPERTIES
