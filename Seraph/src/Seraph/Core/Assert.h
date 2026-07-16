@@ -4,10 +4,16 @@
 #include "Log.h"
 #include <bgfx/bgfx.h>
 
-#ifdef BX_PLATFORM_WINDOW
+// Break into the debugger on a failed assert. Keyed off built-in compiler
+// macros (always defined by the compiler) rather than a project macro that
+// might not be set, so the break is never silently a no-op on a supported
+// toolchain.
+#if defined(_MSC_VER)
 	#define SP_DEBUG_BREAK __debugbreak()
-#elif defined(SP_COMPILER_CLANG)
+#elif defined(__clang__)
 	#define SP_DEBUG_BREAK __builtin_debugtrap()
+#elif defined(__GNUC__)
+	#define SP_DEBUG_BREAK __builtin_trap()
 #else
 	#define SP_DEBUG_BREAK
 #endif
