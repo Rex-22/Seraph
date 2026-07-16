@@ -1,7 +1,7 @@
 engine.physics.fixedTimestep: 0.016666668
 engine.physics.gravity:
   - 0
-  - -0.45
+  - -9.81
   - 0
 engine.physics.maxBodies: 10240
 engine.physics.maxBodyPairs: 65536
