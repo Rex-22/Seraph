@@ -6,6 +6,7 @@
 
 #include "ScriptRegistry.h"
 #include "Seraph/Core/Log.h"
+#include "Seraph/Reflection/Reflection.h"
 
 #include <SDL3/SDL_loadso.h>
 
@@ -57,7 +58,14 @@ bool ScriptLibrary::Load(const std::filesystem::path& gameLib)
         return false;
     }
 
-    SDL_SharedObject* handle = SDL_LoadObject(copy.string().c_str());
+    // Tag reflection registrations that run during load as the Game module, so
+    // ClearModule can drop them (and their Property thunks) before the dylib
+    // unmaps. The scope restores the previous (engine) module on exit.
+    SDL_SharedObject* handle = nullptr;
+    {
+        ReflectionModuleScope reflScope(k_GameModule);
+        handle = SDL_LoadObject(copy.string().c_str());
+    }
     if (!handle) {
         SP_CORE_ERROR_TAG("Scripting", "SDL_LoadObject failed: {}", SDL_GetError());
         std::filesystem::remove(copy, ec);
@@ -67,8 +75,10 @@ bool ScriptLibrary::Load(const std::filesystem::path& gameLib)
     s_Handle = handle;
     s_LoadedCopy = copy;
     SP_CORE_INFO_TAG(
-        "Scripting", "Loaded script module '{}' ({} scripts registered)",
-        gameLib.filename().string(), ScriptRegistry::GetAll().size());
+        "Scripting",
+        "Loaded script module '{}' ({} scripts, {} reflected types registered)",
+        gameLib.filename().string(), ScriptRegistry::GetAll().size(),
+        Reflection::All().size());
     return true;
 }
 
@@ -77,8 +87,10 @@ void ScriptLibrary::Unload()
     if (!s_Handle)
         return;
 
-    // Drop factories (their lambdas live in the module) before unmapping it.
+    // Drop factories and reflected types (their lambdas / Get-Set thunks live in
+    // the module) before unmapping it — otherwise those function pointers dangle.
     ScriptRegistry::Clear();
+    Reflection::ClearModule(k_GameModule);
     SDL_UnloadObject(s_Handle);
     s_Handle = nullptr;
 

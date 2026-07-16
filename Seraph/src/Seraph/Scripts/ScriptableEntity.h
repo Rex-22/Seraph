@@ -11,6 +11,7 @@
 namespace Seraph
 {
 class Scene;
+struct Type; // Reflection type; see GetType() below
 
 class ScriptableEntity
 {
@@ -18,6 +19,13 @@ public:
     // Virtual: ScriptEngine owns instances as ScriptableEntity* and deletes
     // through this base pointer.
     virtual ~ScriptableEntity() = default;
+
+    // Reflection dynamic-type hook: returns the most-derived reflected Type of
+    // this instance. The base returns the ScriptableEntity type; subclasses that
+    // use SP_REFLECT() override it to return their own. This is what lets the
+    // editor inspect a script's concrete (and private) properties from a base
+    // ScriptableEntity* — see Todo/plans/reflection-plan.md example B.
+    virtual const Type& GetType() const;
 
     virtual void OnCreate() {}
     virtual void OnUpdate([[maybe_unused]] f64 dt) {}
