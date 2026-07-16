@@ -9,7 +9,7 @@ statuses:
 ---
 
 ### 1. Settings 1 — SettingDescriptor + Settings facade skeleton (bind vs own)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -28,10 +28,17 @@ New module `Seraph/src/Seraph/Settings/`: `SettingDescriptor.h` (key, `SettingSc
 ## Documentation
 - `Todo/plans/settings-plan.md` (Part 1 "The pieces", example A)
 
+**Subtasks:**
+- [x] SettingDescriptor.h — SettingScope, SettingFlags, Setting::Attr keys, descriptor (bound closures vs owned Any)
+- [x] Settings facade + SettingBuilder: Register/Find/All/GetAny/SetAny/typed Get/Set/TryGet/Clear
+- [x] Bind (field ptr; owning struct need NOT be reflected) + Bind(get/set) + Default(owned); ValueType via TryGet
+- [x] Keys by string, function-local-static registry (unique_ptr stable); dup warns+returns existing; namespace nudge
+- [x] ReadOnly blocks Set; type-mismatch rejected; verified harness all-pass + libSeraph builds clean
+
 ---
 
 ### 2. Settings 2 — Override-chain resolution + dirty tracking + CLI --set
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -50,10 +57,13 @@ Layered merge low→high: `Engine → Engine.<platform> → Project → Project.
 ## Documentation
 - `Todo/plans/settings-plan.md` (example B)
 
+**Subtasks:**
+- [ ] Verified: ApplyLoaded precedence, per-scope dirty (edit vs load), --set parse+authority; harness all-pass
+
 ---
 
 ### 3. Settings 3 — ISettingsStore + YamlSettingsStore
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -71,10 +81,13 @@ The storage backend interface (`Load(reg, scope, platform)` / `Save(reg, scope)`
 ## Documentation
 - `Todo/plans/settings-plan.md` (Part 1 "Storage", example B)
 
+**Subtasks:**
+- [ ] Verified: YAML round-trip (scalars+vec3), dirty clears on save, corrupt-file tolerant; enum settings deferred
+
 ---
 
 ### 4. Settings 4 — Change notification + validation/clamp + RequiresRestart
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -92,10 +105,13 @@ The storage backend interface (`Load(reg, scope, platform)` / `Save(reg, scope)`
 ## Documentation
 - `Todo/plans/settings-plan.md` (Part 1 "Change notification")
 
+**Subtasks:**
+- [ ] Verified: per-key+global notify, clamp, unsubscribe, RequiresRestart, reset, re-entrancy guard; harness all-pass
+
 ---
 
 ### 5. Settings 5 — Lifecycle wiring (EntryPoint, ProjectManager, script module)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -114,10 +130,13 @@ Boot/teardown ordering per plan example C.
 ## Documentation
 - `Todo/plans/settings-plan.md` (examples A, C)
 
+**Subtasks:**
+- [ ] Verified: Init/Shutdown in EntryPoint, LoadProject in ProjectManager::Open, game.* purge in ScriptLibrary::Unload; harness + full build
+
 ---
 
 ### 6. Settings 6 — PropertyDrawer (reflection-driven ImGui widget dispatch)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -135,10 +154,13 @@ The shared, settings-agnostic drawer: `PropertyDrawer::Draw(const Type&, void* o
 ## Documentation
 - `Todo/plans/settings-plan.md` (example D)
 
+**Subtasks:**
+- [ ] DrawValue: bool/int/uint/float/double/vec2-3-4(+color)/string; Min/Max slider, Step, Tooltip; enum deferred. Editor compiles+links
+
 ---
 
 ### 7. Settings 7 — SettingsPanel (section tree, search, reset) in EditorLayer
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -156,10 +178,13 @@ The Project/Engine Settings window: left category pane built from `Section` attr
 ## Documentation
 - `Todo/plans/settings-plan.md` (Part 1 "UI")
 
+**Subtasks:**
+- [ ] Section grouping, search filter, per-setting reset, scope chip, restart badge, readonly disable; View menu toggle. NEEDS visual confirm
+
 ---
 
 ### 8. Settings 8 — Migrate first consumers + end-to-end verification
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -176,6 +201,10 @@ Prove the system by migrating the real scattered config onto it, then verify the
 
 ## Documentation
 - `Todo/plans/settings-plan.md` (task map item 8)
+
+**Subtasks:**
+- [ ] PhysicsSettings migrated (7 bound settings, RegisterSettings in boot); edit->live struct, clamp, persist round-trip verified
+- [ ] DEFERRED here: SceneRendererSettings (instance-scoped, not a global static) + Log per-tag levels (dynamic map) — see board notes
 
 ---
 
@@ -198,5 +227,10 @@ Parking ticket for out-of-scope settings work. Promote when the consuming featur
 
 ## Documentation
 - `Todo/plans/settings-plan.md` (deferred section)
+
+**Subtasks:**
+- [ ] Enum-valued settings (needs Any enum-underlying extraction) — blocks YAML persist + drawer editing for enums
+- [ ] Migrate SceneRendererSettings (instance-scoped) + Log per-tag levels (dynamic map) — need a per-instance / map settings pattern
+- [ ] SettingsPanel two-pane section tree + subsections (v1 uses collapsing headers); minimal-diff saves (v1 saves all of scope)
 
 ---

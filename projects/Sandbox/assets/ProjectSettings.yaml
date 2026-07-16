@@ -1,0 +1,10 @@
+engine.physics.fixedTimestep: 0.016666668
+engine.physics.gravity:
+  - 0
+  - -0.45
+  - 0
+engine.physics.maxBodies: 10240
+engine.physics.maxBodyPairs: 65536
+engine.physics.maxContactConstraints: 10240
+engine.physics.positionSolverIterations: 2
+engine.physics.velocitySolverIterations: 10

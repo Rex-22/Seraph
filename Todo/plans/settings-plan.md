@@ -48,9 +48,23 @@ Seraph's reflection + `FileSystem` + yaml-cpp.
    Reflection (foundation)  Type · Property · Any · AttributeSet
 ```
 
-**A setting is a reflected `Property` plus settings policy.** Reflection supplies
-the type, the type-erased get/set, and the attribute bag; Settings adds a **stable
-string key**, a **scope**, persistence, and change notification. Two bindings:
+**A setting is a reflected value plus settings policy.** Reflection supplies the
+value type (`Type`), the type-erased value (`Any`), and the attribute bag
+(`AttributeSet`); Settings adds a **stable string key**, a **scope**, persistence,
+and change notification. Two bindings:
+
+> **Implementation note (Settings 1).** The plan originally sketched a
+> `SettingDescriptor` holding `const Property* + BoundObject`, routing get/set
+> through a reflected `Property` of the owning struct. That was dropped: in the
+> **default build SHT is off, so the owning struct (e.g. `PhysicsSettings`) isn't
+> reflected** — yet `.Bind(&…Gravity)` must still work. So a bound setting stores
+> **self-contained type-erased accessors** (`std::function<Any()>` /
+> `std::function<void(const Any&)>`) closed over the field pointer, and an owned
+> setting stores an `Any` cell — both in `SettingDescriptor` directly. It still
+> reuses reflection's `Any`/`Type`/`AttributeSet`; it just doesn't require the
+> owning type to be reflected. `ValueType` is `Reflection::TryGet<T>()` (always
+> resolves for primitive/glm/handle value types, which are built-in). Settings are
+> not hot-path (the engine reads the field directly), so `std::function` is fine.
 
 - **Bound** (engine settings): the descriptor's `Property` reads/writes a live
   engine field (e.g. `PhysicsSystem::GetSettings().Gravity`). Zero-overhead — hot
