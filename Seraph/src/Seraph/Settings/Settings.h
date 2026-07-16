@@ -203,12 +203,40 @@ public:
         SetAny(key, Any(value));
     }
 
+    // --- Change notification + validation (Settings 4) ---
+    //
+    // A subscriber fires after a value actually changes (old != new) via SetAny
+    // or ApplyLoaded. RequiresRestart settings persist the new value but do NOT
+    // fire live (they take effect next launch) and flip IsRestartPending().
+    using SettingChangeFn = std::function<void(
+        const SettingDescriptor& desc, const Any& oldValue, const Any& newValue)>;
+    using SubscriptionToken = u64;
+
+    // Per-key subscription; token can be passed to Unsubscribe.
+    static SubscriptionToken Subscribe(std::string_view key, SettingChangeFn fn);
+    // Global subscription: fires for every setting change.
+    static SubscriptionToken SubscribeAll(SettingChangeFn fn);
+    static void Unsubscribe(SubscriptionToken token);
+
+    // True once a RequiresRestart setting has been edited this session.
+    static bool IsRestartPending();
+
+    // Reset a setting to its registered default (fires notification).
+    static void ResetToDefault(std::string_view key);
+
     // Drop all registrations (tests; later, module-scoped purge in Settings 5).
     static void Clear();
 
 private:
     struct Registry;
     static Registry& Store();
+
+    // Core mutation: clamp -> type-check -> change-detect -> write -> (dirty) ->
+    // notify. RequiresRestart runtime edits persist but don't fire live.
+    static void ApplyChange(const SettingDescriptor* d, const Any& value,
+                            bool markDirty, bool isRuntimeEdit);
+    static void FireNotify(const SettingDescriptor& d, const Any& oldValue,
+                           const Any& newValue);
 };
 
 } // namespace Seraph

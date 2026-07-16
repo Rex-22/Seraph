@@ -11,20 +11,35 @@
 #include "Seraph/Core/Log.h"
 #include "Seraph/Settings/ISettingsStore.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
+#include <glm/common.hpp>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Seraph
 {
 
 struct Settings::Registry
 {
+    struct Sub
+    {
+        SubscriptionToken Token;
+        std::string Key; // empty = global
+        SettingChangeFn Fn;
+    };
+
     std::vector<std::unique_ptr<SettingDescriptor>> Owned;
     std::unordered_map<std::string, SettingDescriptor*> ByKey;
     std::vector<SettingDescriptor*> AllList;
     std::array<bool, 3> DirtyScope{false, false, false}; // indexed by SettingScope
+
+    std::vector<Sub> Subs;
+    SubscriptionToken NextToken = 1;
+    std::unordered_set<std::string> Notifying; // re-entrancy guard (per key)
+    bool RestartPending = false;
 };
 
 Settings::Registry& Settings::Store()
@@ -128,21 +143,127 @@ Any ParseScalar(const Type* type, const std::string& s)
     return {};
 }
 
-// Shared type-checked write. Returns the mutable descriptor on success, else null.
-SettingDescriptor* CheckedWrite(const SettingDescriptor* d, std::string_view key,
-                                const Any& value, const char* who)
+template<class T>
+Any ClampScalar(const Any& v, const Any* mn, const Any* mx)
 {
-    if (d->ValueType && !value.IsEmpty()
-        && value.GetTypeId() != d->ValueType->Id)
-    {
-        SP_CORE_WARN_TAG("Settings", "{}: '{}' type mismatch", who, key);
-        return nullptr;
-    }
-    auto* m = const_cast<SettingDescriptor*>(d);
-    m->Write(value); // NOTE: clamp/validate + change-notify land in Settings 4
-    return m;
+    T val = *v.Cast<T>();
+    if (mn)
+        if (const T* m = mn->Cast<T>())
+            val = std::max(val, *m);
+    if (mx)
+        if (const T* m = mx->Cast<T>())
+            val = std::min(val, *m);
+    return Any(val);
+}
+
+template<class V>
+Any ClampVec(const Any& v, const Any* mn, const Any* mx)
+{
+    V val = *v.Cast<V>();
+    if (mn)
+        if (const V* m = mn->Cast<V>())
+            val = glm::max(val, *m);
+    if (mx)
+        if (const V* m = mx->Cast<V>())
+            val = glm::min(val, *m);
+    return Any(val);
+}
+
+// Clamp a value against the setting's Min/Max attributes (if present + matching
+// type). Supported: numeric scalars + glm vec2/3/4 (component-wise). Others pass
+// through unchanged.
+Any Clamp(const Any& v, const SettingDescriptor* d)
+{
+    const Any* mn = d->Attrs.Find(Setting::Attr::Min);
+    const Any* mx = d->Attrs.Find(Setting::Attr::Max);
+    if ((!mn && !mx) || !d->ValueType || v.IsEmpty())
+        return v;
+    const TypeId id = d->ValueType->Id;
+    if (id == TypeIdOf<s32>()) return ClampScalar<s32>(v, mn, mx);
+    if (id == TypeIdOf<u32>()) return ClampScalar<u32>(v, mn, mx);
+    if (id == TypeIdOf<s64>()) return ClampScalar<s64>(v, mn, mx);
+    if (id == TypeIdOf<u64>()) return ClampScalar<u64>(v, mn, mx);
+    if (id == TypeIdOf<f32>()) return ClampScalar<f32>(v, mn, mx);
+    if (id == TypeIdOf<f64>()) return ClampScalar<f64>(v, mn, mx);
+    if (id == TypeIdOf<glm::vec2>()) return ClampVec<glm::vec2>(v, mn, mx);
+    if (id == TypeIdOf<glm::vec3>()) return ClampVec<glm::vec3>(v, mn, mx);
+    if (id == TypeIdOf<glm::vec4>()) return ClampVec<glm::vec4>(v, mn, mx);
+    return v;
+}
+
+// Rough Any equality for change detection (avoids notifying on no-op writes).
+// Compares supported scalar/vec types by value; unknown types report "changed".
+bool AnyEquals(const Any& a, const Any& b)
+{
+    if (a.GetTypeId() != b.GetTypeId())
+        return false;
+    const TypeId id = a.GetTypeId();
+    if (id == TypeIdOf<bool>()) return *a.Cast<bool>() == *b.Cast<bool>();
+    if (id == TypeIdOf<s32>()) return *a.Cast<s32>() == *b.Cast<s32>();
+    if (id == TypeIdOf<u32>()) return *a.Cast<u32>() == *b.Cast<u32>();
+    if (id == TypeIdOf<s64>()) return *a.Cast<s64>() == *b.Cast<s64>();
+    if (id == TypeIdOf<u64>()) return *a.Cast<u64>() == *b.Cast<u64>();
+    if (id == TypeIdOf<f32>()) return *a.Cast<f32>() == *b.Cast<f32>();
+    if (id == TypeIdOf<f64>()) return *a.Cast<f64>() == *b.Cast<f64>();
+    if (id == TypeIdOf<std::string>())
+        return *a.Cast<std::string>() == *b.Cast<std::string>();
+    if (id == TypeIdOf<glm::vec2>()) return *a.Cast<glm::vec2>() == *b.Cast<glm::vec2>();
+    if (id == TypeIdOf<glm::vec3>()) return *a.Cast<glm::vec3>() == *b.Cast<glm::vec3>();
+    if (id == TypeIdOf<glm::vec4>()) return *a.Cast<glm::vec4>() == *b.Cast<glm::vec4>();
+    return false; // unknown type -> treat as changed
 }
 } // namespace
+
+void Settings::ApplyChange(const SettingDescriptor* d, const Any& value,
+                           bool markDirty, bool isRuntimeEdit)
+{
+    Registry& r = Store();
+    if (r.Notifying.count(d->Key))
+    {
+        SP_CORE_WARN_TAG("Settings", "re-entrant Set on '{}' ignored", d->Key);
+        return;
+    }
+
+    Any clamped = Clamp(value, d);
+    if (d->ValueType && !clamped.IsEmpty()
+        && clamped.GetTypeId() != d->ValueType->Id)
+    {
+        SP_CORE_WARN_TAG("Settings", "'{}' type mismatch", d->Key);
+        return;
+    }
+
+    Any old = d->Read();
+    if (AnyEquals(old, clamped))
+        return; // no-op: don't dirty, don't notify
+
+    auto* m = const_cast<SettingDescriptor*>(d);
+    m->Write(clamped);
+    if (markDirty && !d->CliOverridden)
+        MarkScopeDirty(d->Scope);
+
+    // RequiresRestart runtime edits persist (above) but take effect next launch.
+    if (isRuntimeEdit && d->HasFlag(SettingFlag_RequiresRestart))
+    {
+        r.RestartPending = true;
+        return; // no live notification
+    }
+
+    r.Notifying.insert(d->Key);
+    FireNotify(*d, old, clamped);
+    r.Notifying.erase(d->Key);
+}
+
+void Settings::FireNotify(const SettingDescriptor& d, const Any& oldValue,
+                          const Any& newValue)
+{
+    // Copy matching subscribers first so (un)subscribing inside a callback is safe.
+    std::vector<SettingChangeFn> fns;
+    for (const Registry::Sub& s : Store().Subs)
+        if (s.Key.empty() || s.Key == d.Key)
+            fns.push_back(s.Fn);
+    for (const SettingChangeFn& fn : fns)
+        fn(d, oldValue, newValue);
+}
 
 void Settings::SetAny(std::string_view key, const Any& value)
 {
@@ -160,8 +281,7 @@ void Settings::SetAny(std::string_view key, const Any& value)
     if (d->CliOverridden)
         return; // CLI override is authoritative; a user edit can't dislodge it
 
-    if (CheckedWrite(d, key, value, "SetAny"))
-        MarkScopeDirty(d->Scope); // user edit -> its scope needs saving
+    ApplyChange(d, value, /*markDirty*/ true, /*isRuntimeEdit*/ true);
 }
 
 void Settings::ApplyLoaded(std::string_view key, const Any& value)
@@ -171,7 +291,7 @@ void Settings::ApplyLoaded(std::string_view key, const Any& value)
         return; // unknown key in a file -> ignored (registry is the schema)
     if (d->CliOverridden)
         return; // a --set override outranks a loaded value
-    CheckedWrite(d, key, value, "ApplyLoaded"); // loaded, not edited: no dirty
+    ApplyChange(d, value, /*markDirty*/ false, /*isRuntimeEdit*/ false);
 }
 
 void Settings::ApplyCommandLineOverrides()
@@ -254,6 +374,51 @@ void Settings::SaveDirty(ISettingsStore& store)
     }
 }
 
+Settings::SubscriptionToken Settings::Subscribe(std::string_view key,
+                                                SettingChangeFn fn)
+{
+    Registry& r = Store();
+    SubscriptionToken t = r.NextToken++;
+    r.Subs.push_back({t, std::string(key), std::move(fn)});
+    return t;
+}
+
+Settings::SubscriptionToken Settings::SubscribeAll(SettingChangeFn fn)
+{
+    Registry& r = Store();
+    SubscriptionToken t = r.NextToken++;
+    r.Subs.push_back({t, std::string(), std::move(fn)});
+    return t;
+}
+
+void Settings::Unsubscribe(SubscriptionToken token)
+{
+    Registry& r = Store();
+    std::erase_if(r.Subs,
+                  [token](const Registry::Sub& s) { return s.Token == token; });
+}
+
+bool Settings::IsRestartPending()
+{
+    return Store().RestartPending;
+}
+
+void Settings::ResetToDefault(std::string_view key)
+{
+    const SettingDescriptor* d = Find(key);
+    if (!d)
+    {
+        SP_CORE_WARN_TAG("Settings", "ResetToDefault: unknown '{}'", key);
+        return;
+    }
+    if (d->DefaultValue.IsEmpty())
+    {
+        SP_CORE_WARN_TAG("Settings", "ResetToDefault: '{}' has no default", key);
+        return;
+    }
+    SetAny(key, d->DefaultValue); // validated + notified + dirtied like any edit
+}
+
 void Settings::Clear()
 {
     Registry& r = Store();
@@ -261,6 +426,10 @@ void Settings::Clear()
     r.AllList.clear();
     r.Owned.clear();
     r.DirtyScope = {false, false, false};
+    r.Subs.clear();
+    r.Notifying.clear();
+    r.RestartPending = false;
+    r.NextToken = 1;
 }
 
 } // namespace Seraph
