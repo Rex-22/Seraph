@@ -88,7 +88,7 @@ namespace RefUtils {
 		static Ref<T> CopyWithoutIncrement(const Ref<T>& other)
 		{
 			Ref<T> result = nullptr;
-			result->m_Instance = other.m_Instance;
+			result.m_Instance = other.m_Instance;
 			return result;
 		}
 
