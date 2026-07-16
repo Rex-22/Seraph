@@ -62,12 +62,14 @@ AssetInfo BuildAssetInfo(AssetHandle handle)
 
     info.MemoryFootprint = asset->GetMemoryFootprint();
 
-    if (Ref<Texture2D> texture = asset.As<Texture2D>()) {
+    if (asset->GetAssetType() == Texture2D::GetStaticType()) {
+        Ref<Texture2D> texture = asset.As<Texture2D>();
         info.Fields.emplace_back(
             "Dimensions",
             std::to_string(texture->Width()) + " x " + std::to_string(texture->Height()));
         info.Fields.emplace_back("Format", "RGBA8");
-    } else if (Ref<Mesh> mesh = asset.As<Mesh>()) {
+    } else if (asset->GetAssetType() == Mesh::GetStaticType()) {
+        Ref<Mesh> mesh = asset.As<Mesh>();
         info.Fields.emplace_back("Vertices", std::to_string(mesh->VertexCount()));
         info.Fields.emplace_back("Indices", std::to_string(mesh->IndexCount()));
         info.Fields.emplace_back("Triangles", std::to_string(mesh->IndexCount() / 3));

@@ -10,13 +10,12 @@
 
 #pragma once
 
+#include "Seraph/Asset/Asset.h"
 #include "Seraph/Asset/AssetHandle.h"
 #include "Seraph/Core/Ref.h"
 
 namespace Seraph
 {
-
-class Asset;
 
 class AssetRef
 {
@@ -47,6 +46,8 @@ public:
     {
         Ref<Asset> asset = Get();
         if (!asset)
+            return nullptr;
+        if (asset->GetAssetType() != T::GetStaticType())
             return nullptr;
         return asset.As<T>();
     }
