@@ -4,34 +4,41 @@
 
 #include "Asset.h"
 
-#include "Seraph/Core/BiMap.h"
+#include "Seraph/Reflection/Reflect.h"
+#include "Seraph/Reflection/Reflection.h"
 
 namespace Seraph
 {
 
-static const BiMap<std::string_view, AssetType>& Registry()
-{
-    static BiMap<std::string_view, AssetType> s_Registry {
-        {"None", AssetType::None},
-        {"Mesh", AssetType::Mesh},
-        {"Material", AssetType::Material},
-        {"MaterialInstance", AssetType::MaterialInstance},
-        {"Texture2D", AssetType::Texture2D},
-        {"Shader", AssetType::Shader},
-        {"Scene", AssetType::Scene},
-    };
-    return s_Registry;
-}
-
-
 std::string_view AssetTypeToString(const AssetType type)
 {
-    return Registry().GetLeft(type).value_or("None");
+    // Delegates to reflection (migrated off BiMap). Falls back to "None" if the
+    // enum isn't registered or the value is unknown — preserving the original
+    // value_or("None") behaviour.
+    if (const Type* t = Reflection::TryGet<AssetType>())
+        if (auto name = EnumToString(*t, static_cast<s64>(type)))
+            return *name;
+    return "None";
 }
 
 AssetType AssetTypeFromString(const std::string_view type)
 {
-    return Registry().GetRight(type).value_or(AssetType::None);
+    if (const Type* t = Reflection::TryGet<AssetType>())
+        if (auto value = EnumFromString(*t, type))
+            return static_cast<AssetType>(*value);
+    return AssetType::None;
 }
 
 } // namespace Seraph
+
+// Reflected enum: labels match the historical BiMap keys exactly, so on-disk
+// asset-registry (.srr) data round-trips unchanged.
+SP_REFLECT_ENUM(Seraph::AssetType)
+    .Value("None", Seraph::AssetType::None)
+    .Value("Mesh", Seraph::AssetType::Mesh)
+    .Value("Material", Seraph::AssetType::Material)
+    .Value("MaterialInstance", Seraph::AssetType::MaterialInstance)
+    .Value("Texture2D", Seraph::AssetType::Texture2D)
+    .Value("Shader", Seraph::AssetType::Shader)
+    .Value("Scene", Seraph::AssetType::Scene)
+SP_REFLECT_ENUM_END();

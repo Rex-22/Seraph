@@ -1,6 +1,7 @@
 #include "MaterialRenderState.h"
 
-#include "Seraph/Core/BiMap.h"
+#include "Seraph/Reflection/Reflect.h"
+#include "Seraph/Reflection/Reflection.h"
 
 #include <bgfx/bgfx.h>
 
@@ -45,28 +46,24 @@ u64 DepthBits(DepthTest test)
     }
 }
 
-const BiMap<std::string_view, BlendMode>& BlendNames()
+// Enum <-> string via reflection (migrated off BiMap). Fall back to the enum's
+// default on unknown input, preserving the original value_or behaviour.
+template<class E>
+std::string_view EnumName(E value, const char* fallback)
 {
-    static const BiMap<std::string_view, BlendMode> s{
-        {"Opaque", BlendMode::Opaque}, {"AlphaBlend", BlendMode::AlphaBlend},
-        {"Additive", BlendMode::Additive}, {"Multiply", BlendMode::Multiply}};
-    return s;
+    if (const Type* t = Reflection::TryGet<E>())
+        if (auto name = EnumToString(*t, static_cast<s64>(value)))
+            return *name;
+    return fallback;
 }
 
-const BiMap<std::string_view, CullMode>& CullNames()
+template<class E>
+E EnumValue(std::string_view s, E fallback)
 {
-    static const BiMap<std::string_view, CullMode> s{
-        {"Back", CullMode::Back}, {"Front", CullMode::Front}, {"None", CullMode::None}};
-    return s;
-}
-
-const BiMap<std::string_view, DepthTest>& DepthNames()
-{
-    static const BiMap<std::string_view, DepthTest> s{
-        {"Greater", DepthTest::Greater}, {"GreaterEqual", DepthTest::GreaterEqual},
-        {"Less", DepthTest::Less}, {"LessEqual", DepthTest::LessEqual},
-        {"Always", DepthTest::Always}, {"Disabled", DepthTest::Disabled}};
-    return s;
+    if (const Type* t = Reflection::TryGet<E>())
+        if (auto v = EnumFromString(*t, s))
+            return static_cast<E>(*v);
+    return fallback;
 }
 
 } // namespace
@@ -84,11 +81,35 @@ u64 MaterialRenderState::ToBgfxState() const
     return state;
 }
 
-std::string_view BlendModeToString(BlendMode mode) { return BlendNames().GetLeft(mode).value_or("Opaque"); }
-BlendMode BlendModeFromString(std::string_view s) { return BlendNames().GetRight(s).value_or(BlendMode::Opaque); }
-std::string_view CullModeToString(CullMode mode) { return CullNames().GetLeft(mode).value_or("Back"); }
-CullMode CullModeFromString(std::string_view s) { return CullNames().GetRight(s).value_or(CullMode::Back); }
-std::string_view DepthTestToString(DepthTest test) { return DepthNames().GetLeft(test).value_or("Greater"); }
-DepthTest DepthTestFromString(std::string_view s) { return DepthNames().GetRight(s).value_or(DepthTest::Greater); }
+std::string_view BlendModeToString(BlendMode mode) { return EnumName(mode, "Opaque"); }
+BlendMode BlendModeFromString(std::string_view s) { return EnumValue(s, BlendMode::Opaque); }
+std::string_view CullModeToString(CullMode mode) { return EnumName(mode, "Back"); }
+CullMode CullModeFromString(std::string_view s) { return EnumValue(s, CullMode::Back); }
+std::string_view DepthTestToString(DepthTest test) { return EnumName(test, "Greater"); }
+DepthTest DepthTestFromString(std::string_view s) { return EnumValue(s, DepthTest::Greater); }
 
 } // namespace Seraph
+
+// Reflected enums: labels match the historical BiMap keys exactly so .smaterial
+// render-state data round-trips unchanged.
+SP_REFLECT_ENUM(Seraph::BlendMode)
+    .Value("Opaque", Seraph::BlendMode::Opaque)
+    .Value("AlphaBlend", Seraph::BlendMode::AlphaBlend)
+    .Value("Additive", Seraph::BlendMode::Additive)
+    .Value("Multiply", Seraph::BlendMode::Multiply)
+SP_REFLECT_ENUM_END();
+
+SP_REFLECT_ENUM(Seraph::CullMode)
+    .Value("Back", Seraph::CullMode::Back)
+    .Value("Front", Seraph::CullMode::Front)
+    .Value("None", Seraph::CullMode::None)
+SP_REFLECT_ENUM_END();
+
+SP_REFLECT_ENUM(Seraph::DepthTest)
+    .Value("Greater", Seraph::DepthTest::Greater)
+    .Value("GreaterEqual", Seraph::DepthTest::GreaterEqual)
+    .Value("Less", Seraph::DepthTest::Less)
+    .Value("LessEqual", Seraph::DepthTest::LessEqual)
+    .Value("Always", Seraph::DepthTest::Always)
+    .Value("Disabled", Seraph::DepthTest::Disabled)
+SP_REFLECT_ENUM_END();
