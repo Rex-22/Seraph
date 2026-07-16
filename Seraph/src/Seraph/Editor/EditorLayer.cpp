@@ -212,6 +212,7 @@ void EditorLayer::DrawMenuBar()
     {
         ImGui::MenuItem("Physics Colliders", nullptr,
             &m_SceneRenderer->GetSettings().ShowPhysicsColliders);
+        ImGui::MenuItem("Settings", nullptr, m_SettingsPanel.OpenFlag());
         ImGui::EndMenu();
     }
 
@@ -507,6 +508,8 @@ void EditorLayer::OnImGuiRender()
         m_MaterialEditor.OnImGuiRender();
 
         m_AssetBrowser.OnImGuiRender();
+
+        m_SettingsPanel.OnImGuiRender();
 
         DrawCreateShaderPopup();
 

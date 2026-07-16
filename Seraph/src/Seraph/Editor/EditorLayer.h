@@ -20,6 +20,7 @@
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
 #include "Seraph/Editor/Panels/EntityInspectorPanel.h"
 #include "Seraph/Editor/Panels/MaterialEditorPanel.h"
+#include "Seraph/Editor/Panels/SettingsPanel.h"
 #include "Seraph/Editor/Panels/ViewportPanel.h"
 #include "Seraph/Graphics/RenderTarget.h"
 #include "Seraph/Graphics/SceneRenderer.h"
@@ -117,6 +118,7 @@ private:
     EntityInspectorPanel m_EntityInspector;
     MaterialEditorPanel  m_MaterialEditor;
     AssetBrowserPanel    m_AssetBrowser;
+    SettingsPanel        m_SettingsPanel;
     EditorGizmo          m_Gizmo;
     RenderTarget         m_RenderTarget;
 

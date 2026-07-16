@@ -54,6 +54,7 @@ inline constexpr u64 Max = AttributeKey("settings.max");
 inline constexpr u64 Step = AttributeKey("settings.step");
 inline constexpr u64 EnumLabels = AttributeKey("settings.enumlabels");
 inline constexpr u64 Flags = AttributeKey("settings.flags");
+inline constexpr u64 Color = AttributeKey("settings.color"); // vec3/vec4 -> color picker
 } // namespace Setting::Attr
 
 struct SettingDescriptor

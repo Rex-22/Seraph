@@ -120,6 +120,12 @@ public:
         m_D->Attrs.Set(Setting::Attr::Flags, Any(flags));
         return *this;
     }
+    // Hint a vec3/vec4 value to render as a color picker.
+    SettingBuilder& AsColor()
+    {
+        m_D->Attrs.Set(Setting::Attr::Color, Any(true));
+        return *this;
+    }
 
     [[nodiscard]] SettingDescriptor* Descriptor() const { return m_D; }
 
