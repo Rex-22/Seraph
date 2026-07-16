@@ -6,8 +6,9 @@
 //
 //     AssetManager::Init(Ref<RuntimeAssetManager>::Create("assets.pack"));
 //
-// Loads are synchronous (a pack read is a fast local memory copy); the async
-// controls satisfy the interface but do not defer work.
+// Loads are synchronous (a pack read is a fast local memory copy); async is
+// unsupported, so the base's no-op async controls apply (IsAsyncEnabled() is
+// always false).
 //
 
 #pragma once
@@ -44,10 +45,7 @@ public:
     bool ReloadData(AssetHandle handle) override;
     std::unordered_set<AssetHandle> GetAllAssetsOfType(AssetType type) override;
 
-    // Loads are synchronous; the toggle is stored for API parity only.
-    void SetAsyncEnabled(bool enabled) override { m_AsyncEnabled = enabled; }
-    [[nodiscard]] bool IsAsyncEnabled() const override { return m_AsyncEnabled; }
-    void SyncFinalizeMainThread() override {}
+    // Async is unsupported; the base's no-op controls apply.
 
 private:
     Ref<Asset> LoadFromPack(AssetHandle handle, const AssetMetadata& metadata);
@@ -58,8 +56,6 @@ private:
     std::unordered_map<AssetHandle, Ref<Asset>> m_MemoryAssets;
     std::unordered_map<AssetHandle, AssetStatus> m_Status;
     mutable std::shared_mutex m_Mutex;
-
-    bool m_AsyncEnabled = false;
 };
 
 } // namespace Seraph

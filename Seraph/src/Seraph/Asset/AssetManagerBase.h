@@ -39,11 +39,15 @@ public:
     virtual std::unordered_set<AssetHandle> GetAllAssetsOfType(AssetType type) = 0;
 
     // --- Async control -----------------------------------------------------
-    virtual void SetAsyncEnabled(bool enabled) = 0;
-    [[nodiscard]] virtual bool IsAsyncEnabled() const = 0;
+    // Default: async unsupported. A synchronous manager loads on the calling
+    // thread, so enabling async has no effect and IsAsyncEnabled() stays false.
+    // Managers that support background loading (EditorAssetManager) override all
+    // three.
+    virtual void SetAsyncEnabled(bool /*enabled*/) {}
+    [[nodiscard]] virtual bool IsAsyncEnabled() const { return false; }
     // Pump completed async loads on the main thread (runs GPU finalize). Safe to
-    // call every frame; a no-op when nothing is pending.
-    virtual void SyncFinalizeMainThread() = 0;
+    // call every frame; a no-op when nothing is pending or async is unsupported.
+    virtual void SyncFinalizeMainThread() {}
 };
 
 } // namespace Seraph
