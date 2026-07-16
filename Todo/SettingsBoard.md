@@ -180,6 +180,7 @@ The Project/Engine Settings window: left category pane built from `Section` attr
 
 **Subtasks:**
 - [ ] Section grouping, search filter, per-setting reset, scope chip, restart badge, readonly disable; View menu toggle. NEEDS visual confirm
+- [ ] Visually confirmed in editor: Physics section renders, editing + persist both work (user-confirmed)
 
 ---
 

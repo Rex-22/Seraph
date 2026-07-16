@@ -379,25 +379,113 @@ Parking ticket for out-of-scope reflection work. Promote items to real tasks whe
 - **Priority:** Low
 
 **Description:**
-Flip SeraphHeaderTool from opt-in (SERAPH_BUILD_HEADER_TOOL default OFF) to always-on in the default build, making libclang a required build dependency, and delete the hand-written registrations that only exist because SHT is optional.
+Flip SeraphHeaderTool from opt-in (SERAPH\_BUILD\_HEADER\_TOOL default OFF) to always-on in the default build, making libclang a required build dependency, and delete the hand-written registrations that only exist because SHT is optional.
 
 ## Why
+
 While SHT is opt-in, load-bearing registrations must be hand-written so the default (no-libclang) build still registers them. Example: `MaterialParameter.cpp`'s `SP_REFLECT_ENUM(MaterialParameterType)` — `MaterialParameterTypeToString/FromString` delegate to reflection and fall back to "Float" if the enum isn't registered, so removing it without SHT-on would corrupt material serialization. This is the "hand-registration opt-out" documented in reflection-plan.md.
 
 ## Scope
-- Make libclang a required dependency: default `SERAPH_BUILD_HEADER_TOOL=ON` (or remove the option), with a clear CMake error if libclang is missing (per-platform acquisition already documented in Tools/SeraphHeaderTool/README.md).
-- Ensure CI / all three platforms (mac/Linux/Windows) have libclang available.
-- Annotate the currently hand-registered types and delete their manual blocks:
-  - `MaterialParameterType` (enum) -> `SENUM()`, delete SP_REFLECT_ENUM block in MaterialParameter.cpp
-  - `ScriptableEntity` -> annotate + SP_REFLECT hook (or keep hand-written if intrusive-root is special) and delete manual block in ScriptableEntity.cpp
-- Verify no double-registration (generated + hand-written) remains; the drift guard stays green.
-- Update docs/reflection-system.md (drop "opt-in", note libclang now required) and reflection-plan.md.
+
+* Make libclang a required dependency: default `SERAPH_BUILD_HEADER_TOOL=ON` (or remove the option), with a clear CMake error if libclang is missing (per-platform acquisition already documented in Tools/SeraphHeaderTool/README.md).
+* Ensure CI / all three platforms (mac/Linux/Windows) have libclang available.
+* Annotate the currently hand-registered types and delete their manual blocks:
+  * `MaterialParameterType` (enum) -> `SENUM()`, delete SP\_REFLECT\_ENUM block in MaterialParameter.cpp
+  * `ScriptableEntity` -> annotate + SP\_REFLECT hook (or keep hand-written if intrusive-root is special) and delete manual block in ScriptableEntity.cpp
+  * Any other places this was used or could be used
+* Verify no double-registration (generated + hand-written) remains; the drift guard stays green.
+* Update docs/reflection-system.md (drop "opt-in", note libclang now required) and reflection-plan.md.
 
 ## Risks / notes
-- Hard libclang dependency raises the barrier to building the engine (the reason it's opt-in today). Confirm this is desired before flipping.
-- Alternative if we don't want a hard dependency: keep hand-registrations #ifndef-guarded so they compile only when SHT is off (dual-path). Decide between "SHT mandatory" vs "dual-path" here.
+
+* Hard libclang dependency raises the barrier to building the engine (the reason it's opt-in today). Confirm this is desired before flipping.
+* Alternative if we don't want a hard dependency: keep hand-registrations #ifndef-guarded so they compile only when SHT is off (dual-path). Decide between "SHT mandatory" vs "dual-path" here.
 
 ## Documentation
-- Todo/plans/reflection-plan.md (SHT section), docs/reflection-system.md
+
+* Todo/plans/reflection-plan.md (SHT section), docs/reflection-system.md
+
+---
+
+### 14. Reflection v2.1 — AssetHandle + enum-member property support
+- **Status:** Review
+- **Completed:** false
+- **Priority:** High
+
+**Description:**
+Foundation for the inspector/serializer migrations: reflect AssetHandle, and make enum-typed struct members reflectable through Any.
+
+## Scope
+- Register `AssetHandle` (UUID) as a reflected type so `.Property<&T::SomeHandle>` works and consumers can special-case it (AssetPicker widget, UUID serialization) via `id == TypeIdOf<AssetHandle>()`.
+- Enum members: `TypeBuilder::Property<&T::EnumMember>` detects `std::is_enum_v<M>`, generates Get/Set thunks that convert to/from **s64** in the Any, and sets `PropType` to the member's reflected enum Type (requires the enum registered via SP_REFLECT_ENUM). This is what lets components' enum fields (CameraComponent projection, RigidBody type) round-trip without the Any-enum-extraction gap.
+- Update PropertyDrawer: enum property (PropType->Kind==Enum, value is s64) -> Combo over EnumInfo labels; AssetHandle -> (v1) show handle / hook AssetPicker later.
+
+## Acceptance
+- Reflect a struct with an AssetHandle field + an enum field; get/set both through the facade; enum round-trips as label; harness passes; libSeraph builds.
+
+**Subtasks:**
+- [ ] UUID/AssetHandle built-in; Property<&T::Enum> -> s64-in-Any + enum PropType; drawer Combo + AssetHandle widget; harness pass, full build
+
+---
+
+### 15. Reflection v2.2 — Container (vector) property support
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Reflect std::vector<E> members: add ContainerInfo (element Type + Size/GetElement/SetElement/Resize thunks), a TypeKind::Container, auto-register the container Type when a vector property is registered. Needed for components like RelationshipComponent (vector<UUID> children). Drawer renders a resizable list of element widgets.
+
+**Subtasks:**
+- [ ] TypeKind::Container + ContainerInfo + Property::GetAddress; vector<E> auto-registers; Size/Get/Set/Resize verified on live vector (s32+UUID); harness pass, full build
+
+---
+
+### 16. Reflection v2.3 — Method reflection + invocation
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Register invocable methods on a Type (MethodInfo: name, return Type, param Types, type-erased Invoke via Any args). Enables editor buttons and future script-method exposure. .Method<&T::Fn>("Name") builder.
+
+**Subtasks:**
+- [ ] MethodInfo + .Method<&T::Fn>() (const/non-const, void/return, Any args); Invoke verified; harness pass, full build
+
+---
+
+### 17. Reflection v2.4 — Constructor/factory reflection
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Register a default-construct factory on a Type (returns a new instance, e.g. as Any or void*). Lets a reflected type be instantiated by name/TypeId. Path toward ScriptRegistry::Create becoming "instantiate a reflected ScriptableEntity type" — evaluate subsuming ScriptRegistry here.
+
+**Subtasks:**
+- [ ] Type::DefaultConstruct (Any factory) auto-set for default+copy-constructible reflected types; harness pass. ScriptRegistry subsumption evaluated + deferred (needs polymorphic base-ptr factory + hot-reload)
+
+---
+
+### 18. Reflection v2.5 — Migrate remaining BiMap enum sites
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Low
+
+**Description:**
+Migrate the remaining BiMap enum<->string sites (Asset.cpp AssetType, MaterialRenderState BlendMode/CullMode/DepthTest, SceneSerializer ProjectionType) to SP_REFLECT_ENUM, keeping exact legacy strings so serialization is unchanged. Reflection 6 proved the pattern on MaterialParameterType.
+
+**Subtasks:**
+- [ ] Migrated AssetType (Asset.cpp) + BlendMode/CullMode/DepthTest (MaterialRenderState.cpp) off BiMap; exact legacy strings verified (all-value round-trip + fallback); full build
+
+---
+
+### 19. Reflection v2.6 — Migrate EntityInspectorPanel onto PropertyDrawer
+- **Status:** Todo
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Reflect the ECS component set and replace the hand-written DrawXComponent methods in EntityInspectorPanel with reflection-driven PropertyDrawer walks. Needs v2.1 (AssetHandle+enum) and v2.2 (containers). Keep bespoke widgets (DrawVec3Control colored row, AssetPicker) as attribute-driven special cases. Depends on components being reflected.
 
 ---
