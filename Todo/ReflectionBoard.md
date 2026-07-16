@@ -372,3 +372,32 @@ Parking ticket for out-of-scope reflection work. Promote items to real tasks whe
 - `Todo/plans/reflection-plan.md` (deferred section)
 
 ---
+
+### 13. Make SHT mandatory in default builds (retire hand-registrations)
+- **Status:** Deferred
+- **Completed:** false
+- **Priority:** Low
+
+**Description:**
+Flip SeraphHeaderTool from opt-in (SERAPH_BUILD_HEADER_TOOL default OFF) to always-on in the default build, making libclang a required build dependency, and delete the hand-written registrations that only exist because SHT is optional.
+
+## Why
+While SHT is opt-in, load-bearing registrations must be hand-written so the default (no-libclang) build still registers them. Example: `MaterialParameter.cpp`'s `SP_REFLECT_ENUM(MaterialParameterType)` — `MaterialParameterTypeToString/FromString` delegate to reflection and fall back to "Float" if the enum isn't registered, so removing it without SHT-on would corrupt material serialization. This is the "hand-registration opt-out" documented in reflection-plan.md.
+
+## Scope
+- Make libclang a required dependency: default `SERAPH_BUILD_HEADER_TOOL=ON` (or remove the option), with a clear CMake error if libclang is missing (per-platform acquisition already documented in Tools/SeraphHeaderTool/README.md).
+- Ensure CI / all three platforms (mac/Linux/Windows) have libclang available.
+- Annotate the currently hand-registered types and delete their manual blocks:
+  - `MaterialParameterType` (enum) -> `SENUM()`, delete SP_REFLECT_ENUM block in MaterialParameter.cpp
+  - `ScriptableEntity` -> annotate + SP_REFLECT hook (or keep hand-written if intrusive-root is special) and delete manual block in ScriptableEntity.cpp
+- Verify no double-registration (generated + hand-written) remains; the drift guard stays green.
+- Update docs/reflection-system.md (drop "opt-in", note libclang now required) and reflection-plan.md.
+
+## Risks / notes
+- Hard libclang dependency raises the barrier to building the engine (the reason it's opt-in today). Confirm this is desired before flipping.
+- Alternative if we don't want a hard dependency: keep hand-registrations #ifndef-guarded so they compile only when SHT is off (dual-path). Decide between "SHT mandatory" vs "dual-path" here.
+
+## Documentation
+- Todo/plans/reflection-plan.md (SHT section), docs/reflection-system.md
+
+---
