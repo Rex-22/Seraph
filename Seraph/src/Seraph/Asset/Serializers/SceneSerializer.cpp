@@ -15,6 +15,7 @@
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
+#include "Seraph/Scene/CopyableComponents.h"
 #include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Scripts/ScriptComponent.h"
@@ -25,12 +26,48 @@
 
 #include <algorithm>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace Seraph
 {
 namespace
 {
+
+// --- Serialization completeness guard ------------------------------------
+// Emit/parse are hand-written per component, so a component that becomes part
+// of a scene without matching blocks here silently fails to persist — the bug
+// class fixed in commit 5f94d22 ("scripts not serialized"). This compile-time
+// guard trips when a CopyableComponents type is missing from the serialized
+// set below, forcing whoever adds the component to wire up SerializeEntity /
+// LoadData too.
+template<typename... Ts>
+struct SerializedComponentList
+{
+    template<typename U>
+    static constexpr bool Contains = (std::is_same_v<U, Ts> || ...);
+};
+
+// Every component type SceneSerializer persists. Keep in sync with the emit
+// blocks in SerializeEntity and the parse blocks in LoadData.
+using SerializedComponents = SerializedComponentList<
+    TagComponent, TransformComponent, MeshComponent, CameraComponent,
+    RigidBodyComponent, BoxColliderComponent, SphereColliderComponent,
+    CapsuleColliderComponent, RelationshipComponent, ScriptComponent>;
+
+template<typename Registry>
+struct AllCopyablesSerialized;
+
+template<typename... Cs>
+struct AllCopyablesSerialized<TypeRegistry<Cs...>>
+{
+    static constexpr bool value = (SerializedComponents::template Contains<Cs> && ...);
+};
+
+static_assert(AllCopyablesSerialized<CopyableComponents>::value,
+    "A CopyableComponents type has no SceneSerializer support. Add its emit "
+    "block to SerializeEntity and its parse block to LoadData, then list it in "
+    "SerializedComponents.");
 
 YAML::Emitter& operator<<(YAML::Emitter& emitter, const glm::vec3& v)
 {
@@ -244,13 +281,15 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
             if (const YAML::Node m = node["Mesh"]) {
                 auto& mc = entity.AddComponent<MeshComponent>();
                 auto handle = m["Mesh"].as<AssetHandle>(0);
-                if (AssetManager::IsAssetHandleValid(handle))
-                {
-                    mc.Mesh = handle;
-                } else {
-                    SP_CORE_ERROR_TAG("SceneSerializer", "Missing asset {}", handle);
-                    mc.Mesh = 0;
-                }
+                // Keep the authored handle even when it does not currently
+                // resolve: a transiently-missing asset (not yet imported, or a
+                // load-order gap) must not be permanently dropped on the next
+                // save. Resolution through AssetRef safely yields null meanwhile.
+                if (handle != c_NullAssetHandle && !AssetManager::IsAssetHandleValid(handle))
+                    SP_CORE_WARN_TAG("SceneSerializer",
+                        "Mesh asset {} not found; keeping the reference for later resolution",
+                        handle);
+                mc.Mesh = handle;
 
                 if (const YAML::Node overrides = m["MaterialOverrides"];
                     overrides && overrides.IsSequence())
