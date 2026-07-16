@@ -29,7 +29,14 @@ namespace Seraph
 {
 
 inline constexpr char c_PackMagic[4] = {'S', 'P', 'A', 'K'};
-inline constexpr u32 c_PackVersion = 1;
+// v2 added per-asset CRC32 integrity checks; v1 packs (no CRC) are rejected and
+// must be rebuilt. The format is a same-machine build artifact, so bumping the
+// version rather than staying backward-compatible is fine.
+inline constexpr u32 c_PackVersion = 2;
+
+// CRC32 (IEEE 802.3, poly 0xEDB88320) over `size` bytes. Used for the per-asset
+// integrity field written by the builder and verified on read.
+u32 PackCrc32(const void* data, u64 size);
 
 struct PackHeader
 {
@@ -46,7 +53,7 @@ struct PackTocEntry
     u64 Handle = 0;           // AssetHandle
     u16 Type = 0;             // AssetType
     u16 Flags = 0;            // reserved (e.g. compression bit)
-    u32 Crc32 = 0;            // optional integrity check
+    u32 Crc32 = 0;            // CRC32 of the stored bytes, verified on read
     u64 Offset = 0;           // relative to PackHeader::BlobOffset
     u64 Size = 0;             // stored (possibly compressed) size
     u64 UncompressedSize = 0; // reserved for future compression

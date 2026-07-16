@@ -40,6 +40,7 @@ bool AssetPackBuilder::Build(
         PackTocEntry entry;
         entry.Handle = static_cast<u64>(metadata.Handle);
         entry.Type = static_cast<u16>(metadata.Type);
+        entry.Crc32 = PackCrc32(bytes.Data(), bytes.Size());
         entry.Offset = blobCursor;
         entry.Size = bytes.Size();
         entry.UncompressedSize = bytes.Size();

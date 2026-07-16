@@ -3,10 +3,31 @@
 #include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
 
+#include <array>
 #include <cstring>
 
 namespace Seraph
 {
+
+u32 PackCrc32(const void* data, u64 size)
+{
+    static const std::array<u32, 256> table = [] {
+        std::array<u32, 256> t{};
+        for (u32 i = 0; i < 256; ++i) {
+            u32 c = i;
+            for (int k = 0; k < 8; ++k)
+                c = (c & 1u) ? (0xEDB88320u ^ (c >> 1)) : (c >> 1);
+            t[i] = c;
+        }
+        return t;
+    }();
+
+    u32 crc = 0xFFFFFFFFu;
+    const auto* p = static_cast<const u8*>(data);
+    for (u64 i = 0; i < size; ++i)
+        crc = table[(crc ^ p[i]) & 0xFFu] ^ (crc >> 8);
+    return crc ^ 0xFFFFFFFFu;
+}
 
 bool AssetPack::Load(const std::filesystem::path& path)
 {
@@ -81,6 +102,16 @@ bool AssetPack::ReadAsset(AssetHandle handle, Buffer& out) const
     const u64 start = m_Header.BlobOffset + entry.Offset;
     if (start + entry.Size > m_Data.size())
         return false;
+
+    // Integrity check: the stored bytes must match the CRC recorded at build
+    // time, catching on-disk corruption before the bytes reach a serializer.
+    const u32 crc = PackCrc32(m_Data.data() + start, entry.Size);
+    if (crc != entry.Crc32) {
+        SP_CORE_ERROR_TAG(
+            "Asset Pack", "CRC mismatch for asset {} (got {:#x}, expected {:#x})",
+            entry.Handle, crc, entry.Crc32);
+        return false;
+    }
 
     out = Buffer::Copy(m_Data.data() + start, entry.Size);
     return static_cast<bool>(out) || entry.Size == 0;
