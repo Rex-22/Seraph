@@ -51,3 +51,16 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/vendor/JoltPhysics/Build
 # Repo convention. Real include/define propagation comes from linking `Jolt`.
 set(JOLT_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/vendor/JoltPhysics CACHE PATH   "Jolt include directory")
 set(JOLT_LIBRARIES   Jolt                                   CACHE STRING "Jolt library")
+
+# The subset of Jolt's PUBLIC defines that change ABI (struct layout / vtables),
+# so ANY external consumer that includes a Jolt header — a Game module built via
+# the SDK — MUST compile with them to match the libSeraph it links. Derived from
+# the toggles above so it can never drift from what libSeraph was built with; the
+# root CMake bakes it into SeraphConfig.cmake's INTERFACE_COMPILE_DEFINITIONS.
+set(SERAPH_JOLT_ABI_DEFINITIONS "JPH_OBJECT_LAYER_BITS=${OBJECT_LAYER_BITS}")
+if (DEBUG_RENDERER_IN_DEBUG_AND_RELEASE)
+    list(APPEND SERAPH_JOLT_ABI_DEFINITIONS "JPH_DEBUG_RENDERER")
+endif ()
+if (DOUBLE_PRECISION)
+    list(APPEND SERAPH_JOLT_ABI_DEFINITIONS "JPH_DOUBLE_PRECISION")
+endif ()

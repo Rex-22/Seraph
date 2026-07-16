@@ -24,7 +24,10 @@ if(NOT TARGET Seraph::Seraph)
         # Jolt-free physics headers, etc.). GLM_ENABLE_EXPERIMENTAL is required by
         # TransformComponent.h's <glm/gtx/...> includes.
         INTERFACE_INCLUDE_DIRECTORIES "@SERAPH_SDK_INCLUDE_DIRS@"
-        INTERFACE_COMPILE_DEFINITIONS "GLM_ENABLE_EXPERIMENTAL;GLM_FORCE_DEPTH_ZERO_TO_ONE")
+        # GLM config + the ABI-affecting Jolt defines (JPH_DEBUG_RENDERER,
+        # JPH_OBJECT_LAYER_BITS, ...) so a Game module that includes a Jolt-backed
+        # header matches the libSeraph it links. See root CMakeLists.
+        INTERFACE_COMPILE_DEFINITIONS "@SERAPH_SDK_COMPILE_DEFINITIONS@")
     # Windows links the DLL through its import library.
     if(WIN32)
         set_target_properties(Seraph::Seraph PROPERTIES
