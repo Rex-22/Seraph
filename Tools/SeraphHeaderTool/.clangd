@@ -1,0 +1,9 @@
+# SeraphHeaderTool links libclang's C API against pinned, vendored clang-c/
+# headers. Point clangd at them so the editor resolves <clang-c/Index.h> and the
+# CX* types (otherwise the IDE flags false "file not found" / "unknown type"
+# errors — the CMake build passes -Ivendor and compiles clean).
+CompileFlags:
+  Add:
+    - -std=c++20
+    - -I../../Tools/SeraphHeaderTool/vendor
+    - -Ivendor

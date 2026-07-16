@@ -75,3 +75,16 @@ target_link_libraries(${PROJECT} PUBLIC
 if (APPLE)
     target_link_libraries(${PROJECT} PUBLIC "-framework CoreServices")
 endif ()
+
+# Reflection code-gen. When SeraphHeaderTool is enabled, generate runtime
+# reflection registrations from the SPROPERTY/SCLASS annotations in these headers
+# (the generated .gen.cpp is compiled into libSeraph and self-registers at load).
+# When OFF, these types simply aren't reflected — no libclang dependency. Types
+# with hand-written registration (ScriptableEntity, MaterialParameterType) are
+# NOT listed here: they demonstrate the hand-registration opt-out coexisting with
+# generated types. See cmake/sht.cmake and Todo/plans/reflection-plan.md.
+if (SERAPH_BUILD_HEADER_TOOL)
+    include(${CMAKE_SOURCE_DIR}/cmake/sht.cmake)
+    sht_reflect(${PROJECT} HEADERS
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Seraph/Physics/PhysicsSettings.h)
+endif ()

@@ -114,6 +114,17 @@ write_basic_package_version_file(
 # standalone find_package(Seraph) build (its own dir/build), built by the editor's
 # Compile Scripts action or its own IDE. The engine build just produces the
 # engine + editor + runtime + the SeraphConfig package above.
+# SeraphHeaderTool: the reflection code-gen tool (libclang-based). Opt-in while
+# in development — it needs libclang installed. When ON, libSeraph generates
+# reflection registrations from SPROPERTY/SCLASS annotations via sht_reflect()
+# (see cmake/sht.cmake). When OFF (default), the engine builds with no libclang
+# dependency and simply omits the generated registrations. Added BEFORE the
+# engine so the SeraphHeaderTool target exists when Seraph calls sht_reflect().
+option(SERAPH_BUILD_HEADER_TOOL "Build SeraphHeaderTool (reflection code-gen; needs libclang)" OFF)
+if(SERAPH_BUILD_HEADER_TOOL)
+    add_subdirectory(Tools/SeraphHeaderTool)
+endif()
+
 add_subdirectory(Seraph)         # Seraph engine (SHARED library: libSeraph)
 add_subdirectory(Seraph-Editor)  # editor tool (executable, links libSeraph)
 add_subdirectory(Seraph-Runtime) # shipped-game player (links libSeraph)
