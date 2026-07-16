@@ -1,5 +1,6 @@
 #include "Seraph/Editor/PropertyDrawer.h"
 
+#include "Seraph/Core/UUID.h"
 #include "Seraph/Reflection/TypeId.h"
 #include "Seraph/Settings/SettingDescriptor.h" // Setting::Attr keys
 
@@ -108,11 +109,47 @@ bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
             changed = true;
         }
     }
+    else if (id == TypeIdOf<UUID>())
+    {
+        // AssetHandle (= UUID). v1: editable raw id (a proper AssetPicker widget
+        // lands with the inspector migration, where the asset manager is in reach).
+        u64 raw = static_cast<u64>(*value.Cast<UUID>());
+        if (ImGui::DragScalar(label, ImGuiDataType_U64, &raw, 1.0f))
+        {
+            value = Any(UUID(raw));
+            changed = true;
+        }
+    }
     else if (type->Kind == TypeKind::Enum)
     {
-        // Enum-valued settings aren't editable yet (needs Any enum extraction —
-        // deferred; see SettingsBoard).
-        ImGui::TextDisabled("%s: <enum>", label);
+        // Enum property: the Any holds the underlying value as s64, PropType is
+        // the reflected enum Type (see TypeBuilder::Property). Render a Combo over
+        // the EnumInfo labels.
+        const s64* cur = value.Cast<s64>();
+        if (cur && type->Enum)
+        {
+            const EnumInfo::Entry* sel = type->Enum->FindByValue(*cur);
+            const char* preview = sel ? sel->Name.data() : "<?>";
+            if (ImGui::BeginCombo(label, preview))
+            {
+                for (const EnumInfo::Entry& e : type->Enum->Entries)
+                {
+                    bool isSel = (e.Value == *cur);
+                    // Entry names are stored as string_view; they come from
+                    // string literals in SP_REFLECT_ENUM, so they are null-terminated.
+                    if (ImGui::Selectable(e.Name.data(), isSel))
+                    {
+                        value = Any(static_cast<s64>(e.Value));
+                        changed = true;
+                    }
+                    if (isSel)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+        }
+        else
+            ImGui::TextDisabled("%s: <enum>", label);
     }
     else
     {

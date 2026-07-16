@@ -8,6 +8,7 @@
 #include "Seraph/Reflection/Reflection.h"
 
 #include "Seraph/Core/Log.h"
+#include "Seraph/Core/UUID.h"
 
 #include <glm/glm.hpp>
 
@@ -51,6 +52,7 @@ struct Reflection::Storage
         InsertPrimitive<glm::vec2>();
         InsertPrimitive<glm::vec3>();
         InsertPrimitive<glm::vec4>();
+        InsertPrimitive<UUID>(); // AssetHandle = UUID; reflectable asset refs
     }
 
     const Type* Insert(Type&& type)

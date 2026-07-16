@@ -83,16 +83,37 @@ public:
         ::Seraph::Property p;
         p.Name = name;
         p.PropType = Reflection::TryGet<M>();
-        p.Get = +[](const void* obj) -> Any
-        { return Any(static_cast<const T*>(obj)->*Member); };
-        p.Set = +[](void* obj, const Any& v)
+
+        if constexpr (std::is_enum_v<M>)
         {
-            const M* m = v.template Cast<M>();
-            SP_CORE_ASSERT(m != nullptr,
-                           "Property::Set: Any type does not match the field");
-            if (m)
-                static_cast<T*>(obj)->*Member = *m;
-        };
+            // Enum members are represented in the Any as their underlying value
+            // widened to s64, with PropType pointing at the reflected enum Type.
+            // This lets consumers map value <-> label via EnumInfo without any
+            // Any enum-extraction (the thunk does the conversion at the boundary).
+            p.Get = +[](const void* obj) -> Any
+            { return Any(static_cast<s64>(static_cast<const T*>(obj)->*Member)); };
+            p.Set = +[](void* obj, const Any& v)
+            {
+                const s64* i = v.template Cast<s64>();
+                SP_CORE_ASSERT(i != nullptr,
+                               "Property::Set: enum expects an s64 Any");
+                if (i)
+                    static_cast<T*>(obj)->*Member = static_cast<M>(*i);
+            };
+        }
+        else
+        {
+            p.Get = +[](const void* obj) -> Any
+            { return Any(static_cast<const T*>(obj)->*Member); };
+            p.Set = +[](void* obj, const Any& v)
+            {
+                const M* m = v.template Cast<M>();
+                SP_CORE_ASSERT(m != nullptr,
+                               "Property::Set: Any type does not match the field");
+                if (m)
+                    static_cast<T*>(obj)->*Member = *m;
+            };
+        }
         AddProperty(std::move(p));
         return *this;
     }
