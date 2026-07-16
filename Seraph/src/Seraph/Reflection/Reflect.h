@@ -30,9 +30,11 @@
 #include "Seraph/Reflection/Type.h"
 #include "Seraph/Reflection/TypeId.h"
 
+#include <memory>
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace Seraph
 {
@@ -49,6 +51,53 @@ struct MemberPointerTraits<M C::*>
     using ClassType = C;
     using MemberType = M;
 };
+
+template<class T>
+struct VectorTraits
+{
+    static constexpr bool IsVector = false;
+};
+
+template<class E, class A>
+struct VectorTraits<std::vector<E, A>>
+{
+    static constexpr bool IsVector = true;
+    using Element = E;
+};
+
+// Register a std::vector<E> as a Container type (idempotent by TypeId). Ops
+// operate on a live vector pointer (Property::GetAddress); elements cross as Any.
+template<class Vec>
+const Type* RegisterContainerType()
+{
+    if (const Type* existing = Reflection::Resolve(TypeIdOf<Vec>()))
+        return existing;
+
+    using E = typename VectorTraits<Vec>::Element;
+    Type t;
+    t.Id = TypeIdOf<Vec>();
+    t.Name = TypeName<Vec>();
+    t.Kind = TypeKind::Container;
+    t.Size = static_cast<u32>(sizeof(Vec));
+    t.Align = static_cast<u32>(alignof(Vec));
+
+    auto ci = std::make_unique<ContainerInfo>();
+    ci->ElementType = Reflection::TryGet<E>();
+    ci->Size = +[](const void* c)
+    { return static_cast<const Vec*>(c)->size(); };
+    ci->GetElement = +[](const void* c, std::size_t i) -> Any
+    { return Any((*static_cast<const Vec*>(c))[i]); };
+    ci->SetElement = +[](void* c, std::size_t i, const Any& v)
+    {
+        if (const E* e = v.template Cast<E>())
+            (*static_cast<Vec*>(c))[i] = *e;
+    };
+    ci->Resize = +[](void* c, std::size_t n)
+    { static_cast<Vec*>(c)->resize(n); };
+    t.Container = std::move(ci);
+
+    return Reflection::Register(std::move(t));
+}
 
 } // namespace Detail
 
@@ -82,7 +131,13 @@ public:
         // function 'Property' shadows the struct name inside this class.
         ::Seraph::Property p;
         p.Name = name;
+        if constexpr (Detail::VectorTraits<M>::IsVector)
+            Detail::RegisterContainerType<M>(); // before TryGet resolves PropType
         p.PropType = Reflection::TryGet<M>();
+
+        // Address of the member for in-place access (containers, nested structs).
+        p.GetAddress = +[](void* obj) -> void*
+        { return &(static_cast<T*>(obj)->*Member); };
 
         if constexpr (std::is_enum_v<M>)
         {

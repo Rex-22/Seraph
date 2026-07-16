@@ -151,6 +151,13 @@ bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
         else
             ImGui::TextDisabled("%s: <enum>", label);
     }
+    else if (type->Kind == TypeKind::Container)
+    {
+        // In-place element editing needs the live container address (not a value
+        // copy) — that arrives with the inspector's DrawProperty(obj, prop) in
+        // the entity-inspector migration. Placeholder for the value-only path.
+        ImGui::TextDisabled("%s: [container]", label);
+    }
     else
     {
         ImGui::TextDisabled("%s: <%.*s>", label, (int) type->Name.size(),

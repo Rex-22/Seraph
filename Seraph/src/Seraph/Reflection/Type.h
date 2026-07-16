@@ -27,6 +27,7 @@ enum class TypeKind : u8
     Primitive,
     Struct,
     Enum,
+    Container, // std::vector<E>-like; see ContainerInfo
 };
 
 // Open bag of hashed-key -> Any attributes. Keys are constexpr hashes of stable
@@ -101,6 +102,23 @@ struct Property
     // pointers (no captures) so a Property is trivially copyable data.
     Any (*Get)(const void* obj) = nullptr;
     void (*Set)(void* obj, const Any& value) = nullptr;
+
+    // Address of the member within `obj`, or null for computed properties. Lets
+    // consumers operate on a live sub-object in place (e.g. a container's
+    // elements via ContainerInfo) without copying it through an Any.
+    void* (*GetAddress)(void* obj) = nullptr;
+};
+
+// Runtime ops for a reflected container (std::vector<E>-like). The `container`
+// pointer is a live element address (from Property::GetAddress). Element values
+// cross the boundary as Any of ElementType.
+struct ContainerInfo
+{
+    const Type* ElementType = nullptr;
+    std::size_t (*Size)(const void* container) = nullptr;
+    Any (*GetElement)(const void* container, std::size_t index) = nullptr;
+    void (*SetElement)(void* container, std::size_t index, const Any& value) = nullptr;
+    void (*Resize)(void* container, std::size_t size) = nullptr; // default-fills new
 };
 
 struct EnumInfo
@@ -137,9 +155,10 @@ struct Type
     u32 Size = 0;
     u32 Align = 0;
 
-    const Type* Base = nullptr;       // single-inheritance chain (v1)
-    std::vector<Property> Properties; // own + inherited, resolved at registration
-    std::unique_ptr<EnumInfo> Enum;   // owned; non-null iff Kind == Enum
+    const Type* Base = nullptr;          // single-inheritance chain (v1)
+    std::vector<Property> Properties;    // own + inherited, resolved at registration
+    std::unique_ptr<EnumInfo> Enum;      // owned; non-null iff Kind == Enum
+    std::unique_ptr<ContainerInfo> Container; // owned; non-null iff Kind == Container
     AttributeSet Attrs;
 
     // Given a pointer to an instance held as this (base) type, return its most-
