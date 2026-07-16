@@ -40,6 +40,7 @@ windowing/input is **SDL**, ECS is **EnTT**, physics is **Jolt**.
 |----------|--------|
 | [core-application-framework.md](core-application-framework.md) | Application singleton & frame loop, Layer/LayerStack, EntryPoint boot order, ImGuiLayer, Input, Events & dispatcher. |
 | [foundation-and-utilities.md](foundation-and-utilities.md) | Intrusive `Ref`/`RefCounted`/`WeakRef` object model, Buffer, UUID, BiMap, Log, FileSystem mounts, CommandLine, ThreadPool, Math, TypeRegistry, FuzzySearch. |
+| [reflection-system.md](reflection-system.md) | Runtime reflection: `TypeId`/`Any`/`Type`/`Property` registry, fluent + intrusive registration, enum reflection, hot-reload module scoping, and SeraphHeaderTool (libclang code-gen from `SPROPERTY`/`SCLASS` annotations). |
 | [platform-layer.md](platform-layer.md) | SDL Window, FSEvents-backed FileWatcher, native FileDialog, `posix_spawn` Process — the OS abstraction (primarily macOS). |
 
 ### Assets & project
