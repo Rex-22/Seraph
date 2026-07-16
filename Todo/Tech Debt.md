@@ -8,7 +8,7 @@ statuses:
 ---
 
 ### 1. Fix Ref::CopyWithoutIncrement null-deref
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** High
 
@@ -18,7 +18,7 @@ statuses:
 ---
 
 ### 2. Fix missing semicolon in SP_ENSURE client macro
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
 
@@ -28,7 +28,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 ---
 
 ### 3. Implement TextureSerializer::Serialize (currently returns false)
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** High
 
@@ -38,7 +38,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 ---
 
 ### 4. UniformCache keys on name only (type/count collision risk)
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
 
@@ -48,7 +48,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 ---
 
 ### 5. Harden SceneSerializer against silently dropping components
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** High
 
@@ -58,7 +58,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 ---
 
 ### 6. RuntimeAssetManager async flag is a no-op
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
 
@@ -68,7 +68,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 ---
 
 ### 7. Pack format reserves CRC32/Flags/compression fields but never uses them
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Low
 
@@ -78,7 +78,7 @@ The `.pack` (SPAK) format reserves `Crc32`, `Flags`, and compression fields but 
 ---
 
 ### 8. MaterialSerializer only warns on shader/param mismatch
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Low
 
@@ -88,7 +88,7 @@ The `.pack` (SPAK) format reserves `Crc32`, `Flags`, and compression fields but 
 ---
 
 ### 9. [Platform] FileWatcher has no Linux/Windows backend
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -98,7 +98,7 @@ PLATFORM-SPECIFIC. `FileWatcher` only has a real backend on **macOS** (FSEvents)
 ---
 
 ### 10. [Platform] FSEvents recursive flag is ignored on macOS
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Low
 
@@ -108,7 +108,7 @@ PLATFORM-SPECIFIC (macOS). FSEvents always watches the whole subtree, so `FileWa
 ---
 
 ### 11. [Platform] RunProcess behaves differently on POSIX vs fallback
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -118,7 +118,7 @@ PLATFORM-SPECIFIC. `RunProcess` uses `posix_spawn` on macOS/Linux (no shell; req
 ---
 
 ### 12. [Platform] SeraphConfig.cmake bakes absolute machine paths
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
 
@@ -128,7 +128,7 @@ PLATFORM/PORTABILITY. `SeraphConfig.cmake` contains absolute paths from the mach
 ---
 
 ### 13. [Platform] config.h bakes dev-tree shaderc path and include dirs
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
 
@@ -138,7 +138,7 @@ PLATFORM/PORTABILITY. `config.h` bakes `SERAPH_SHADERC_PATH` and `SERAPH_SHADER_
 ---
 
 ### 14. [Platform] GamePackager hard-codes Debug build type
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
 
@@ -148,7 +148,7 @@ PLATFORM/BUILD. `GamePackager` requires editor asset mode, hard-codes `-DCMAKE_B
 ---
 
 ### 15. [Platform] Memory tracking is dead Windows-only scaffolding
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
 
@@ -158,7 +158,7 @@ PLATFORM-SPECIFIC + DEAD CODE. The `Seraph::Allocator` / global new/delete track
 ---
 
 ### 16. [Platform] SP_DEBUG_BREAK is a no-op unless SP_COMPILER_CLANG defined
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Low
 
@@ -168,7 +168,7 @@ PLATFORM-SPECIFIC. `SP_DEBUG_BREAK` only emits a trap on macOS clang when `SP_CO
 ---
 
 ### 17. [Platform] Jolt debug rendering requires JPH_DEBUG_RENDERER ABI match
-- **Status:** Backlog
+- **Status:** Done
 - **Completed:** false
 - **Priority:** Low
 
