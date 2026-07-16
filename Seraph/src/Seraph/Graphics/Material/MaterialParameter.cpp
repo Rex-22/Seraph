@@ -1,40 +1,28 @@
 #include "MaterialParameter.h"
 
-#include "Seraph/Core/BiMap.h"
+#include "Seraph/Reflection/Reflect.h"
+#include "Seraph/Reflection/Reflection.h"
 
 namespace Seraph
 {
 
-namespace
-{
-
-const BiMap<std::string_view, MaterialParameterType>& TypeNames()
-{
-    static const BiMap<std::string_view, MaterialParameterType> s_map{
-        {"Bool", MaterialParameterType::Bool},
-        {"Int", MaterialParameterType::Int},
-        {"Float", MaterialParameterType::Float},
-        {"Vec2", MaterialParameterType::Vec2},
-        {"Vec3", MaterialParameterType::Vec3},
-        {"Vec4", MaterialParameterType::Vec4},
-        {"Color", MaterialParameterType::Color},
-        {"Mat3", MaterialParameterType::Mat3},
-        {"Mat4", MaterialParameterType::Mat4},
-        {"Texture", MaterialParameterType::Texture},
-    };
-    return s_map;
-}
-
-} // namespace
-
 std::string_view MaterialParameterTypeToString(MaterialParameterType type)
 {
-    return TypeNames().GetLeft(type).value_or("Float");
+    // Delegates to reflection (Reflection 6 migration off the old BiMap). Falls
+    // back to "Float" if the enum isn't registered or the value is unknown,
+    // preserving the original value_or("Float") behaviour.
+    if (const Type* t = Reflection::TryGet<MaterialParameterType>())
+        if (auto name = EnumToString(*t, static_cast<s64>(type)))
+            return *name;
+    return "Float";
 }
 
 MaterialParameterType MaterialParameterTypeFromString(std::string_view type)
 {
-    return TypeNames().GetRight(type).value_or(MaterialParameterType::Float);
+    if (const Type* t = Reflection::TryGet<MaterialParameterType>())
+        if (auto value = EnumFromString(*t, type))
+            return static_cast<MaterialParameterType>(*value);
+    return MaterialParameterType::Float;
 }
 
 bgfx::UniformType::Enum ToBgfxUniformType(MaterialParameterType type)
@@ -48,3 +36,18 @@ bgfx::UniformType::Enum ToBgfxUniformType(MaterialParameterType type)
 }
 
 } // namespace Seraph
+
+// Reflected enum: labels match the historical BiMap string keys exactly, so
+// on-disk material data round-trips unchanged.
+SP_REFLECT_ENUM(Seraph::MaterialParameterType)
+    .Value("Bool", Seraph::MaterialParameterType::Bool)
+    .Value("Int", Seraph::MaterialParameterType::Int)
+    .Value("Float", Seraph::MaterialParameterType::Float)
+    .Value("Vec2", Seraph::MaterialParameterType::Vec2)
+    .Value("Vec3", Seraph::MaterialParameterType::Vec3)
+    .Value("Vec4", Seraph::MaterialParameterType::Vec4)
+    .Value("Color", Seraph::MaterialParameterType::Color)
+    .Value("Mat3", Seraph::MaterialParameterType::Mat3)
+    .Value("Mat4", Seraph::MaterialParameterType::Mat4)
+    .Value("Texture", Seraph::MaterialParameterType::Texture)
+SP_REFLECT_ENUM_END();
