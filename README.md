@@ -1,98 +1,98 @@
-# sdl-bgfx-imgui-starter
+# Seraph
 
-The idea behind this repo is for it to be used as a minimal starting point for development of a game, demo or prototype.
+Seraph is a C++20 game engine with an integrated editor and a standalone runtime.
+It uses [bgfx](https://github.com/bkaradzic/bgfx) for rendering, [SDL3](https://www.libsdl.org)
+for windowing and input, [Dear ImGui](https://github.com/ocornut/imgui) for editor UI,
+[EnTT](https://github.com/skypjack/entt) for the entity-component system, and
+[Jolt](https://github.com/jrouwe/JoltPhysics) for physics.
 
-It utilizes [SDL2](https://www.libsdl.org/index.php) for the windowing system, [bgfx](https://github.com/bkaradzic/bgfx) (by [@bkaradzic](https://twitter.com/bkaradzic)) for the graphics library and [Dear ImGui](https://github.com/ocornut/imgui) (by [@ocornut](https://twitter.com/ocornut)) for the user interface.
+Games are authored as separate projects that build against a locally-built copy of the
+engine — Seraph is distributed as **source**, not as prebuilt binaries.
 
-The code in `main.cpp` is derived from two excellent `bgfx` tutorials ([hello-bgfx](https://dev.to/pperon/hello-bgfx-4dka) by [Phil Peron](https://twitter.com/pperon) and [bgfx-ubuntu](https://www.sandeepnambiar.com/getting-started-with-bgfx/) by [Sandeep Nambiar](https://twitter.com/_sandeepnambiar)). I highly recommend checking them out.
+## Features
 
-This repo does not directly include any of these dependencies. Instead, CMake is used to download and install them so this project can use them. This is handled through the use of a _superbuild_.
+- **Entity-component scenes** (EnTT) with a hierarchy, prefabs, and YAML serialization.
+- **bgfx renderer** with a material system, shader compilation/reflection, and a debug renderer.
+- **Physics** via Jolt (rigid bodies, box/sphere/capsule colliders, queries).
+- **Native C++ scripting** — game logic compiles to a `Game` module that hot-reloads in the editor.
+- **Editor** — dockable panels, viewport gizmos, asset browser, and play-in-editor.
+- **Asset pipeline** — import, reference by UUID, and cook into a runtime asset pack.
+- **Packaging** — export a self-contained, relocatable playable build.
 
-## Prerequisites
+## Requirements
 
-To begin with create a directory to hold the repo:
+- A C++20 compiler (Clang, Apple Clang, GCC, or MSVC)
+- CMake ≥ 3.30
+- Git
 
-```bat
-mkdir sdl-bgfx-imgui-starter
-cd sdl-bgfx-imgui-starter
+Seraph is cross-platform and targets **Windows, macOS, and Linux**.
+
+## Quick start
+
+Clone with submodules and build the engine (editor + runtime + `libSeraph`):
+
+```sh
+git clone --recurse-submodules git@github.com:Rex-22/Seraph.git
+cd Seraph
+cmake -S . -B cmake-build-debug
+cmake --build cmake-build-debug
 ```
 
-Then clone the repo:
+Build outputs land in `cmake-build-debug/bin/`:
 
-```bash
-git clone https://github.com/pr0g/sdl-bgfx-imgui-starter.git .
+- `Seraph-Editor` — the editor application
+- `Seraph-Runtime` — the standalone game runtime
+- `libSeraph` — the engine library that game projects link against
+
+Launch the editor:
+
+```sh
+./cmake-build-debug/bin/Seraph-Editor
 ```
 
-This project comes with a _superbuild_ CMake script which will build all third party dependencies and the main application in one step. The third party dependencies are built and installed to a separate build folder in the third party directory. To achieve this CMake must be installed on your system (the repo has most recently been tested with CMake version `3.24`).
+To create a game project, develop against the engine in an IDE or the editor, and
+package a playable build, follow the **[SDK workflow guide](docs/sdk-workflow.md)**.
 
-> __Note__: It is possible to build the third party dependencies separately, but the configure scripts described below now default to use `-DSUPERBUILD=ON` (as this is the simplest and most common workflow). If you do wish to build the third party dependencies separately, please see the third party [__README__](third-party/README.md) for full instructions on how to do this.
->
-> __Note__: When building the dependencies, the libraries are by default self contained in the repo and are not installed to the system.
+## Repository layout
 
-## Build Instructions
+| Path | Contents |
+|------|----------|
+| `Seraph/` | The engine library (`libSeraph`) — all subsystems live here. |
+| `Seraph-Editor/` | Editor executable entry point (thin shell over the engine's editor layer). |
+| `Seraph-Runtime/` | Runtime executable entry point. |
+| `shader/` | Engine shader sources (compiled and embedded at build time). |
+| `projects/` | Example game projects (e.g. `Sandbox`). |
+| `docs/` | Technical documentation — start at [`docs/README.md`](docs/README.md). |
+| `vendor/` | Third-party dependencies (git submodules). |
+| `cmake/` | CMake helper modules. |
 
-### All
+## Documentation
 
-Shaders for `bgfx` must be compiled to be loaded by the application (the starter has an incredibly simple shader supporting vertex colours). See `compile-shaders-<platform>.sh/bat` for details. `shaderc` is built as part of `bgfx` when first building the repo and is used to compile the shaders.
+Full technical documentation lives in **[`docs/`](docs/README.md)** — one document per
+subsystem, structured for both developers and AI agents. Useful entry points:
 
-> __Note__: A number of `configure-<generator>.bat/sh` files are provided to run the CMake configure commands. `Ninja` is preferred as it's consistent across _macOS_, _Linux_ and _Windows_ (and it's very fast), any generator should work though. For example there's a `configure-vs-19/22.bat` for generating a Visual Studio 2019 or 2022 solution.
+- [SDK workflow](docs/sdk-workflow.md) — build the engine, make a game, package a build.
+- [Build system](docs/build-system.md) — CMake targets, dependencies, shader pipeline.
+- [Core & application framework](docs/core-application-framework.md) — app lifecycle and layers.
+- [Scene & ECS](docs/scene-and-ecs.md), [Rendering](docs/rendering-system.md),
+  [Assets](docs/asset-system.md), [Physics](docs/physics-system.md),
+  [Scripting](docs/scripting-system.md), [Editor & runtime](docs/editor-and-runtime.md).
 
-### Windows
+> Documentation is kept in sync with the code. When you change a subsystem, update its
+> document in the same change.
 
-- Run `configure-vs-19.bat`, `configure-vs-22.bat` or `configure-ninja.bat` located in the root directory to generate the build files required for the project.
-- Run `cmake --build build\debug-ninja` and/or `cmake --build build\release-ninja` to compile the project using Ninja or `cmake --build build\vs<year> --config Debug` and/or `cmake --build build\vs<year> --config Release` if using the Visual Studio generator.
-- Run `compile-shaders-win.bat` located in the root directory to build the shaders.
-- Launch the application by running `build\debug-ninja\sdl-bgfx-imgui-starter.exe` or `build\release-ninja\sdl-bgfx-imgui-starter.exe` if using Ninja or `build\vs<year>\Debug\sdl-bgfx-imgui-starter.exe` or `build\vs<year>\Release\sdl-bgfx-imgui-starter.exe` if using Visual Studio.
+## Platform support
 
-### macOS
+Seraph runs on **Windows, macOS, and Linux**. It builds on cross-platform foundations
+(SDL3, bgfx, and portable CMake), with OS-specific services provided behind a small
+platform layer. A few of those backends are still being brought to full parity across
+all three platforms — see [docs/platform-layer.md](docs/platform-layer.md) for the
+current status.
 
-- Run `./configure-make.sh` or `./configure-ninja.sh` located in the root directory to generate the build files required for the project (prefer Ninja if possible as it's much faster).
-- Run `cmake --build build/debug-<generator>` and/or `cmake --build build/release-<generator>` to compile the project.
-- Run `./compile-shaders-macos.sh` located in the root directory to build the shaders.
-- Launch the application by running `./build/debug-<generator>/sdl-bgfx-imgui-starter` or `./build/release-<generator>/sdl-bgfx-imgui-starter`.
+## License
 
-### Linux
-
-- Check the [prerequisites](third-party/README.md#linux) when first starting out on Linux to ensure you have all the fundamentals (e.g. X11, OpenGL, Ninja etc...).
-- Run `./configure-make.sh` or `./configure-ninja.sh` located in the root directory to generate the build files required for the project (prefer Ninja if possible as it's much faster).
-- Run `cmake --build build/debug-<generator>` and/or `cmake --build build/release-<generator>` to compile the project.
-- Run `./compile-shaders-linux.sh` located in the root directory to build the shaders.
-- Launch the application by running `./build/debug-<generator>/sdl-bgfx-imgui-starter` or `./build/release-<generator>/sdl-bgfx-imgui-starter`.
-
-### Emscripten (Windows/macOS/Linux)
-
-> __Note__: Emscripten is built in a separate build folder called `embuild`, not `build`. This is to prevent Emscripten from overwriting native builds when built separately.
->
-> __Note__: On Windows it may be necessary to run the command-line/terminal as Administrator when building Emscripten.
-
-- Ensure you have [Python](https://www.python.org/downloads) installed on your system.
-- Follow the install steps to setup Emscripten [here](https://emscripten.org/docs/getting_started/downloads.html) (This is required to be able to use the `emcmake` command in the various configure scripts).
-- Run `./configure-emscripten.<bat/sh>` from the root directory.
-  - Ensure `emsdk_env.bat` or `source ./emsdk_env.sh` have been run before attempting this so `emcmake` is added to the path (see Emscripten instructions above for more details).
-- Run `./compile-shaders-emscripten.<bat/sh>` located in the root directory. (_Note: In order to invoke_ `shaderc`, _the third party dependencies (specifically_  `bgfx`_) will have to have been built for the target platform as well as Emscripten, so the shaders can be compiled_). The build step for Emscripten copies the built shaders to the build folder (`embuild`), so compiling the shaders should happen before the main Emscripten build.
-- Run `cmake --build embuild/debug-emscripten` and/or `cmake --build embuild/release-emscripten`.
-- Start a local server (the easiest way to do this is with `python3 -m http.server`).
-- Go to `localhost:8000` in a browser and open `embuild/<debug/release>-emscripten/sdl-bgfx-imgui-starter.html`.
-
-## Resources
-
-While getting this project setup I discovered a number of excellent resources. I'd highly recommend checking them out to learn more about `bgfx` and `Dear ImGui`.
-
-- [bgfx](https://github.com/bkaradzic/bgfx) - `bgfx` main repo.
-- [bgfx docs](https://bkaradzic.github.io/bgfx/index.html) - extensive docs covering much of `bgfx`'s API.
-- [bkaradzic/bgfx.cmake](https://github.com/bkaradzic/bgfx.cmake) (originally [widberg/bgfx.cmake](https://github.com/widberg/bgfx.cmake)) - a complimentary repo to add CMake support to `bgfx` (used by this repo).
-- [hello-bgfx (tutorial)](https://dev.to/pperon/hello-bgfx-4dka) - a great intro to `bgfx` and covers most of the code in the `main.cpp` of this repo.
-- [bgfx-ubuntu(tutorial)](https://www.sandeepnambiar.com/getting-started-with-bgfx/) - another great tutorial on `bgfx` (showing how to get setup on Ubuntu).
-- [minimal-bgfx](https://github.com/jpcy/bgfx-minimal-example) - a similar repo to this one only using `premake` and git submodules instead of CMake and with no `Dear ImGui`.
-- [dear-imgui](https://github.com/ocornut/imgui) - `Dear ImGui` main repo - lots of documentation and examples are available there.
-- [cmakefied](https://github.com/tamaskenez/cmakefied) - a complimentary repo to add CMake support to `imgui` (originally used by this repo but now replaced with a simpler repo called [imgui.cmake](https://github.com/pr0g/imgui.cmake), similar in design to [bgfx.cmake](https://github.com/bkaradzic/bgfx.cmake) mentioned above).
-
-## Special Thanks
-
-- [Бранимир Караџић (@bkaradzic)](https://twitter.com/bkaradzic) for the excellent [bgfx](https://github.com/bkaradzic/bgfx)
-- [Omar Cornut (@ocornut)](https://twitter.com/ocornut) for the brilliant [Dear ImGui](https://github.com/ocornut/imgui)
-- [Widberg/MissingBitStudios](https://github.com/widberg) for the `bgfx` CMake support
-- [Tamas Kenez](https://github.com/tamaskenez) for the `Dear ImGui` CMake support
-- [Richard Gale (@richardg4)](https://twitter.com/richardg4) for the `bgfx` implementation for `Dear ImGui`
-- [Phil Peron (@pperon)](https://twitter.com/pperon) and [Sandeep Nambiar (@_sandeepnambiar)](https://twitter.com/_sandeepnambiar) for the great `bgfx` setup tutorials.
-- [sudo-carson](https://github.com/sudo-carson) for laying the ground work for integrating Emscripten into the project. See [this PR](https://github.com/pr0g/sdl-bgfx-imgui-starter/pull/8) for all the details.
+MIT — see [LICENSE](LICENSE). Seraph builds on [bgfx](https://github.com/bkaradzic/bgfx),
+[SDL](https://github.com/libsdl-org/SDL), [Dear ImGui](https://github.com/ocornut/imgui),
+[EnTT](https://github.com/skypjack/entt), [Jolt](https://github.com/jrouwe/JoltPhysics),
+[GLM](https://github.com/g-truc/glm), and [spdlog](https://github.com/gabime/spdlog),
+each under its own license.
