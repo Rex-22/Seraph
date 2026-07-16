@@ -3,6 +3,7 @@
 #include "Seraph/Core/Log.h"
 
 #include <mutex>
+#include <system_error>
 
 #ifdef __APPLE__
     #include <CoreServices/CoreServices.h>
@@ -11,7 +12,6 @@
     #include <atomic>
     #include <cerrno>
     #include <cstring>
-    #include <system_error>
     #include <thread>
     #include <unordered_map>
 
@@ -44,6 +44,13 @@ struct FileWatcher::Impl
     std::mutex Mutex;
     std::vector<FileWatchEvent> Pending;
 
+    // FSEvents always watches the whole subtree, so a non-recursive watch is
+    // emulated by dropping events whose parent directory is not the watched
+    // root. Root is canonicalised to match the resolved paths FSEvents reports
+    // (e.g. /tmp -> /private/tmp).
+    bool Recursive = true;
+    std::filesystem::path Root;
+
     static FileWatchEventKind KindFromFlags(FSEventStreamEventFlags flags)
     {
         // A single event can carry several flags; pick the most significant.
@@ -67,8 +74,10 @@ struct FileWatcher::Impl
 
         std::lock_guard<std::mutex> lock(self->Mutex);
         for (size_t i = 0; i < numEvents; ++i) {
-            self->Pending.push_back(
-                {KindFromFlags(eventFlags[i]), std::filesystem::path(paths[i])});
+            std::filesystem::path path(paths[i]);
+            if (!self->Recursive && path.parent_path() != self->Root)
+                continue; // deeper than the immediate root; skip in shallow mode
+            self->Pending.push_back({KindFromFlags(eventFlags[i]), std::move(path)});
         }
     }
 };
@@ -78,11 +87,19 @@ FileWatcher::~FileWatcher()
     Stop();
 }
 
-void FileWatcher::Start(const std::filesystem::path& root, bool /*recursive*/)
+void FileWatcher::Start(const std::filesystem::path& root, bool recursive)
 {
-    Stop(); // FSEvents watches subtrees; `recursive` is implied on macOS.
+    Stop(); // FSEvents always watches the subtree; shallow mode filters below.
 
     m_Impl = new Impl();
+    m_Impl->Recursive = recursive;
+    // Canonicalise so parent_path() comparisons in the callback match the
+    // resolved paths FSEvents reports. Fall back to the raw root if the path
+    // cannot be resolved (e.g. it does not exist yet).
+    std::error_code ec;
+    m_Impl->Root = std::filesystem::canonical(root, ec);
+    if (ec)
+        m_Impl->Root = root;
 
     CFStringRef cfPath = CFStringCreateWithCString(
         nullptr, root.c_str(), kCFStringEncodingUTF8);
