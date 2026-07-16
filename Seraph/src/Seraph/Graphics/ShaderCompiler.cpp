@@ -4,6 +4,7 @@
 #include "Seraph/Asset/AssetMetadata.h"
 #include "Seraph/Asset/Serializers/ShaderSerializer.h"
 #include "Seraph/Core/Buffer.h"
+#include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Graphics/ShaderAsset.h"
 
@@ -12,6 +13,7 @@
 #include <config.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <system_error>
@@ -60,10 +62,45 @@ std::vector<CookTarget> TargetsForPlatform()
 #endif
 }
 
+// shaderc executable name (Windows appends .exe).
+#if defined(_WIN32)
+constexpr const char* k_ShadercExe = "shaderc.exe";
+#else
+constexpr const char* k_ShadercExe = "shaderc";
+#endif
+
+// Resolve the shaderc tool, in order of precedence:
+//   1. $SERAPH_SHADERC             — explicit runtime override.
+//   2. <executable dir>/shaderc    — relocatable install layout.
+//   3. SERAPH_SHADERC_PATH         — the dev build-tree path baked into config.h.
+// Cached: neither the environment nor the executable location changes at runtime.
+const std::string& ShadercPath()
+{
+    static const std::string path = [] {
+        std::error_code ec;
+        if (const char* env = std::getenv("SERAPH_SHADERC"); env && *env) {
+            if (std::filesystem::exists(env, ec))
+                return std::string(env);
+        }
+        if (!FileSystem::EngineRoot().empty()) {
+            const std::filesystem::path adjacent = FileSystem::EngineRoot() / k_ShadercExe;
+            if (std::filesystem::exists(adjacent, ec))
+                return adjacent.string();
+        }
+        return std::string(SERAPH_SHADERC_PATH);
+    }();
+    return path;
+}
+
 std::vector<std::string> IncludeDirs()
 {
+    // $SERAPH_SHADER_INCLUDE_DIRS overrides the dev-tree list baked into
+    // config.h, so a relocated editor can point at its own shipped headers.
+    const char* env = std::getenv("SERAPH_SHADER_INCLUDE_DIRS");
+    const std::string spec = (env && *env) ? env : SERAPH_SHADER_INCLUDE_DIRS;
+
     std::vector<std::string> dirs;
-    std::stringstream ss(SERAPH_SHADER_INCLUDE_DIRS);
+    std::stringstream ss(spec);
     std::string dir;
     while (std::getline(ss, dir, ';'))
         if (!dir.empty())
@@ -90,10 +127,10 @@ bool CompileStage(
         args.push_back(inc);
     }
 
-    const ProcessResult r = RunProcess(SERAPH_SHADERC_PATH, args);
+    const ProcessResult r = RunProcess(ShadercPath(), args);
     if (!r.Launched) {
         SP_CORE_ERROR_TAG("ShaderCompiler", "Could not launch shaderc at '{}'",
-                          SERAPH_SHADERC_PATH);
+                          ShadercPath());
         return false;
     }
     if (r.ExitCode != 0) {
@@ -121,7 +158,7 @@ bool ReadFile(const std::filesystem::path& path, Buffer& out)
 bool ShaderCompiler::Available()
 {
     std::error_code ec;
-    return std::filesystem::exists(SERAPH_SHADERC_PATH, ec);
+    return std::filesystem::exists(ShadercPath(), ec);
 }
 
 bool ShaderCompiler::Cook(
@@ -130,7 +167,7 @@ bool ShaderCompiler::Cook(
 {
     if (!Available()) {
         SP_CORE_ERROR_TAG(
-            "ShaderCompiler", "shaderc not available at '{}'", SERAPH_SHADERC_PATH);
+            "ShaderCompiler", "shaderc not available at '{}'", ShadercPath());
         return false;
     }
 
