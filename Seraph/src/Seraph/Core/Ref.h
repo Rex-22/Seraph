@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "Memory.h"
-
 #include <atomic>
 #include <cstddef>
 #include <type_traits>
@@ -170,11 +168,7 @@ namespace RefUtils {
 		template<typename... Args>
 		static Ref<T> Create(Args&&... args)
 		{
-#if HZ_TRACK_MEMORY && defined(BX_PLATFORM_WINDOWS)
-			return Ref<T>(new(typeid(T).name()) T(std::forward<Args>(args)...));
-#else
 			return Ref<T>(new T(std::forward<Args>(args)...));
-#endif
 		}
 
 		bool operator==(const Ref<T>& other) const
