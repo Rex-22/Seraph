@@ -5,6 +5,7 @@
 #pragma once
 
 #include "Seraph/Core/Base.h"
+#include "Seraph/Reflection/Annotations.h"
 
 #include <glm/glm.hpp>
 
@@ -56,14 +57,30 @@ private:
 };
 
 // Global simulation tuning, owned by PhysicsSystem and read when a scene starts.
-struct PhysicsSettings
+// Reflected via SeraphHeaderTool (the SCLASS/SPROPERTY macros are no-ops in a
+// normal build; SHT reads them to generate the runtime registration when
+// SERAPH_BUILD_HEADER_TOOL=ON). See Todo/plans/reflection-plan.md.
+struct SCLASS() PhysicsSettings
 {
+    SPROPERTY(Tooltip = "Fixed simulation step, seconds", Min = 0.001f, Max = 0.1f)
     f32 FixedTimestep = 1.0f / 60.0f;
+
+    SPROPERTY(Tooltip = "World gravity vector, m/s^2")
     glm::vec3 Gravity = { 0.0f, -9.81f, 0.0f };
+
+    SPROPERTY(Tooltip = "Max simulated bodies")
     u32 MaxBodies = 10240;
+
+    SPROPERTY(Tooltip = "Max broadphase body pairs")
     u32 MaxBodyPairs = 65536;
+
+    SPROPERTY(Tooltip = "Max contact constraints")
     u32 MaxContactConstraints = 10240;
+
+    SPROPERTY(Tooltip = "Position solver iterations", Min = 1, Max = 64)
     u32 PositionSolverIterations = 2;
+
+    SPROPERTY(Tooltip = "Velocity solver iterations", Min = 1, Max = 64)
     u32 VelocitySolverIterations = 10;
 };
 
