@@ -36,6 +36,7 @@ public:
     static bool RequiresFinalize(AssetType type);
 
     // Save / pack.
+    static bool CanSerialize(AssetType type);
     static bool Serialize(
         const AssetMetadata& metadata, const Ref<Asset>& asset, Buffer& out);
 };

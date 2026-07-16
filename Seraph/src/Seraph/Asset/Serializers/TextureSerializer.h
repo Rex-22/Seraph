@@ -16,8 +16,10 @@ public:
     Ref<Asset> LoadData(const AssetMetadata& metadata, const Buffer& bytes) override;
     void Finalize(const Ref<Asset>& asset) override;
     [[nodiscard]] bool RequiresFinalize() const override { return true; }
-    bool Serialize(
-        const AssetMetadata& metadata, const Ref<Asset>& asset, Buffer& out) override;
+
+    // Textures are source-only: the imported png/jpg on disk is the authoritative
+    // form, so there is nothing to re-encode on save.
+    [[nodiscard]] bool CanSerialize() const override { return false; }
 
     [[nodiscard]] AssetType GetType() const override { return AssetType::Texture2D; }
 };

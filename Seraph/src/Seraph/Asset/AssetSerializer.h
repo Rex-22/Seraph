@@ -34,8 +34,15 @@ public:
     virtual void Finalize(const Ref<Asset>& /*asset*/) {}
     [[nodiscard]] virtual bool RequiresFinalize() const { return false; }
 
-    // Serialize an asset back to raw bytes for saving / packing. Default:
-    // unsupported.
+    // Whether this asset type can be written back to bytes. Source-only assets
+    // (e.g. textures imported from png/jpg, whose on-disk source file is the
+    // authoritative form) return false; SaveAsset then treats a save as a
+    // deliberate no-op rather than a failure. Serialize() must not be called
+    // when this returns false.
+    [[nodiscard]] virtual bool CanSerialize() const { return true; }
+
+    // Serialize an asset back to raw bytes for saving / packing. Only called
+    // when CanSerialize() is true. Default: unsupported.
     virtual bool Serialize(
         const AssetMetadata& /*metadata*/, const Ref<Asset>& /*asset*/,
         Buffer& /*out*/)

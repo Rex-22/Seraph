@@ -74,11 +74,17 @@ bool AssetImporter::RequiresFinalize(AssetType type)
     return it != Registry().end() && it->second->RequiresFinalize();
 }
 
+bool AssetImporter::CanSerialize(AssetType type)
+{
+    auto it = Registry().find(type);
+    return it != Registry().end() && it->second->CanSerialize();
+}
+
 bool AssetImporter::Serialize(
     const AssetMetadata& metadata, const Ref<Asset>& asset, Buffer& out)
 {
     auto it = Registry().find(metadata.Type);
-    if (it == Registry().end())
+    if (it == Registry().end() || !it->second->CanSerialize())
         return false;
     return it->second->Serialize(metadata, asset, out);
 }

@@ -652,6 +652,12 @@ bool EditorAssetManager::SaveAsset(AssetHandle handle)
     if (!asset || metadata.FilePath.empty())
         return false;
 
+    // Source-only assets (e.g. textures) have no in-engine edits to persist —
+    // the imported source file on disk is authoritative. Saving is a deliberate
+    // no-op, not a failure.
+    if (!AssetImporter::CanSerialize(metadata.Type))
+        return true;
+
     Buffer bytes;
     if (!AssetImporter::Serialize(metadata, asset, bytes) || !bytes)
         return false;

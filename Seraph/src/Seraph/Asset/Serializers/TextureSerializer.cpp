@@ -22,12 +22,4 @@ void TextureSerializer::Finalize(const Ref<Asset>& asset)
         texture->Upload();
 }
 
-bool TextureSerializer::Serialize(
-    const AssetMetadata& /*metadata*/, const Ref<Asset>& /*asset*/, Buffer& /*out*/)
-{
-    // Re-encoding textures is not needed yet; packing can store the source bytes
-    // directly. Left unimplemented until the pack builder lands.
-    return false;
-}
-
 } // namespace Seraph
