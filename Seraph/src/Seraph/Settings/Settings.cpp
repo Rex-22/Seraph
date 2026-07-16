@@ -9,6 +9,7 @@
 
 #include "Seraph/Core/CommandLine.h"
 #include "Seraph/Core/Log.h"
+#include "Seraph/Settings/ISettingsStore.h"
 
 #include <array>
 #include <charconv>
@@ -228,6 +229,29 @@ void Settings::MarkScopeDirty(SettingScope scope)
 void Settings::ClearScopeDirty(SettingScope scope)
 {
     Store().DirtyScope[static_cast<std::size_t>(scope)] = false;
+}
+
+void Settings::LoadAll(ISettingsStore& store)
+{
+    for (SettingScope s :
+         {SettingScope::Engine, SettingScope::Project, SettingScope::User})
+    {
+        store.Load(s, /*platformOverlay*/ false);
+        store.Load(s, /*platformOverlay*/ true);
+    }
+    ApplyCommandLineOverrides(); // highest precedence, last
+}
+
+void Settings::SaveDirty(ISettingsStore& store)
+{
+    if (!store.SupportsWrite())
+        return;
+    for (SettingScope s :
+         {SettingScope::Engine, SettingScope::Project, SettingScope::User})
+    {
+        if (IsScopeDirty(s) && store.Save(s))
+            ClearScopeDirty(s);
+    }
 }
 
 void Settings::Clear()

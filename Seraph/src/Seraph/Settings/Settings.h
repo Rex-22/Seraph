@@ -24,6 +24,8 @@
 namespace Seraph
 {
 
+class ISettingsStore;
+
 // Fluent configurator returned by Settings::Register. Mutates a
 // registry-owned descriptor in place (pointer stays stable). Chain then discard.
 class SettingBuilder
@@ -163,6 +165,13 @@ public:
     static bool IsScopeDirty(SettingScope scope);
     static void MarkScopeDirty(SettingScope scope);
     static void ClearScopeDirty(SettingScope scope);
+
+    // --- Store orchestration (Settings 3) ---
+    // Load every scope in precedence order (Engine -> platform -> Project ->
+    // platform -> User -> platform), then apply --set overrides.
+    static void LoadAll(ISettingsStore& store);
+    // Save each dirty scope and clear its dirty flag.
+    static void SaveDirty(ISettingsStore& store);
 
     // Typed convenience.
     template<class T>
