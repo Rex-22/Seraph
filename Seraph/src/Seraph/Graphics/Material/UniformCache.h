@@ -1,11 +1,16 @@
 //
-// Process-wide cache of bgfx uniform handles keyed by (name, type, count).
+// Process-wide cache of bgfx uniform handles keyed by name.
 //
 // bgfx uniforms are global by name and reference-counted, so creating the same
 // uniform in every material (as the old per-property model did) churned handles
 // and risked one material's destructor invalidating a shared uniform. Here each
 // distinct uniform is created once, reused by every material that binds it, and
 // destroyed once at shutdown. Main thread only (bgfx::createUniform).
+//
+// Name is the identity because it is bgfx's own global key. The (type, count)
+// a name was created with is stored alongside and asserted on every subsequent
+// request, so reusing a name with a mismatched signature is caught rather than
+// silently returning a wrong-typed handle.
 //
 
 #pragma once
@@ -32,7 +37,14 @@ public:
     static void Shutdown();
 
 private:
-    static std::unordered_map<std::string, bgfx::UniformHandle> s_Uniforms;
+    struct CachedUniform
+    {
+        bgfx::UniformHandle handle;
+        bgfx::UniformType::Enum type;
+        u16 num;
+    };
+
+    static std::unordered_map<std::string, CachedUniform> s_Uniforms;
 };
 
 } // namespace Seraph
