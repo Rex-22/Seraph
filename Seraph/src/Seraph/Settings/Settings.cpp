@@ -10,6 +10,7 @@
 #include "Seraph/Core/CommandLine.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Settings/ISettingsStore.h"
+#include "Seraph/Settings/YamlSettingsStore.h"
 
 #include <algorithm>
 #include <array>
@@ -40,6 +41,7 @@ struct Settings::Registry
     SubscriptionToken NextToken = 1;
     std::unordered_set<std::string> Notifying; // re-entrancy guard (per key)
     bool RestartPending = false;
+    Ref<ISettingsStore> Backend;
 };
 
 Settings::Registry& Settings::Store()
@@ -316,6 +318,8 @@ void Settings::ApplyCommandLineOverrides()
             SP_CORE_WARN_TAG("Settings", "--set: unknown setting '{}'", key);
             continue;
         }
+        if (d->CliOverridden)
+            continue; // already applied on an earlier pass (Engine/User vs Project)
         Any parsed = ParseScalar(d->ValueType, valStr);
         if (parsed.IsEmpty())
         {
@@ -349,6 +353,80 @@ void Settings::MarkScopeDirty(SettingScope scope)
 void Settings::ClearScopeDirty(SettingScope scope)
 {
     Store().DirtyScope[static_cast<std::size_t>(scope)] = false;
+}
+
+void Settings::Init()
+{
+    Registry& r = Store();
+    if (!r.Backend)
+        r.Backend = Ref<YamlSettingsStore>::Create();
+    SP_CORE_INFO_TAG("Settings", "initialized");
+}
+
+void Settings::Shutdown()
+{
+    SaveDirty();
+    Clear();
+}
+
+void Settings::InstallStore(Ref<ISettingsStore> store)
+{
+    Store().Backend = std::move(store);
+}
+
+void Settings::LoadEngineUser()
+{
+    Registry& r = Store();
+    if (!r.Backend)
+        return;
+    r.Backend->Load(SettingScope::Engine, false);
+    r.Backend->Load(SettingScope::Engine, true);
+    r.Backend->Load(SettingScope::User, false);
+    r.Backend->Load(SettingScope::User, true);
+    ApplyCommandLineOverrides();
+}
+
+void Settings::LoadProject()
+{
+    Registry& r = Store();
+    if (!r.Backend)
+        return;
+    r.Backend->Load(SettingScope::Project, false);
+    r.Backend->Load(SettingScope::Project, true);
+    ApplyCommandLineOverrides(); // catches --set for project/game keys registered late
+}
+
+void Settings::SaveDirty()
+{
+    Registry& r = Store();
+    if (r.Backend)
+        SaveDirty(*r.Backend);
+}
+
+void Settings::PurgeByPrefix(std::string_view prefix)
+{
+    Registry& r = Store();
+    int removed = 0;
+    for (auto it = r.AllList.begin(); it != r.AllList.end();)
+    {
+        if ((*it)->Key.rfind(prefix, 0) == 0)
+        {
+            const std::string key = (*it)->Key;
+            it = r.AllList.erase(it);
+            r.ByKey.erase(key);
+            std::erase_if(r.Owned,
+                          [&key](const std::unique_ptr<SettingDescriptor>& d)
+                          { return d->Key == key; });
+            std::erase_if(r.Subs, [&key](const Registry::Sub& s)
+                          { return s.Key == key; });
+            ++removed;
+        }
+        else
+            ++it;
+    }
+    if (removed)
+        SP_CORE_INFO_TAG("Settings", "Purged {} setting(s) with prefix '{}'",
+                         removed, prefix);
 }
 
 void Settings::LoadAll(ISettingsStore& store)

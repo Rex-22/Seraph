@@ -13,6 +13,7 @@
 #pragma once
 
 #include "Seraph/Core/Assert.h"
+#include "Seraph/Core/Ref.h"
 #include "Seraph/Reflection/Reflection.h"
 #include "Seraph/Settings/SettingDescriptor.h"
 
@@ -130,6 +131,26 @@ class Settings
 {
 public:
     Settings() = delete;
+
+    // --- Lifecycle (Settings 5) ---
+    // Install the default YAML backend. Call after FileSystem::Init. Does NOT
+    // load yet — engine settings register first, then LoadEngineUser applies
+    // their persisted values.
+    static void Init();
+    // Save dirty scopes and clear the registry. Call before FileSystem::Shutdown.
+    static void Shutdown();
+    // Override the backend (asset/server store later, or a test store).
+    static void InstallStore(Ref<ISettingsStore> store);
+
+    // Load Engine + User scopes (no project yet) + apply --set overrides.
+    static void LoadEngineUser();
+    // Load the Project scope (call after the project root + game module are set).
+    static void LoadProject();
+    // Save every dirty scope via the installed backend.
+    static void SaveDirty();
+    // Remove all settings whose key starts with `prefix` (e.g. "game." on script
+    // module unload, so a reload re-registers cleanly).
+    static void PurgeByPrefix(std::string_view prefix);
 
     // Register (or return the existing builder for) a setting by key. Keys are
     // namespaced by convention: engine.* / editor.* / game.*.

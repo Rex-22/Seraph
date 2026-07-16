@@ -11,6 +11,7 @@
 #include "Seraph/Core/Log.h"
 #include "Seraph/Core/Version.h"
 #include "Seraph/Physics/PhysicsSystem.h"
+#include "Seraph/Settings/Settings.h"
 
 extern Seraph::Application* CreateApplication();
 
@@ -25,6 +26,11 @@ int main(int argc, char** argv)
     // File access is available before the Application exists, so a client's
     // CreateApplication() can read a project file to shape its window/spec.
     Seraph::FileSystem::Init();
+    // Settings registry: install the backend, then load Engine + User scopes.
+    // (Engine settings register during subsystem init below; their persisted
+    // values apply because they bind to stable static setting structs.)
+    Seraph::Settings::Init();
+    Seraph::Settings::LoadEngineUser();
     // Process-global Jolt state; must outlive any scene that creates bodies.
     Seraph::PhysicsSystem::Init();
 
@@ -33,6 +39,8 @@ int main(int argc, char** argv)
 
     delete app;
 
+    // Save dirty scopes before the filesystem goes away.
+    Seraph::Settings::Shutdown();
     Seraph::PhysicsSystem::Shutdown();
     Seraph::FileSystem::Shutdown();
     Seraph::Log::Shutdown();

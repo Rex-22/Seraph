@@ -8,6 +8,7 @@
 #include "Seraph/Core/Log.h"
 #include "Seraph/Project/ProjectTemplates.h"
 #include "Seraph/Scripts/ScriptLibrary.h"
+#include "Seraph/Settings/Settings.h"
 
 #include <config.h>
 
@@ -63,6 +64,10 @@ bool ProjectManager::Open(const std::filesystem::path& sprojPath, AssetMode mode
             "No script module for '{}' yet — build it with Compile Scripts",
             s_Project.Name);
 
+    // Load the project's settings now that its root + game module (game.*
+    // settings) are in place.
+    Settings::LoadProject();
+
     return true;
 }
 
@@ -107,7 +112,8 @@ void ProjectManager::Close()
 {
     if (!s_HasActive)
         return;
-    ScriptLibrary::Unload();
+    Settings::SaveDirty();   // persist Project (and game.*) edits before teardown
+    ScriptLibrary::Unload(); // purges game.* settings + reflected Game types
     AssetManager::Shutdown();
     FileSystem::SetProjectRoot({});
     s_Project = Project{};

@@ -7,6 +7,7 @@
 #include "ScriptRegistry.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Reflection/Reflection.h"
+#include "Seraph/Settings/Settings.h"
 
 #include <SDL3/SDL_loadso.h>
 
@@ -87,10 +88,12 @@ void ScriptLibrary::Unload()
     if (!s_Handle)
         return;
 
-    // Drop factories and reflected types (their lambdas / Get-Set thunks live in
-    // the module) before unmapping it — otherwise those function pointers dangle.
+    // Drop factories, reflected types, and game.* settings (their lambdas /
+    // Get-Set thunks / registration all live in the module) before unmapping it —
+    // otherwise those function pointers dangle.
     ScriptRegistry::Clear();
     Reflection::ClearModule(k_GameModule);
+    Settings::PurgeByPrefix("game.");
     SDL_UnloadObject(s_Handle);
     s_Handle = nullptr;
 
