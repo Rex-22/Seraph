@@ -1,5 +1,7 @@
 # Seraph SDK workflow
 
+> ⚠️ **MAINTENANCE REQUIRED:** This document must be kept in sync with the code. Whenever you change the build/develop/package workflow described here, update this document in the same change. If it drifts from the source, treat the source as truth and correct this file.
+
 How to build the engine, make a game against it, develop in an IDE or the editor,
 and package a playable build. Seraph is distributed as **source**: each machine
 builds the engine once, and game projects `find_package(Seraph)` against that
