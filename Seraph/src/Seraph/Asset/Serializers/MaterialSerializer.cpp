@@ -10,6 +10,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <string>
+#include <vector>
 
 namespace Seraph
 {
@@ -53,14 +54,19 @@ void MaterialSerializer::Finalize(const Ref<Asset>& asset)
         return;
 
     // Resolve + upload the shader (main thread) and validate declared parameters
-    // against its reflected uniforms. Warnings only — a mismatch does not fail
-    // the load, it just won't bind as intended.
+    // against its reflected uniforms. Non-fatal: a mismatch does not fail the
+    // load, it just won't bind as intended. Issues are logged AND recorded on
+    // the material so the editor can surface a partially-bound material.
+    std::vector<std::string> warnings;
+
     const AssetHandle shaderHandle = ShaderManager::GetHandle(material->ShaderName());
     Ref<ShaderAsset> shader = AssetManager::GetAsset<ShaderAsset>(shaderHandle);
     if (!shader) {
-        SP_CORE_WARN_TAG(
-            "Material", "Material '{}' references unknown shader '{}'",
-            static_cast<u64>(material->Handle), material->ShaderName());
+        std::string msg = "References unknown shader '" + material->ShaderName() + "'";
+        SP_CORE_WARN_TAG("Material", "Material '{}' {}",
+            static_cast<u64>(material->Handle), msg);
+        warnings.push_back(std::move(msg));
+        material->SetValidationWarnings(std::move(warnings));
         return;
     }
 
@@ -71,21 +77,25 @@ void MaterialSerializer::Finalize(const Ref<Asset>& asset)
             if (uniform.Name != param.Name)
                 continue;
             found = true;
-            if (uniform.Type != expected)
-                SP_CORE_WARN_TAG(
-                    "Material",
-                    "Parameter '{}' type mismatch: shader expects bgfx type {}, "
-                    "material declares {}",
-                    param.Name, static_cast<int>(uniform.Type),
-                    static_cast<int>(expected));
+            if (uniform.Type != expected) {
+                std::string msg = "Parameter '" + param.Name
+                    + "' type mismatch: shader expects bgfx type "
+                    + std::to_string(static_cast<int>(uniform.Type))
+                    + ", material declares " + std::to_string(static_cast<int>(expected));
+                SP_CORE_WARN_TAG("Material", "{}", msg);
+                warnings.push_back(std::move(msg));
+            }
             break;
         }
-        if (!found)
-            SP_CORE_WARN_TAG(
-                "Material",
-                "Parameter '{}' not found among shader '{}' uniforms",
-                param.Name, material->ShaderName());
+        if (!found) {
+            std::string msg = "Parameter '" + param.Name
+                + "' not found among shader '" + material->ShaderName() + "' uniforms";
+            SP_CORE_WARN_TAG("Material", "{}", msg);
+            warnings.push_back(std::move(msg));
+        }
     }
+
+    material->SetValidationWarnings(std::move(warnings));
 }
 
 bool MaterialSerializer::Serialize(

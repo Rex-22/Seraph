@@ -58,6 +58,20 @@ public:
     }
     [[nodiscard]] const MaterialRenderState& RenderState() const { return m_State; }
 
+    // --- Validation diagnostics -------------------------------------------
+    // Non-fatal issues found when validating against the shader at load time
+    // (unknown shader, parameter name/type mismatches). Transient — never
+    // serialized — and surfaced in the material editor so a partially-bound
+    // material is visible rather than silently wrong.
+    void SetValidationWarnings(std::vector<std::string> warnings)
+    {
+        m_ValidationWarnings = std::move(warnings);
+    }
+    [[nodiscard]] const std::vector<std::string>& ValidationWarnings() const
+    {
+        return m_ValidationWarnings;
+    }
+
     // --- MaterialAsset -----------------------------------------------------
     const ResolvedMaterial& Resolve() override;
 
@@ -75,6 +89,7 @@ private:
     std::string m_ShaderName;
     std::vector<MaterialParameter> m_Parameters;
     MaterialRenderState m_State;
+    std::vector<std::string> m_ValidationWarnings;
 
     ResolvedMaterial m_Resolved;
     bool m_ResolveDirty = true;

@@ -248,6 +248,17 @@ void MaterialEditorPanel::DrawBaseMaterial(Material& material)
     if (ImGui::InputText("Shader", shaderBuf, sizeof(shaderBuf)))
         material.SetShaderName(shaderBuf);
 
+    // Surface non-fatal shader/parameter mismatches recorded at load time, so a
+    // partially-bound material is visible instead of only logged.
+    const std::vector<std::string>& warnings = material.ValidationWarnings();
+    if (!warnings.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.6f, 0.2f, 1.0f));
+        if (ImGui::CollapsingHeader("Shader Validation", ImGuiTreeNodeFlags_DefaultOpen))
+            for (const std::string& w : warnings)
+                ImGui::TextWrapped("%s", w.c_str());
+        ImGui::PopStyleColor();
+    }
+
     if (ImGui::CollapsingHeader("Render State", ImGuiTreeNodeFlags_DefaultOpen)) {
         const Material& cmat = material;
         MaterialRenderState state = cmat.RenderState();
