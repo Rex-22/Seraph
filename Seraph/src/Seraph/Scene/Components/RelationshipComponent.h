@@ -4,12 +4,19 @@
 
 #pragma once
 #include "Seraph/Core/UUID.h"
+#include "Seraph/Reflection/Annotations.h"
+
+#include <vector>
 
 namespace Seraph
 {
-struct RelationshipComponent
+// Serialized (not shown in the inspector). ParentHandle -> "Parent" on disk.
+struct SCLASS() RelationshipComponent
 {
+    SPROPERTY(serialize.key = "Parent")
     UUID ParentHandle = 0;
+
+    SPROPERTY()
     std::vector<UUID> Children;
 
     RelationshipComponent() = default;

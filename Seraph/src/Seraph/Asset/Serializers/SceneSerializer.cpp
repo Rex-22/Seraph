@@ -2,8 +2,14 @@
 
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/AssetRef.h"
+#include "Seraph/Asset/Serializers/SerializationAttributes.h"
 #include "Seraph/Core/Log.h"
+#include "Seraph/Core/UUID.h"
 #include "Seraph/Graphics/SceneCamera.h"
+#include "Seraph/Reflection/Any.h"
+#include "Seraph/Reflection/Reflection.h"
+#include "Seraph/Reflection/Type.h"
+#include "Seraph/Reflection/TypeId.h"
 #include "Seraph/Physics/PhysicsTypes.h"
 #include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
@@ -94,6 +100,162 @@ SceneCamera::ProjectionType ProjectionTypeFromString(const std::string& s)
                                : SceneCamera::ProjectionType::Perspective;
 }
 
+// --- Reflection-driven component (de)serialization -----------------------
+// Generic emit/parse for the pure-data components (RigidBody, colliders,
+// Relationship, Script), driven by their reflected properties. Deliberately
+// reproduces the pre-existing hand-written format byte-for-byte: enum -> int,
+// UUID/AssetHandle -> u64, vec -> flow seq, vector -> block seq, and the
+// Serialize::Attr::{Key,Flatten} overrides. Camera/Mesh/Transform/Tag stay
+// bespoke below (getter-based / AssetRef / private-euler shapes).
+
+std::string SerializeKey(const Property& p)
+{
+    if (const std::string* k = p.Attrs.Get<std::string>(Serialize::Attr::Key))
+        return *k;
+    return std::string(p.Name);
+}
+
+// Emit a single reflected value with the scene format's conventions.
+void EmitAny(YAML::Emitter& e, const Any& v, const Type* t)
+{
+    if (!t || v.IsEmpty()) {
+        e << YAML::Null;
+        return;
+    }
+    if (t->Kind == TypeKind::Enum) { // enum -> underlying int
+        e << static_cast<int>(*v.Cast<s64>());
+        return;
+    }
+    const TypeId id = t->Id;
+    if (id == TypeIdOf<bool>())              e << *v.Cast<bool>();
+    else if (id == TypeIdOf<s32>())          e << *v.Cast<s32>();
+    else if (id == TypeIdOf<u32>())          e << *v.Cast<u32>();
+    else if (id == TypeIdOf<s64>())          e << *v.Cast<s64>();
+    else if (id == TypeIdOf<u64>())          e << *v.Cast<u64>();
+    else if (id == TypeIdOf<f32>())          e << *v.Cast<f32>();
+    else if (id == TypeIdOf<f64>())          e << *v.Cast<f64>();
+    else if (id == TypeIdOf<std::string>())  e << *v.Cast<std::string>();
+    else if (id == TypeIdOf<UUID>())         e << static_cast<u64>(*v.Cast<UUID>());
+    else if (id == TypeIdOf<glm::vec2>()) {
+        const auto& p = *v.Cast<glm::vec2>();
+        e << YAML::Flow << YAML::BeginSeq << p.x << p.y << YAML::EndSeq;
+    } else if (id == TypeIdOf<glm::vec3>()) {
+        const auto& p = *v.Cast<glm::vec3>();
+        e << YAML::Flow << YAML::BeginSeq << p.x << p.y << p.z << YAML::EndSeq;
+    } else if (id == TypeIdOf<glm::vec4>()) {
+        const auto& p = *v.Cast<glm::vec4>();
+        e << YAML::Flow << YAML::BeginSeq << p.x << p.y << p.z << p.w << YAML::EndSeq;
+    } else {
+        SP_CORE_WARN_TAG("SceneSerializer", "no emit for reflected type '{}'", t->Name);
+        e << YAML::Null;
+    }
+}
+
+// Emit a reflected object's properties into an already-open map. Flatten inlines
+// a nested struct's fields at this level; containers become block sequences.
+void EmitProps(YAML::Emitter& e, const Type& type, void* obj)
+{
+    for (const Property& p : type.Properties) {
+        const Type* pt = p.PropType;
+
+        if (pt && pt->Kind == TypeKind::Struct && p.GetAddress
+            && p.Attrs.Has(Serialize::Attr::Flatten)) {
+            EmitProps(e, *pt, p.GetAddress(obj)); // inline, no key/map
+            continue;
+        }
+
+        e << YAML::Key << SerializeKey(p) << YAML::Value;
+
+        if (pt && pt->Kind == TypeKind::Container && pt->Container && p.GetAddress) {
+            const ContainerInfo& ci = *pt->Container;
+            void* c = p.GetAddress(obj);
+            e << YAML::BeginSeq;
+            for (std::size_t i = 0; i < ci.Size(c); ++i)
+                EmitAny(e, ci.GetElement(c, i), ci.ElementType);
+            e << YAML::EndSeq;
+        } else {
+            EmitAny(e, p.Get(obj), pt);
+        }
+    }
+}
+
+void SerializeComponent(YAML::Emitter& e, const char* block, const Type& type, void* obj)
+{
+    e << YAML::Key << block << YAML::Value << YAML::BeginMap;
+    EmitProps(e, type, obj);
+    e << YAML::EndMap;
+}
+
+// Parse a scalar/enum/uuid/vec value from a YAML node into an Any of `t`. Returns
+// an empty Any if the node can't be read as that type (caller keeps the default).
+Any ParseAny(const YAML::Node& node, const Type* t)
+{
+    if (!t || !node)
+        return {};
+    try {
+        if (t->Kind == TypeKind::Enum)
+            return Any(static_cast<s64>(node.as<int>()));
+        const TypeId id = t->Id;
+        if (id == TypeIdOf<bool>())              return Any(node.as<bool>());
+        if (id == TypeIdOf<s32>())               return Any(node.as<s32>());
+        if (id == TypeIdOf<u32>())               return Any(node.as<u32>());
+        if (id == TypeIdOf<s64>())               return Any(node.as<s64>());
+        if (id == TypeIdOf<u64>())               return Any(node.as<u64>());
+        if (id == TypeIdOf<f32>())               return Any(node.as<f32>());
+        if (id == TypeIdOf<f64>())               return Any(node.as<f64>());
+        if (id == TypeIdOf<std::string>())       return Any(node.as<std::string>());
+        if (id == TypeIdOf<UUID>())              return Any(UUID(node.as<u64>()));
+        if (id == TypeIdOf<glm::vec3>() && node.IsSequence() && node.size() == 3)
+            return Any(glm::vec3{node[0].as<float>(), node[1].as<float>(), node[2].as<float>()});
+        if (id == TypeIdOf<glm::vec2>() && node.IsSequence() && node.size() == 2)
+            return Any(glm::vec2{node[0].as<float>(), node[1].as<float>()});
+        if (id == TypeIdOf<glm::vec4>() && node.IsSequence() && node.size() == 4)
+            return Any(glm::vec4{node[0].as<float>(), node[1].as<float>(),
+                                 node[2].as<float>(), node[3].as<float>()});
+    } catch (const std::exception&) {
+        // fall through -> empty Any -> keep default
+    }
+    return {};
+}
+
+// Populate a reflected object from a component block node. Absent keys keep the
+// object's default (so `obj` should already be a default-constructed component).
+void DeserializeComponent(const YAML::Node& node, const Type& type, void* obj)
+{
+    for (const Property& p : type.Properties) {
+        const Type* pt = p.PropType;
+
+        if (pt && pt->Kind == TypeKind::Struct && p.GetAddress
+            && p.Attrs.Has(Serialize::Attr::Flatten)) {
+            DeserializeComponent(node, *pt, p.GetAddress(obj)); // read from same node
+            continue;
+        }
+
+        const YAML::Node child = node[SerializeKey(p)];
+        if (!child)
+            continue; // absent -> keep default
+
+        if (pt && pt->Kind == TypeKind::Container && pt->Container && p.GetAddress) {
+            if (!child.IsSequence())
+                continue;
+            const ContainerInfo& ci = *pt->Container;
+            void* c = p.GetAddress(obj);
+            ci.Resize(c, child.size());
+            std::size_t i = 0;
+            for (const auto& el : child) {
+                Any ev = ParseAny(el, ci.ElementType);
+                if (!ev.IsEmpty())
+                    ci.SetElement(c, i, ev);
+                ++i;
+            }
+        } else {
+            Any v = ParseAny(child, pt);
+            if (!v.IsEmpty())
+                p.Set(obj, v);
+        }
+    }
+}
+
 void SerializeEntity(YAML::Emitter& emitter, Entity entity)
 {
     emitter << YAML::BeginMap;
@@ -149,74 +311,38 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
         emitter << YAML::EndMap;
     }
 
-    if (entity.HasComponent<RigidBodyComponent>()) {
-        const auto& rb = entity.GetComponent<RigidBodyComponent>();
-        emitter << YAML::Key << "RigidBody" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "BodyType" << YAML::Value << static_cast<int>(rb.Type);
-        emitter << YAML::Key << "LayerID" << YAML::Value << rb.LayerID;
-        emitter << YAML::Key << "Mass" << YAML::Value << rb.Mass;
-        emitter << YAML::Key << "LinearDrag" << YAML::Value << rb.LinearDrag;
-        emitter << YAML::Key << "AngularDrag" << YAML::Value << rb.AngularDrag;
-        emitter << YAML::Key << "GravityFactor" << YAML::Value << rb.GravityFactor;
-        emitter << YAML::Key << "InitialLinearVelocity" << YAML::Value
-                << rb.InitialLinearVelocity;
-        emitter << YAML::Key << "InitialAngularVelocity" << YAML::Value
-                << rb.InitialAngularVelocity;
-        emitter << YAML::EndMap;
-    }
+    // Reflection-driven blocks (pure-data components). Same order + block names
+    // + byte format as before; the field emit is now generated from the reflected
+    // properties (see SerializeComponent / EmitProps above).
+    if (entity.HasComponent<RigidBodyComponent>())
+        SerializeComponent(emitter, "RigidBody",
+            Reflection::Get<RigidBodyComponent>(),
+            &entity.GetComponent<RigidBodyComponent>());
 
-    if (entity.HasComponent<BoxColliderComponent>()) {
-        const auto& c = entity.GetComponent<BoxColliderComponent>();
-        emitter << YAML::Key << "BoxCollider" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "HalfExtents" << YAML::Value << c.HalfExtents;
-        emitter << YAML::Key << "Offset" << YAML::Value << c.Offset;
-        emitter << YAML::Key << "IsTrigger" << YAML::Value << c.IsTrigger;
-        emitter << YAML::Key << "Friction" << YAML::Value << c.Material.Friction;
-        emitter << YAML::Key << "Restitution" << YAML::Value << c.Material.Restitution;
-        emitter << YAML::EndMap;
-    }
+    if (entity.HasComponent<BoxColliderComponent>())
+        SerializeComponent(emitter, "BoxCollider",
+            Reflection::Get<BoxColliderComponent>(),
+            &entity.GetComponent<BoxColliderComponent>());
 
-    if (entity.HasComponent<SphereColliderComponent>()) {
-        const auto& c = entity.GetComponent<SphereColliderComponent>();
-        emitter << YAML::Key << "SphereCollider" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "Radius" << YAML::Value << c.Radius;
-        emitter << YAML::Key << "Offset" << YAML::Value << c.Offset;
-        emitter << YAML::Key << "IsTrigger" << YAML::Value << c.IsTrigger;
-        emitter << YAML::Key << "Friction" << YAML::Value << c.Material.Friction;
-        emitter << YAML::Key << "Restitution" << YAML::Value << c.Material.Restitution;
-        emitter << YAML::EndMap;
-    }
+    if (entity.HasComponent<SphereColliderComponent>())
+        SerializeComponent(emitter, "SphereCollider",
+            Reflection::Get<SphereColliderComponent>(),
+            &entity.GetComponent<SphereColliderComponent>());
 
-    if (entity.HasComponent<CapsuleColliderComponent>()) {
-        const auto& c = entity.GetComponent<CapsuleColliderComponent>();
-        emitter << YAML::Key << "CapsuleCollider" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "Radius" << YAML::Value << c.Radius;
-        emitter << YAML::Key << "HalfHeight" << YAML::Value << c.HalfHeight;
-        emitter << YAML::Key << "Offset" << YAML::Value << c.Offset;
-        emitter << YAML::Key << "IsTrigger" << YAML::Value << c.IsTrigger;
-        emitter << YAML::Key << "Friction" << YAML::Value << c.Material.Friction;
-        emitter << YAML::Key << "Restitution" << YAML::Value << c.Material.Restitution;
-        emitter << YAML::EndMap;
-    }
+    if (entity.HasComponent<CapsuleColliderComponent>())
+        SerializeComponent(emitter, "CapsuleCollider",
+            Reflection::Get<CapsuleColliderComponent>(),
+            &entity.GetComponent<CapsuleColliderComponent>());
 
-    if (entity.HasComponent<RelationshipComponent>()) {
-        const auto& rc = entity.GetComponent<RelationshipComponent>();
-        emitter << YAML::Key << "Relationship" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "Parent" << YAML::Value
-                << static_cast<u64>(rc.ParentHandle);
-        emitter << YAML::Key << "Children" << YAML::Value << YAML::BeginSeq;
-        for (UUID child : rc.Children)
-            emitter << static_cast<u64>(child);
-        emitter << YAML::EndSeq;
-        emitter << YAML::EndMap;
-    }
+    if (entity.HasComponent<RelationshipComponent>())
+        SerializeComponent(emitter, "Relationship",
+            Reflection::Get<RelationshipComponent>(),
+            &entity.GetComponent<RelationshipComponent>());
 
-    if (entity.HasComponent<ScriptComponent>()) {
-        const auto& sc = entity.GetComponent<ScriptComponent>();
-        emitter << YAML::Key << "Script" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "ScriptClass" << YAML::Value << sc.ScriptClass;
-        emitter << YAML::EndMap;
-    }
+    if (entity.HasComponent<ScriptComponent>())
+        SerializeComponent(emitter, "Script",
+            Reflection::Get<ScriptComponent>(),
+            &entity.GetComponent<ScriptComponent>());
 
     emitter << YAML::EndMap;
 }
@@ -297,63 +423,35 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
                         mc.MaterialOverrides.emplace_back(o.as<u64>(0));
             }
 
-            if (const YAML::Node n = node["RigidBody"]) {
-                auto& rb = entity.AddComponent<RigidBodyComponent>();
-                rb.Type = static_cast<BodyType>(
-                    n["BodyType"].as<int>(static_cast<int>(BodyType::Static)));
-                rb.LayerID = n["LayerID"].as<u32>(0u);
-                rb.Mass = n["Mass"].as<float>(1.0f);
-                rb.LinearDrag = n["LinearDrag"].as<float>(0.01f);
-                rb.AngularDrag = n["AngularDrag"].as<float>(0.05f);
-                rb.GravityFactor = n["GravityFactor"].as<float>(1.0f);
-                rb.InitialLinearVelocity =
-                    DecodeVec3(n["InitialLinearVelocity"], glm::vec3(0.0f));
-                rb.InitialAngularVelocity =
-                    DecodeVec3(n["InitialAngularVelocity"], glm::vec3(0.0f));
-            }
+            // Reflection-driven parse (pure-data components). AddComponent gives
+            // the defaults; DeserializeComponent overwrites only the keys present
+            // (so absent keys keep the component's member-initializer defaults,
+            // matching the previous per-field `.as<T>(default)` behaviour).
+            if (const YAML::Node n = node["RigidBody"])
+                DeserializeComponent(n, Reflection::Get<RigidBodyComponent>(),
+                    &entity.AddComponent<RigidBodyComponent>());
 
-            if (const YAML::Node n = node["BoxCollider"]) {
-                auto& c = entity.AddComponent<BoxColliderComponent>();
-                c.HalfExtents = DecodeVec3(n["HalfExtents"], glm::vec3(0.5f));
-                c.Offset = DecodeVec3(n["Offset"], glm::vec3(0.0f));
-                c.IsTrigger = n["IsTrigger"].as<bool>(false);
-                c.Material.Friction = n["Friction"].as<float>(0.5f);
-                c.Material.Restitution = n["Restitution"].as<float>(0.15f);
-            }
+            if (const YAML::Node n = node["BoxCollider"])
+                DeserializeComponent(n, Reflection::Get<BoxColliderComponent>(),
+                    &entity.AddComponent<BoxColliderComponent>());
 
-            if (const YAML::Node n = node["SphereCollider"]) {
-                auto& c = entity.AddComponent<SphereColliderComponent>();
-                c.Radius = n["Radius"].as<float>(0.5f);
-                c.Offset = DecodeVec3(n["Offset"], glm::vec3(0.0f));
-                c.IsTrigger = n["IsTrigger"].as<bool>(false);
-                c.Material.Friction = n["Friction"].as<float>(0.5f);
-                c.Material.Restitution = n["Restitution"].as<float>(0.15f);
-            }
+            if (const YAML::Node n = node["SphereCollider"])
+                DeserializeComponent(n, Reflection::Get<SphereColliderComponent>(),
+                    &entity.AddComponent<SphereColliderComponent>());
 
-            if (const YAML::Node n = node["CapsuleCollider"]) {
-                auto& c = entity.AddComponent<CapsuleColliderComponent>();
-                c.Radius = n["Radius"].as<float>(0.5f);
-                c.HalfHeight = n["HalfHeight"].as<float>(0.5f);
-                c.Offset = DecodeVec3(n["Offset"], glm::vec3(0.0f));
-                c.IsTrigger = n["IsTrigger"].as<bool>(false);
-                c.Material.Friction = n["Friction"].as<float>(0.5f);
-                c.Material.Restitution = n["Restitution"].as<float>(0.15f);
-            }
+            if (const YAML::Node n = node["CapsuleCollider"])
+                DeserializeComponent(n, Reflection::Get<CapsuleColliderComponent>(),
+                    &entity.AddComponent<CapsuleColliderComponent>());
 
-            if (const YAML::Node s = node["Script"]) {
-                auto& sc = entity.AddComponent<ScriptComponent>();
-                sc.ScriptClass = s["ScriptClass"].as<std::string>(std::string());
-            }
+            if (const YAML::Node n = node["Script"])
+                DeserializeComponent(n, Reflection::Get<ScriptComponent>(),
+                    &entity.AddComponent<ScriptComponent>());
 
-            if (const YAML::Node r = node["Relationship"]) {
-                auto& rc = entity.GetComponent<RelationshipComponent>();
-                rc.ParentHandle = r["Parent"].as<u64>(0);
-                rc.Children.clear();
-                if (const YAML::Node children = r["Children"];
-                    children && children.IsSequence())
-                    for (const auto& ch : children)
-                        rc.Children.emplace_back(ch.as<u64>());
-            }
+            // Relationship already exists (CreateEntityWithUUID auto-adds it), so
+            // populate the existing instance rather than adding a new one.
+            if (const YAML::Node n = node["Relationship"])
+                DeserializeComponent(n, Reflection::Get<RelationshipComponent>(),
+                    &entity.GetComponent<RelationshipComponent>());
         }
     }
 

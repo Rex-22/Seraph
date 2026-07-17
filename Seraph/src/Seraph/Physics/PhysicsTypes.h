@@ -38,10 +38,14 @@ enum class SENUM() ContactType : s8
     TriggerEnd
 };
 
-// Per-collider surface material. Applied to the Jolt body at creation.
-struct ColliderMaterial
+// Per-collider surface material. Applied to the Jolt body at creation. Reflected
+// (via SHT) so colliders can flatten it into their serialized/inspected fields.
+struct SCLASS() ColliderMaterial
 {
+    SPROPERTY(settings.min = 0.0f, settings.max = 1.0f)
     float Friction = 0.5f;
+
+    SPROPERTY(settings.min = 0.0f, settings.max = 1.0f)
     float Restitution = 0.15f;
 };
 

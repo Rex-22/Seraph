@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "Seraph/Reflection/Annotations.h"
+
 #include <string>
 #include <utility>
 
@@ -11,9 +13,11 @@ namespace Seraph
 {
 class ScriptableEntity;
 
-struct ScriptComponent
+struct SCLASS() ScriptComponent
 {
+    SPROPERTY()
     std::string ScriptClass;
+
     ScriptableEntity* Instance = nullptr;
 
     ScriptComponent() = default;
