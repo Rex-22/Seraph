@@ -26,6 +26,16 @@ namespace Editor::Attr
 // Select a named widget variant for a property (e.g. "assetPicker"), overriding
 // the type's default drawer. Value is a std::string naming a registered variant.
 inline constexpr u64 Widget = AttributeKey("editor.widget");
+
+// Show/enable a property only when a condition over a SIBLING property holds
+// (Unreal meta=(EditCondition=...)). Value is a std::string expression:
+//   "Flag"                -> sibling bool Flag == true
+//   "!Flag"               -> sibling bool Flag == false
+//   "Mode == Perspective" -> sibling enum/int Mode equals that enumerator/value
+inline constexpr u64 EditCondition = AttributeKey("editor.editcondition");
+// When true (default), an unmet condition HIDES the property; when false, it is
+// shown but DISABLED (greyed out). Unreal's EditConditionHides.
+inline constexpr u64 EditConditionHides = AttributeKey("editor.editconditionhides");
 } // namespace Editor::Attr
 
 class PropertyDrawer
@@ -58,6 +68,16 @@ public:
     // containers list their elements (with add/remove), everything else routes
     // through DrawValue + Property::Set. Returns true if changed.
     static bool DrawProperty(void* obj, const Property& prop);
+
+    // EditCondition evaluation (Reflection v3.3). Reads the property's
+    // Editor::Attr::EditCondition against a SIBLING property of `type` on `obj`.
+    struct EditConditionResult
+    {
+        bool Visible = true; // false + Hides -> skip; false + !Hides -> disabled
+        bool Enabled = true;
+    };
+    static EditConditionResult EvalEditCondition(const Type& type, const void* obj,
+                                                 const Property& prop);
 };
 
 } // namespace Seraph

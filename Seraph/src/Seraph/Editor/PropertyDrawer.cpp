@@ -281,11 +281,84 @@ bool PropertyDrawer::DrawProperty(void* obj, const Property& prop)
     return false;
 }
 
+PropertyDrawer::EditConditionResult PropertyDrawer::EvalEditCondition(
+    const Type& type, const void* obj, const Property& prop)
+{
+    EditConditionResult r; // default: visible + enabled
+    const std::string* expr =
+        prop.Attrs.Get<std::string>(Editor::Attr::EditCondition);
+    if (!expr || expr->empty())
+        return r;
+
+    // Parse: "!Prop" | "Prop == Value" | "Prop"
+    std::string s = *expr;
+    auto trim = [](std::string& t) {
+        while (!t.empty() && t.front() == ' ') t.erase(t.begin());
+        while (!t.empty() && t.back() == ' ') t.pop_back();
+    };
+
+    bool met = false;
+    if (auto eq = s.find("=="); eq != std::string::npos)
+    {
+        std::string lhs = s.substr(0, eq), rhs = s.substr(eq + 2);
+        trim(lhs); trim(rhs);
+        const Property* sib = type.FindProperty(lhs);
+        if (sib && sib->Get)
+        {
+            Any v = sib->Get(obj);
+            const Type* st = sib->PropType;
+            if (st && st->Kind == TypeKind::Enum && v.Cast<s64>())
+            {
+                // rhs is an enumerator name (or integer)
+                if (auto val = EnumFromString(*st, rhs))
+                    met = (*v.Cast<s64>() == *val);
+                else
+                    met = (std::to_string(*v.Cast<s64>()) == rhs);
+            }
+            else if (v.Cast<s64>()) met = (std::to_string(*v.Cast<s64>()) == rhs);
+            else if (v.Cast<s32>()) met = (std::to_string(*v.Cast<s32>()) == rhs);
+            else if (v.Cast<u32>()) met = (std::to_string(*v.Cast<u32>()) == rhs);
+            else if (v.Cast<bool>()) met = ((*v.Cast<bool>() ? "true" : "false") == rhs);
+        }
+    }
+    else
+    {
+        bool negate = !s.empty() && s.front() == '!';
+        if (negate) s.erase(s.begin());
+        trim(s);
+        const Property* sib = type.FindProperty(s);
+        if (sib && sib->Get)
+        {
+            Any v = sib->Get(obj);
+            bool truthy = v.Cast<bool>() ? *v.Cast<bool>() : false;
+            met = negate ? !truthy : truthy;
+        }
+    }
+
+    const bool* hides = prop.Attrs.Get<bool>(Editor::Attr::EditConditionHides);
+    const bool hide = hides ? *hides : true; // default: hide when unmet
+    if (!met)
+    {
+        if (hide) r.Visible = false;
+        else r.Enabled = false;
+    }
+    return r;
+}
+
 bool PropertyDrawer::DrawObject(const Type& type, void* obj)
 {
     bool changed = false;
     for (const Property& prop : type.Properties)
+    {
+        EditConditionResult ec = EvalEditCondition(type, obj, prop);
+        if (!ec.Visible)
+            continue;
+        if (!ec.Enabled)
+            ImGui::BeginDisabled();
         changed |= DrawProperty(obj, prop);
+        if (!ec.Enabled)
+            ImGui::EndDisabled();
+    }
     return changed;
 }
 
