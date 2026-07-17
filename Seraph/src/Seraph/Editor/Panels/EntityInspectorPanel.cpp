@@ -8,6 +8,8 @@
 #include "Seraph/Asset/AssetRef.h"
 #include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Core/Base.h"
+#include "Seraph/Editor/PropertyDrawer.h"
+#include "Seraph/Reflection/Reflection.h"
 #include "Seraph/Scene/Scene.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Graphics/SceneCamera.h"
@@ -370,12 +372,11 @@ void EntityInspectorPanel::DrawRigidBodyComponent()
 
     if (open)
     {
-        const char* bodyTypes[] = { "Static", "Dynamic", "Kinematic" };
-        int typeIndex = static_cast<int>(rb->Type);
-        if (ImGui::Combo("Body Type", &typeIndex, bodyTypes, 3))
-            rb->Type = static_cast<BodyType>(typeIndex);
+        // Most fields are reflection-driven; LayerID is Hidden in reflection and
+        // drawn here with a bespoke dropdown sourced from the runtime layer
+        // registry (which the generic drawer can't enumerate).
+        PropertyDrawer::DrawObject(Reflection::Get<RigidBodyComponent>(), rb);
 
-        // Collision layer dropdown, sourced from the layer manager's registry.
         const std::vector<PhysicsLayer>& layers = PhysicsLayerManager::GetLayers();
         const char* preview = PhysicsLayerManager::IsLayerValid(rb->LayerID)
             ? layers[rb->LayerID].Name.c_str() : "(invalid)";
@@ -391,13 +392,6 @@ void EntityInspectorPanel::DrawRigidBodyComponent()
             }
             ImGui::EndCombo();
         }
-
-        ImGui::DragFloat("Mass", &rb->Mass, 0.01f, 0.0f, 100000.0f);
-        ImGui::DragFloat("Linear Drag", &rb->LinearDrag, 0.001f, 0.0f, 100.0f);
-        ImGui::DragFloat("Angular Drag", &rb->AngularDrag, 0.001f, 0.0f, 100.0f);
-        ImGui::DragFloat("Gravity Factor", &rb->GravityFactor, 0.01f);
-        DrawVec3Control("Init Lin Vel", rb->InitialLinearVelocity, 0.0f, 0.1f);
-        DrawVec3Control("Init Ang Vel", rb->InitialAngularVelocity, 0.0f, 0.1f);
 
         ImGui::TreePop();
     }
@@ -417,11 +411,7 @@ void EntityInspectorPanel::DrawBoxColliderComponent()
 
     if (open)
     {
-        DrawVec3Control("Half Extents", c->HalfExtents, 0.5f, 0.1f);
-        DrawVec3Control("Offset", c->Offset, 0.0f, 0.1f);
-        ImGui::Checkbox("Is Trigger", &c->IsTrigger);
-        ImGui::DragFloat("Friction", &c->Material.Friction, 0.01f, 0.0f, 1.0f);
-        ImGui::DragFloat("Restitution", &c->Material.Restitution, 0.01f, 0.0f, 1.0f);
+        PropertyDrawer::DrawObject(Reflection::Get<BoxColliderComponent>(), c);
         ImGui::TreePop();
     }
 
@@ -440,11 +430,7 @@ void EntityInspectorPanel::DrawSphereColliderComponent()
 
     if (open)
     {
-        ImGui::DragFloat("Radius", &c->Radius, 0.01f, 0.0f, 100000.0f);
-        DrawVec3Control("Offset", c->Offset, 0.0f, 0.1f);
-        ImGui::Checkbox("Is Trigger", &c->IsTrigger);
-        ImGui::DragFloat("Friction", &c->Material.Friction, 0.01f, 0.0f, 1.0f);
-        ImGui::DragFloat("Restitution", &c->Material.Restitution, 0.01f, 0.0f, 1.0f);
+        PropertyDrawer::DrawObject(Reflection::Get<SphereColliderComponent>(), c);
         ImGui::TreePop();
     }
 
@@ -463,12 +449,7 @@ void EntityInspectorPanel::DrawCapsuleColliderComponent()
 
     if (open)
     {
-        ImGui::DragFloat("Radius", &c->Radius, 0.01f, 0.0f, 100000.0f);
-        ImGui::DragFloat("Half Height", &c->HalfHeight, 0.01f, 0.0f, 100000.0f);
-        DrawVec3Control("Offset", c->Offset, 0.0f, 0.1f);
-        ImGui::Checkbox("Is Trigger", &c->IsTrigger);
-        ImGui::DragFloat("Friction", &c->Material.Friction, 0.01f, 0.0f, 1.0f);
-        ImGui::DragFloat("Restitution", &c->Material.Restitution, 0.01f, 0.0f, 1.0f);
+        PropertyDrawer::DrawObject(Reflection::Get<CapsuleColliderComponent>(), c);
         ImGui::TreePop();
     }
 

@@ -171,4 +171,83 @@ bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
     return changed;
 }
 
+bool PropertyDrawer::DrawProperty(void* obj, const Property& prop)
+{
+    // Hidden properties are skipped (the owner draws them with a bespoke widget).
+    if (const u32* flags = prop.Attrs.Get<u32>(Setting::Attr::Flags))
+        if (*flags & SettingFlag_Hidden)
+            return false;
+
+    const std::string* disp = prop.Attrs.Get<std::string>(Setting::Attr::DisplayName);
+    const std::string labelStore = disp ? *disp : std::string(prop.Name);
+    const char* label = labelStore.c_str();
+
+    const Type* pt = prop.PropType;
+
+    // Nested struct: recurse into the live sub-object.
+    if (pt && pt->Kind == TypeKind::Struct && prop.GetAddress)
+    {
+        bool changed = false;
+        if (ImGui::TreeNodeEx(label, ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            changed = DrawObject(*pt, prop.GetAddress(obj));
+            ImGui::TreePop();
+        }
+        return changed;
+    }
+
+    // Container: list elements (each via DrawValue) + add/remove.
+    if (pt && pt->Kind == TypeKind::Container && pt->Container && prop.GetAddress)
+    {
+        const ContainerInfo& ci = *pt->Container;
+        void* c = prop.GetAddress(obj);
+        bool changed = false;
+        std::size_t n = ci.Size(c);
+        if (ImGui::TreeNodeEx(label, ImGuiTreeNodeFlags_DefaultOpen, "%s [%zu]",
+                              label, n))
+        {
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                ImGui::PushID(static_cast<int>(i));
+                Any elem = ci.GetElement(c, i);
+                std::string elemLabel = "##elem" + std::to_string(i);
+                if (DrawValue(elemLabel.c_str(), elem, ci.ElementType, prop.Attrs))
+                {
+                    ci.SetElement(c, i, elem);
+                    changed = true;
+                }
+                ImGui::PopID();
+            }
+            if (ImGui::SmallButton("+")) { ci.Resize(c, n + 1); changed = true; }
+            if (n > 0)
+            {
+                ImGui::SameLine();
+                if (ImGui::SmallButton("-")) { ci.Resize(c, n - 1); changed = true; }
+            }
+            ImGui::TreePop();
+        }
+        return changed;
+    }
+
+    // Scalar / enum / vec / string / AssetHandle: value round-trip.
+    if (prop.Get && prop.Set)
+    {
+        Any v = prop.Get(obj);
+        if (DrawValue(label, v, pt, prop.Attrs))
+        {
+            prop.Set(obj, v);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool PropertyDrawer::DrawObject(const Type& type, void* obj)
+{
+    bool changed = false;
+    for (const Property& prop : type.Properties)
+        changed |= DrawProperty(obj, prop);
+    return changed;
+}
+
 } // namespace Seraph

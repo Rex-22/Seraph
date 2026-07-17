@@ -16,15 +16,15 @@
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
 #include "Seraph/Scene/Components/RigidBodyComponent.h"
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
-#include "Seraph/Settings/SettingDescriptor.h" // Setting::Attr keys
+#include "Seraph/Settings/SettingDescriptor.h"
 
 using namespace Seraph;
 
-SP_REFLECT_ENUM(Seraph::BodyType)
-    .Value("Static", Seraph::BodyType::Static)
-    .Value("Dynamic", Seraph::BodyType::Dynamic)
-    .Value("Kinematic", Seraph::BodyType::Kinematic)
-SP_REFLECT_ENUM_END();
+// SP_REFLECT_ENUM(Seraph::BodyType)
+//     .Value("Static", Seraph::BodyType::Static)
+//     .Value("Dynamic", Seraph::BodyType::Dynamic)
+//     .Value("Kinematic", Seraph::BodyType::Kinematic)
+// SP_REFLECT_ENUM_END();
 
 SP_REFLECT_TYPE(Seraph::ColliderMaterial)
     .Property<&Seraph::ColliderMaterial::Friction>("Friction")
