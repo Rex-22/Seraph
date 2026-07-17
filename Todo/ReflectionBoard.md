@@ -593,7 +593,7 @@ Unreal: asset refs are reflected types with a registered asset-picker customizat
 ---
 
 ### 24. Reflection v3.5 — Camera serialization via reflection (needs CameraComponent cleanup)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Low
 
@@ -612,6 +612,11 @@ Migrate CameraComponent serialization to reflection. BLOCKED on a design cleanup
 
 ## Note
 Camera is low-value/high-friction; the v3 mechanisms (accessors, EditCondition, enum-as-string) make it doable, but the CameraComponent cleanup is the real prerequisite. Currently Camera stays bespoke in SceneSerializer.
+
+**Subtasks:**
+- [ ] UNBLOCKED: CameraComponent dual-projection mirror removed (was write-only dead state; SceneCamera::GetProjectionType is now sole source of truth). Remaining for v3.5: accessor helpers on CameraComponent for the 8 SceneCamera values + serialize.enumAsString attr for ProjectionType; golden-diff Camera block
+- [x] SceneCamera reflected (7 accessor SPROPERTYs on private fields); ProjectionType via string accessor (GetProjectionTypeName) — NO enum reflection / enumAsString needed; CameraComponent flattens Camera + IsPrimary
+- [x] Camera serialization fully reflection-driven; ProjectionType/FromString helpers removed; Camera block reordered (IsPrimary after cam params, per declaration-order policy), example.sscene re-saved; golden sorted-identical + Orthographic round-trip verified; full build
 
 ---
 
