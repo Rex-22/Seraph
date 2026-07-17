@@ -73,11 +73,22 @@ struct Reflection::Storage
         }
 
         auto owned = std::make_unique<Type>(std::move(type));
-        const Type* p = owned.get();
+        Type* p = owned.get();
         Owned.push_back({std::move(owned), Current});
         ById.emplace(p->Id, p);
         ByName.emplace(p->Name, p);
         AllList.push_back(p);
+
+        // Back-patch any earlier-registered property whose type is THIS type but
+        // was unresolved at its own registration time. Static-init order across
+        // TUs is undefined, so a component can register before the enum/struct it
+        // references (e.g. RigidBodyComponent before its SHT-generated BodyType).
+        for (OwnedType& o : Owned)
+            for (Property& prop : o.Ptr->Properties)
+                if (prop.PropType == nullptr && prop.PropTypeId != 0
+                    && prop.PropTypeId == p->Id)
+                    prop.PropType = p;
+
         return p;
     }
 

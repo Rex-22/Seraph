@@ -93,8 +93,10 @@ struct Type;
 struct Property
 {
     std::string_view Name;
-    const Type* PropType = nullptr; // resolved at registration (may be null if
-                                    // the property's type is not reflected)
+    const Type* PropType = nullptr; // resolved at registration, or back-patched by
+                                    // Reflection::Register when PropTypeId's type
+                                    // registers later (static-init order safety)
+    TypeId PropTypeId = 0;          // identity of the property's type (for back-patch)
     AttributeSet Attrs;
 
     // Type-erased accessors bound to the owning object. Get copies the field out

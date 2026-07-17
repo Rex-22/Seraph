@@ -185,7 +185,8 @@ public:
         p.Name = name;
         if constexpr (Detail::VectorTraits<M>::IsVector)
             Detail::RegisterContainerType<M>(); // before TryGet resolves PropType
-        p.PropType = Reflection::TryGet<M>();
+        p.PropTypeId = TypeIdOf<M>();
+        p.PropType = Reflection::TryGet<M>(); // may be null now; back-patched later
 
         // Address of the member for in-place access (containers, nested structs).
         p.GetAddress = +[](void* obj) -> void*
@@ -234,7 +235,8 @@ public:
 
         ::Seraph::Property p;
         p.Name = name;
-        p.PropType = Reflection::TryGet<M>();
+        p.PropTypeId = TypeIdOf<M>();
+        p.PropType = Reflection::TryGet<M>(); // may be null now; back-patched later
         p.Get = +[](const void* obj) -> Any
         { return Any(Getter(*static_cast<const T*>(obj))); };
         p.Set = +[](void* obj, const Any& v)
