@@ -15,6 +15,7 @@
 #include "Seraph/Graphics/Material/MaterialInstance.h"
 #include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Core/Application.h"
+#include "Seraph/Core/Buffer.h"
 #include "Seraph/Core/Core.h"
 #include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Input.h"
@@ -22,6 +23,7 @@
 #include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Project/GamePackager.h"
 #include "Seraph/Project/ProjectManager.h"
+#include "Seraph/Project/ProjectTemplates.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/EntityTemplates.h"
@@ -34,6 +36,7 @@
 #include <imgui_internal.h>
 #include <yaml-cpp/yaml.h>
 
+#include <cctype>
 #include <cstdio>
 #include <exception>
 #include <filesystem>
@@ -200,6 +203,8 @@ void EditorLayer::DrawMenuBar()
         // Reload swaps the loaded module — unsafe while a live script instance
         // holds a vtable into it, so block during play.
         ImGui::BeginDisabled(m_RuntimeMode || building);
+        if (ImGui::MenuItem("New Script..."))
+            CreateScript();
         if (ImGui::MenuItem(building ? "Compiling..." : "Compile Scripts"))
             CompileScripts();
         ImGui::EndDisabled();
@@ -327,6 +332,89 @@ void EditorLayer::DrawCreateShaderPopup()
             else
                 SP_CORE_ERROR_TAG("Editor", "Failed to create shader '{}'", m_ShaderNameBuf);
         }
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel"))
+        ImGui::CloseCurrentPopup();
+
+    ImGui::EndPopup();
+}
+
+void EditorLayer::CreateScript()
+{
+    // Open the name-input popup; the file scaffolding + compile happen on confirm
+    // in DrawCreateScriptPopup().
+    m_ScriptNameBuf[0] = '\0';
+    m_ShowCreateScriptPopup = true;
+}
+
+void EditorLayer::DrawCreateScriptPopup()
+{
+    if (m_ShowCreateScriptPopup) {
+        ImGui::OpenPopup("New Script");
+        m_ShowCreateScriptPopup = false;
+    }
+
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+    if (!ImGui::BeginPopupModal("New Script", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    ImGui::TextUnformatted("Class name (also the file name and the script name):");
+    ImGui::SetNextItemWidth(280.0f);
+    const bool submitted = ImGui::InputText(
+        "##scriptname", m_ScriptNameBuf, sizeof(m_ScriptNameBuf),
+        ImGuiInputTextFlags_EnterReturnsTrue);
+
+    // The name must be a valid C++ identifier: it becomes a class name, the
+    // SCLASS(script.name), and the .h/.cpp basename.
+    const std::string name = m_ScriptNameBuf;
+    const auto isIdentifier = [](const std::string& s) {
+        if (s.empty() || std::isdigit(static_cast<unsigned char>(s[0])))
+            return false;
+        for (const char c : s)
+            if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_'))
+                return false;
+        return true;
+    };
+    const bool valid = isIdentifier(name);
+
+    // Don't clobber an existing script.
+    std::filesystem::path srcDir;
+    bool exists = false;
+    if (valid && ProjectManager::HasActive()) {
+        srcDir = ProjectManager::ActiveDir() / "src";
+        std::error_code ec;
+        exists = std::filesystem::exists(srcDir / (name + ".h"), ec)
+              || std::filesystem::exists(srcDir / (name + ".cpp"), ec);
+    }
+
+    const bool canCreate = valid && ProjectManager::HasActive() && !exists;
+    if (!valid)
+        ImGui::TextDisabled("Enter a valid class name (letter or _, then letters/digits/_).");
+    else if (!ProjectManager::HasActive())
+        ImGui::TextDisabled("No active project.");
+    else if (exists)
+        ImGui::TextColored(ImVec4(0.9f, 0.5f, 0.2f, 1.0f),
+            "A script named '%s' already exists.", name.c_str());
+
+    ImGui::BeginDisabled(!canCreate);
+    if (ImGui::Button("Create") || (submitted && canCreate)) {
+        FileSystem::CreateDirectories(Root::Absolute, srcDir);
+        const std::string header = ProjectTemplates::NewScriptHeader(name);
+        const std::string source = ProjectTemplates::NewScriptSource(name);
+        FileSystem::Write(Root::Absolute, srcDir / (name + ".h"),
+            Buffer::Copy(header.data(), header.size()));
+        FileSystem::Write(Root::Absolute, srcDir / (name + ".cpp"),
+            Buffer::Copy(source.data(), source.size()));
+        SP_CORE_INFO_TAG("Scripting",
+            "Created script '{}' in src/ — compiling so it registers", name);
+        // Reconfigure (globs the new files + reflects the new annotated header)
+        // + build + reload, so the script appears in the inspector's dropdown.
+        CompileScripts();
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndDisabled();
@@ -512,6 +600,7 @@ void EditorLayer::OnImGuiRender()
         m_SettingsPanel.OnImGuiRender();
 
         DrawCreateShaderPopup();
+        DrawCreateScriptPopup();
 
         m_Gizmo.SetSelectedEntity(selected);
         m_Gizmo.SetCamera(m_EditorCamera.GetViewMatrix(),

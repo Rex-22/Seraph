@@ -84,6 +84,12 @@ private:
     // Poll the async compile each frame; reloads the module on the main thread
     // when the build finishes.
     void PollScriptCompile();
+    // Scaffold a new script (.h/.cpp from a template) into the active project's
+    // src/, then trigger a script compile so it registers. CreateScript opens the
+    // name-input popup; DrawCreateScriptPopup renders it and does the work on
+    // confirm.
+    void CreateScript();
+    void DrawCreateScriptPopup();
     void SaveScene();
     void OpenScene();
     void NewMaterial();
@@ -132,6 +138,9 @@ private:
 
     bool                 m_ShowCreateShaderPopup = false;
     char                 m_ShaderNameBuf[128] = {};
+
+    bool                 m_ShowCreateScriptPopup = false;
+    char                 m_ScriptNameBuf[128] = {};
 
     // Async script-compile state. The build runs on m_ScriptCompileThread; the
     // atomic flips to Succeeded/Failed when done, and the main thread (OnUpdate)

@@ -42,10 +42,17 @@ file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
 # libGame: this project's native C++ gameplay scripts. Loaded at runtime by the
-# editor/runtime via SDL_LoadObject (NOT linked into them); its SP_REGISTER_SCRIPT
-# initializers register into libSeraph's ScriptRegistry on load.
+# editor/runtime via SDL_LoadObject (NOT linked into them); its reflection
+# registrations run on load and expose each script to the editor by name.
 add_library(Game SHARED ${GAME_SOURCES})
 target_link_libraries(Game PRIVATE Seraph::Seraph)
+
+# Reflect annotated script headers (SCLASS/SPROPERTY) via SeraphHeaderTool: each
+# generates a .gen.cpp of reflection registrations compiled into libGame. This is
+# what makes a script known to the editor (its class dropdown), lets its SPROPERTY
+# fields show in the inspector, and persists them in the scene. sht_reflect_glob
+# and the tool path come from SeraphConfig (the engine you find_package'd).
+sht_reflect_glob(Game DIRS "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # rpath: the engine bin (dev-time load) + @loader_path/.. (so a PACKAGED libGame,
 # which sits in <game>/cache/, finds libSeraph one dir up next to the exe).
@@ -136,47 +143,69 @@ inline std::string CMakePresets(const std::string& engineBuildDir)
     return detail::Replace(tpl, "@ENGINE@", engineBuildDir);
 }
 
-// A starter ScriptableEntity, ready to bind from the inspector.
-inline std::string ExampleScriptHeader()
+// A gameplay script (.h) for class `@NAME@`, ready to bind from the inspector.
+// Shared by new-project scaffolding and the editor's Scripts > New Script action,
+// so a hand-authored script and an editor-created one look identical.
+//
+// Reflection makes this a script with zero boilerplate:
+//   SCLASS(script.name = "...") - the name scenes reference + the editor dropdown.
+//   SP_REFLECT(Class)           - private-field access + the GetType() the editor
+//                                 uses to inspect this concrete type.
+//   SPROPERTY(...)              - exposes a field: editable in the inspector and
+//                                 persisted per-entity in the scene.
+// SeraphHeaderTool generates the registration at build time (see sht_reflect_glob
+// in CMakeLists.txt) - no manual registration call needed.
+inline std::string NewScriptHeader(const std::string& className)
 {
-    return R"cpp(#pragma once
+    const std::string tpl = R"cpp(#pragma once
 
+#include <Seraph/Reflection/Annotations.h>
+#include <Seraph/Reflection/Reflect.h>
 #include <Seraph/Scripts/ScriptableEntity.h>
 
-// A starter script. Rename it, add gameplay in OnUpdate, then bind it to an
-// entity from the inspector: Add Component > Script > ExampleScript.
-class ExampleScript : public Seraph::ScriptableEntity
+// @NAME@ — a gameplay script. Bind it to an entity from the inspector
+// (Add Component > Script > @NAME@). Add gameplay in OnUpdate; fields marked
+// SPROPERTY appear in the inspector and are saved per-entity in the scene.
+class SCLASS(script.name = "@NAME@") @NAME@ : public Seraph::ScriptableEntity
 {
+    SP_REFLECT(@NAME@);
+
 public:
     void OnCreate() override;
     void OnUpdate(f64 dt) override;
+
+private:
+    SPROPERTY(settings.display = "Speed")
+    float m_Speed = 1.0f;
 };
 )cpp";
+    return detail::Replace(tpl, "@NAME@", className);
 }
 
-inline std::string ExampleScriptSource()
+inline std::string NewScriptSource(const std::string& className)
 {
-    return R"cpp(#include "ExampleScript.h"
+    const std::string tpl = R"cpp(#include "@NAME@.h"
 
 #include <Seraph/Core/Log.h>
-#include <Seraph/Scripts/ScriptRegistry.h>
 
-void ExampleScript::OnCreate()
+void @NAME@::OnCreate()
 {
-    SP_INFO_TAG("Scripting", "ExampleScript::OnCreate");
+    SP_INFO_TAG("Scripting", "@NAME@::OnCreate (speed {})", m_Speed);
 }
 
-void ExampleScript::OnUpdate(f64 dt)
+void @NAME@::OnUpdate(f64 dt)
 {
     (void)dt;
     // Your gameplay here. Read input with Seraph::Input::IsKeyDown(...),
     // move via Transform(), reach components with GetComponent<T>().
 }
-
-// Registers this class under the name a scene's ScriptComponent references.
-SP_REGISTER_SCRIPT(ExampleScript, "ExampleScript")
 )cpp";
+    return detail::Replace(tpl, "@NAME@", className);
 }
+
+// The new-project starter script is just a NewScript named "ExampleScript".
+inline std::string ExampleScriptHeader() { return NewScriptHeader("ExampleScript"); }
+inline std::string ExampleScriptSource() { return NewScriptSource("ExampleScript"); }
 
 inline std::string Readme(const std::string& projectName)
 {
