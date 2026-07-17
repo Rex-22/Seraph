@@ -1,10 +1,11 @@
 //
 // Loads a project's compiled native-script module (libGame.<dylib/so/dll>) at
 // runtime via SDL's shared-object loader, so the editor stays portable — no
-// recompile to switch projects. The module's SP_REGISTER_SCRIPT static
-// initializers run on load and populate the shared ScriptRegistry (which lives
-// in libSeraph, so the module and the host share one registry). One module is
-// loaded at a time.
+// recompile to switch projects. The module's reflection registrations (generated
+// by SeraphHeaderTool from each script's SCLASS/SP_REFLECT) run on load, tagged
+// k_GameModule, so its scripts appear in the shared reflection registry (which
+// lives in libSeraph — module and host share one) and are dropped on unload. One
+// module is loaded at a time. See ScriptTypes for the reflection-backed lookup.
 //
 
 #pragma once

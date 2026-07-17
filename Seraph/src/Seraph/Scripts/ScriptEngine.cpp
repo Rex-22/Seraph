@@ -5,10 +5,11 @@
 #include "ScriptEngine.h"
 
 #include "ScriptComponent.h"
-#include "ScriptRegistry.h"
+#include "ScriptTypes.h"
 #include "ScriptableEntity.h"
 
 #include "Seraph/Core/Log.h"
+#include "Seraph/Reflection/Type.h"
 #include "Seraph/Scene/Scene.h"
 
 namespace Seraph
@@ -23,7 +24,7 @@ ScriptableEntity* ScriptEngine::InstantiateIfNeeded(Entity entity, ScriptCompone
     if (m_Failed.contains(static_cast<entt::entity>(entity)))
         return nullptr;
 
-    ScriptableEntity* instance = ScriptRegistry::Create(sc.ScriptClass);
+    ScriptableEntity* instance = ScriptTypes::Create(sc.ScriptClass);
     if (!instance)
     {
         SP_CORE_WARN_TAG("Scripting", "Unknown script class '{}'", sc.ScriptClass);
@@ -34,6 +35,20 @@ ScriptableEntity* ScriptEngine::InstantiateIfNeeded(Entity entity, ScriptCompone
     instance->m_Entity = entity; // friend access
     instance->m_Scene = m_Scene;
     sc.Instance = instance;
+
+    // Apply the authored field values before OnCreate, so the script observes its
+    // inspector-/scene-set values at construction time. The concrete reflected
+    // Type comes from the instance's virtual GetType() (declared by SP_REFLECT).
+    // Stale entries (renamed/removed fields) simply don't resolve and are skipped.
+    const Type& type = instance->GetType();
+    for (const auto& [name, value] : sc.Fields)
+    {
+        if (value.IsEmpty())
+            continue;
+        if (const Property* prop = type.FindProperty(name); prop && prop->Set)
+            prop->Set(instance, value);
+    }
+
     instance->OnCreate();
     return instance;
 }

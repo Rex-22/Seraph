@@ -16,6 +16,13 @@ file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
 add_library(Game SHARED ${GAME_SOURCES})
 target_link_libraries(Game PRIVATE Seraph::Seraph)
 
+# Reflect annotated script headers (SCLASS/SPROPERTY) via SeraphHeaderTool: for
+# each such header under src/, generate a .gen.cpp of reflection registrations and
+# compile it into libGame. The registrations run at module load (inside the
+# engine's Game-module reflection scope), exposing script fields to the inspector
+# and scene serialization. sht_reflect_glob + the tool path come from SeraphConfig.
+sht_reflect_glob(Game DIRS "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 # rpath: the engine bin (dev-time load) + @loader_path/.. (so a PACKAGED libGame,
 # which sits in <game>/cache/, finds libSeraph one dir up next to the exe).
 if (APPLE)

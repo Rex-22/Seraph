@@ -5,6 +5,7 @@
 #pragma once
 
 #include "Seraph/Core/Base.h"
+#include "Seraph/Reflection/Annotations.h"
 #include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/Scene.h"
 
@@ -13,7 +14,12 @@ namespace Seraph
 class Scene;
 struct Type; // Reflection type; see GetType() below
 
-class ScriptableEntity
+// SCLASS(dynamic): reflected as the polymorphic script root. SHT generates its
+// registration with .Dynamic() (resolution through the virtual GetType()), which
+// makes ScriptableEntity a REFLECTED base — so SHT emits .Base<ScriptableEntity>()
+// on annotated subclasses, and ScriptTypes can identify scripts by walking the
+// reflected base chain (no per-script marker attribute needed).
+class SCLASS(dynamic) ScriptableEntity
 {
 public:
     // Virtual: ScriptEngine owns instances as ScriptableEntity* and deletes
@@ -24,7 +30,7 @@ public:
     // this instance. The base returns the ScriptableEntity type; subclasses that
     // use SP_REFLECT() override it to return their own. This is what lets the
     // editor inspect a script's concrete (and private) properties from a base
-    // ScriptableEntity* — see Todo/plans/reflection-plan.md example B.
+    // ScriptableEntity*
     virtual const Type& GetType() const;
 
     virtual void OnCreate() {}

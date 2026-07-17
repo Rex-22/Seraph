@@ -5,7 +5,6 @@
 #include "Spinner.h"
 
 #include <Seraph/Core/Log.h>
-#include <Seraph/Scripts/ScriptRegistry.h>
 
 namespace Sandbox {
 
@@ -28,8 +27,4 @@ void Spinner::OnCollisionBegin(Seraph::Entity other)
         static_cast<u64>(other.GetUUID()));
 }
 
-// Self-register under the name scenes reference. This TU is compiled into the
-// Game OBJECT library, whose objects link directly into the executables, so the
-// initializer runs (it would be dead-stripped from a static archive).
-SP_REGISTER_SCRIPT(Spinner, "SpinnerScript")
 } // Sandbox

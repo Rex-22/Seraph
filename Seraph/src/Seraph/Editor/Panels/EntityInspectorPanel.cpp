@@ -26,7 +26,8 @@
 #include "Seraph/Graphics/MeshFactory.h"
 #include "Seraph/Physics/PhysicsSettings.h"
 #include "Seraph/Scripts/ScriptComponent.h"
-#include "Seraph/Scripts/ScriptRegistry.h"
+#include "Seraph/Scripts/ScriptTypes.h"
+#include "Seraph/Scripts/ScriptableEntity.h"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
@@ -556,25 +557,60 @@ void EntityInspectorPanel::DrawScriptComponent()
     {
         // Unresolved = a name no linked module registers (renamed class, or an
         // editor not linked against this project's Game module).
-        if (!sc->ScriptClass.empty() && !ScriptRegistry::Exists(sc->ScriptClass))
+        if (!sc->ScriptClass.empty() && !ScriptTypes::Exists(sc->ScriptClass))
             ImGui::TextColored(ImVec4(0.9f, 0.5f, 0.2f, 1.0f), "Unresolved script class");
 
         const char* preview = sc->ScriptClass.empty() ? "(none)" : sc->ScriptClass.c_str();
         if (ImGui::BeginCombo("Class", preview))
         {
+            // Changing the class invalidates authored field values (they belong to
+            // the previous class's reflected fields), so clear them on any switch.
             if (ImGui::Selectable("(none)", sc->ScriptClass.empty()))
-                sc->ScriptClass.clear();
-
-            for (const auto& entry : ScriptRegistry::GetAll())
             {
-                const std::string& name = entry.first;
+                sc->ScriptClass.clear();
+                sc->Fields.clear();
+            }
+
+            for (const std::string& name : ScriptTypes::Names())
+            {
                 const bool selected = (name == sc->ScriptClass);
-                if (ImGui::Selectable(name.c_str(), selected))
+                if (ImGui::Selectable(name.c_str(), selected) && name != sc->ScriptClass)
+                {
                     sc->ScriptClass = name;
+                    sc->Fields.clear();
+                }
                 if (selected)
                     ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
+        }
+
+        // Reflected script fields. In play mode a live instance exists — edit it
+        // directly (live tweaking). In edit mode there is none, so spin up a
+        // transient to obtain the reflected Type + defaults, apply the stored
+        // overrides, draw, then snapshot any change back into sc->Fields. The
+        // transient is created and destroyed within this call, so it never
+        // outlives a script module reload.
+        if (!sc->ScriptClass.empty() && ScriptTypes::Exists(sc->ScriptClass))
+        {
+            if (sc->Instance)
+            {
+                PropertyDrawer::DrawObject(sc->Instance->GetType(), sc->Instance);
+            }
+            else if (ScriptableEntity* tmp = ScriptTypes::Create(sc->ScriptClass))
+            {
+                const Type& type = tmp->GetType();
+                for (const auto& [name, value] : sc->Fields)
+                    if (const Property* p = type.FindProperty(name); p && p->Set && !value.IsEmpty())
+                        p->Set(tmp, value);
+
+                if (PropertyDrawer::DrawObject(type, tmp))
+                    for (const Property& p : type.Properties)
+                        if (p.Get)
+                            sc->Fields[std::string(p.Name)] = p.Get(tmp);
+
+                delete tmp;
+            }
         }
 
         ImGui::TreePop();

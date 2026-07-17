@@ -25,6 +25,8 @@
 #include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Scripts/ScriptComponent.h"
+#include "Seraph/Scripts/ScriptTypes.h"
+#include "Seraph/Scripts/ScriptableEntity.h"
 #include "Seraph/Utilities/YAMLSerializationHelpers.h"
 
 #include <glm/glm.hpp>
@@ -240,6 +242,59 @@ void DeserializeComponent(const YAML::Node& node, const Type& type, void* obj)
     }
 }
 
+// --- Script component (bespoke) -------------------------------------------
+// The authored field SET is dynamic — it depends on which class ScriptClass
+// names — so it can't be a fixed reflected property. Emit ScriptClass (via the
+// reflected ScriptComponent) plus a "Fields" sub-map of the script's reflected
+// fields. A transient instance supplies the concrete reflected Type + each
+// field's type; it's created and destroyed here (the Game module is already
+// loaded — ProjectManager::Open loads it before any scene). If the class is
+// unknown (no module / renamed), the Fields round-trip is skipped, not fatal.
+
+void SerializeScript(YAML::Emitter& e, ScriptComponent& sc)
+{
+    e << YAML::Key << "Script" << YAML::Value << YAML::BeginMap;
+    EmitProps(e, Reflection::Get<ScriptComponent>(), &sc); // ScriptClass
+
+    if (!sc.ScriptClass.empty() && !sc.Fields.empty()) {
+        if (ScriptableEntity* tmp = ScriptTypes::Create(sc.ScriptClass)) {
+            const Type& type = tmp->GetType();
+            e << YAML::Key << "Fields" << YAML::Value << YAML::BeginMap;
+            for (const Property& p : type.Properties) {
+                const auto it = sc.Fields.find(std::string(p.Name));
+                if (it == sc.Fields.end() || it->second.IsEmpty())
+                    continue;
+                e << YAML::Key << SerializeKey(p) << YAML::Value;
+                EmitAny(e, it->second, p.PropType);
+            }
+            e << YAML::EndMap;
+            delete tmp;
+        }
+    }
+    e << YAML::EndMap;
+}
+
+void DeserializeScript(const YAML::Node& node, ScriptComponent& sc)
+{
+    DeserializeComponent(node, Reflection::Get<ScriptComponent>(), &sc); // ScriptClass
+
+    const YAML::Node fields = node["Fields"];
+    if (!fields || sc.ScriptClass.empty())
+        return;
+    if (ScriptableEntity* tmp = ScriptTypes::Create(sc.ScriptClass)) {
+        const Type& type = tmp->GetType();
+        for (const Property& p : type.Properties) {
+            const YAML::Node child = fields[SerializeKey(p)];
+            if (!child)
+                continue;
+            Any v = ParseAny(child, p.PropType);
+            if (!v.IsEmpty())
+                sc.Fields[std::string(p.Name)] = v;
+        }
+        delete tmp;
+    }
+}
+
 void SerializeEntity(YAML::Emitter& emitter, Entity entity)
 {
     emitter << YAML::BeginMap;
@@ -291,9 +346,7 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
             &entity.GetComponent<RelationshipComponent>());
 
     if (entity.HasComponent<ScriptComponent>())
-        SerializeComponent(emitter, "Script",
-            Reflection::Get<ScriptComponent>(),
-            &entity.GetComponent<ScriptComponent>());
+        SerializeScript(emitter, entity.GetComponent<ScriptComponent>());
 
     emitter << YAML::EndMap;
 }
@@ -373,8 +426,7 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
                     &entity.AddComponent<CapsuleColliderComponent>());
 
             if (const YAML::Node n = node["Script"])
-                DeserializeComponent(n, Reflection::Get<ScriptComponent>(),
-                    &entity.AddComponent<ScriptComponent>());
+                DeserializeScript(n, entity.AddComponent<ScriptComponent>());
 
             // Relationship already exists (CreateEntityWithUUID auto-adds it), so
             // populate the existing instance rather than adding a new one.

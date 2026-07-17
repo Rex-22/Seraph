@@ -4,7 +4,7 @@
 
 #include "ScriptLibrary.h"
 
-#include "ScriptRegistry.h"
+#include "ScriptTypes.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Reflection/Reflection.h"
 #include "Seraph/Settings/Settings.h"
@@ -78,7 +78,7 @@ bool ScriptLibrary::Load(const std::filesystem::path& gameLib)
     SP_CORE_INFO_TAG(
         "Scripting",
         "Loaded script module '{}' ({} scripts, {} reflected types registered)",
-        gameLib.filename().string(), ScriptRegistry::GetAll().size(),
+        gameLib.filename().string(), ScriptTypes::Names().size(),
         Reflection::All().size());
     return true;
 }
@@ -88,10 +88,9 @@ void ScriptLibrary::Unload()
     if (!s_Handle)
         return;
 
-    // Drop factories, reflected types, and game.* settings (their lambdas /
-    // Get-Set thunks / registration all live in the module) before unmapping it —
-    // otherwise those function pointers dangle.
-    ScriptRegistry::Clear();
+    // Drop reflected types (which now ARE the script registry — their heap
+    // factories + Get/Set thunks live in the module) and game.* settings before
+    // unmapping it, otherwise those function pointers dangle.
     Reflection::ClearModule(k_GameModule);
     Settings::PurgeByPrefix("game.");
     SDL_UnloadObject(s_Handle);

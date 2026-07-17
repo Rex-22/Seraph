@@ -5,7 +5,6 @@
 #include "RotatorScript.h"
 
 #include <Seraph/Core/Log.h>
-#include <Seraph/Scripts/ScriptRegistry.h>
 
 #include <glm/glm.hpp>
 
@@ -30,10 +29,5 @@ void RotatorScript::OnCollisionBegin(Seraph::Entity other)
     SP_INFO_TAG("Scripting", "RotatorScript collided with entity {}",
         static_cast<u64>(other.GetUUID()));
 }
-
-// Self-register under the name scenes reference. This TU is compiled into the
-// Game OBJECT library, whose objects link directly into the executables, so the
-// initializer runs (it would be dead-stripped from a static archive).
-SP_REGISTER_SCRIPT(RotatorScript, "Rotator")
 
 } // namespace Sandbox
