@@ -377,10 +377,6 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
                 cam.SetOrthographicNearClip(c["OrthographicNear"].as<float>(-1.0f));
                 cam.SetOrthographicFarClip(c["OrthographicFar"].as<float>(1.0f));
                 cc.IsPrimary = c["IsPrimary"].as<bool>(false);
-                cc.ProjectionType =
-                    proj == SceneCamera::ProjectionType::Orthographic
-                        ? CameraComponent::Type::Orthographic
-                        : CameraComponent::Type::Perspective;
             }
 
             if (const YAML::Node m = node["Mesh"]) {
