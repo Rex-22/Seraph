@@ -154,16 +154,21 @@ void EmitProps(YAML::Emitter& e, const Type& type, void* obj)
             continue;
         }
 
-        e << YAML::Key << SerializeKey(p) << YAML::Value;
-
         if (pt && pt->Kind == TypeKind::Container && pt->Container && p.GetAddress) {
             const ContainerInfo& ci = *pt->Container;
             void* c = p.GetAddress(obj);
+            const std::size_t n = ci.Size(c);
+            if (n == 0 && p.Attrs.Has(Serialize::Attr::OmitEmpty))
+                continue; // no key emitted for an empty container
+            e << YAML::Key << SerializeKey(p) << YAML::Value;
+            if (p.Attrs.Has(Serialize::Attr::Flow))
+                e << YAML::Flow;
             e << YAML::BeginSeq;
-            for (std::size_t i = 0; i < ci.Size(c); ++i)
+            for (std::size_t i = 0; i < n; ++i)
                 EmitAny(e, ci.GetElement(c, i), ci.ElementType);
             e << YAML::EndSeq;
         } else {
+            e << YAML::Key << SerializeKey(p) << YAML::Value;
             EmitAny(e, p.Get(obj), pt);
         }
     }
@@ -282,20 +287,9 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
         emitter << YAML::EndMap;
     }
 
-    if (entity.HasComponent<MeshComponent>()) {
-        const auto& mc = entity.GetComponent<MeshComponent>();
-        emitter << YAML::Key << "Mesh" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "Mesh" << YAML::Value
-                << static_cast<u64>(mc.Mesh.Handle());
-        if (!mc.MaterialOverrides.empty()) {
-            emitter << YAML::Key << "MaterialOverrides" << YAML::Value
-                    << YAML::Flow << YAML::BeginSeq;
-            for (const AssetHandle handle : mc.MaterialOverrides)
-                emitter << static_cast<u64>(handle);
-            emitter << YAML::EndSeq;
-        }
-        emitter << YAML::EndMap;
-    }
+    if (entity.HasComponent<MeshComponent>())
+        SerializeComponent(emitter, "Mesh", Reflection::Get<MeshComponent>(),
+            &entity.GetComponent<MeshComponent>());
 
     // Reflection-driven blocks (pure-data components). Same order + block names
     // + byte format as before; the field emit is now generated from the reflected
@@ -391,21 +385,15 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
 
             if (const YAML::Node m = node["Mesh"]) {
                 auto& mc = entity.AddComponent<MeshComponent>();
-                auto handle = m["Mesh"].as<AssetHandle>(0);
+                DeserializeComponent(m, Reflection::Get<MeshComponent>(), &mc);
                 // Keep the authored handle even when it does not currently
-                // resolve: a transiently-missing asset (not yet imported, or a
-                // load-order gap) must not be permanently dropped on the next
-                // save. Resolution through AssetRef safely yields null meanwhile.
-                if (handle != c_NullAssetHandle && !AssetManager::IsAssetHandleValid(handle))
+                // resolve (transiently-missing asset), but warn — the generic
+                // parse already retained it via SetMeshHandle.
+                const AssetHandle h = mc.Mesh.Handle();
+                if (h != c_NullAssetHandle && !AssetManager::IsAssetHandleValid(h))
                     SP_CORE_WARN_TAG("SceneSerializer",
                         "Mesh asset {} not found; keeping the reference for later resolution",
-                        handle);
-                mc.Mesh = handle;
-
-                if (const YAML::Node overrides = m["MaterialOverrides"];
-                    overrides && overrides.IsSequence())
-                    for (const auto& o : overrides)
-                        mc.MaterialOverrides.emplace_back(o.as<u64>(0));
+                        h);
             }
 
             // Reflection-driven parse (pure-data components). AddComponent gives

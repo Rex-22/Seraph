@@ -23,4 +23,12 @@ inline constexpr u64 Key = AttributeKey("serialize.key");
 // BoxCollider { ... Material: { Friction, Restitution } }.
 inline constexpr u64 Flatten = AttributeKey("serialize.flatten");
 
+// Emit a container property as a YAML flow sequence ([a, b, c]) instead of a
+// block sequence. Value: bool. Preserves MeshComponent.MaterialOverrides format.
+inline constexpr u64 Flow = AttributeKey("serialize.flow");
+
+// Skip a container property entirely when it is empty (no key emitted). Value:
+// bool. Preserves the "MaterialOverrides only when non-empty" format.
+inline constexpr u64 OmitEmpty = AttributeKey("serialize.omitempty");
+
 } // namespace Seraph::Serialize::Attr
