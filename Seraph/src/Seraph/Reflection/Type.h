@@ -185,6 +185,17 @@ struct Type
     // deserialization / "new instance" flows.
     Any (*DefaultConstruct)() = nullptr;
 
+    // Heap-construct a fresh, default-constructed instance and return its address
+    // (the caller owns it — `delete` through the appropriate type). Auto-populated
+    // for default-constructible, non-abstract reflected types; null otherwise.
+    // Unlike DefaultConstruct (a value inside an Any), this yields an owned raw
+    // instance for POLYMORPHIC use — e.g. the script system news a ScriptableEntity
+    // subclass purely from its reflected type, with no compile-time knowledge of it.
+    // NOTE: the returned pointer is the MOST-DERIVED object address; converting it
+    // to a base pointer is only valid for single inheritance with the base at
+    // offset 0 (consistent with the v1 single-Base model above).
+    void* (*HeapConstruct)() = nullptr;
+
     [[nodiscard]] const Property* FindProperty(std::string_view name) const noexcept
     {
         for (const Property& p : Properties)

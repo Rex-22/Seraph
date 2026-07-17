@@ -167,6 +167,12 @@ public:
         if constexpr (std::is_default_constructible_v<T>
                       && std::is_copy_constructible_v<T>)
             m_Type.DefaultConstruct = +[]() -> Any { return Any(T{}); };
+
+        // Heap factory for polymorphic "new instance by reflected type" flows
+        // (e.g. the script system). Any default-constructible, non-abstract type
+        // gets one; abstract roots (pure-virtual) do not.
+        if constexpr (std::is_default_constructible_v<T> && !std::is_abstract_v<T>)
+            m_Type.HeapConstruct = +[]() -> void* { return new T(); };
     }
 
     // Data-member property. Member is a pointer-to-data-member NTTP, e.g.

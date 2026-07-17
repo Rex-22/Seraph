@@ -176,6 +176,7 @@ struct TypeInfo
 {
     std::string QualName;
     std::string Kind;    // "struct" | "class" | "enum"
+    std::string Payload; // SCLASS(...) argument list -> type-level attributes
     std::string BaseQual; // qualified base name, empty if none
     bool BaseReflected = false;
     bool HasReflectHook = false; // SP_REFLECT() present (SpReflectMembers member)
@@ -301,6 +302,7 @@ CXChildVisitResult VisitTopLevel(CXCursor c, CXCursor, CXClientData data)
     t.QualName = QualifiedName(c);
     t.Kind = isEnum ? "enum"
                     : (kind == CXCursor_ClassDecl ? "class" : "struct");
+    t.Payload = Payload(ann); // SCLASS(...) args -> type-level attributes
     t.Loc = LocationOf(c);
 
     if (isEnum)
@@ -388,6 +390,30 @@ bool EmitType(std::ofstream& os, const TypeInfo& t)
         os << "SP_REFLECT_IMPL(" << t.QualName << ")\n";
     else
         os << "SP_REFLECT_TYPE(" << t.QualName << ")\n";
+
+    // Class-level directives from SCLASS(...). `dynamic` is a STRUCTURAL flag
+    // (like getter/setter on a property): it emits .Dynamic() to enable
+    // polymorphic type resolution through a virtual GetType() — for a reflected
+    // root such as ScriptableEntity. Everything else is a key = value type
+    // attribute, emitted before any property/base so TypeBuilder::Attr attaches it
+    // to the TYPE (it targets the last-added property once one exists). e.g.
+    // SCLASS(dynamic) or SCLASS(script.name = "Foo"). Bare value-less keys other
+    // than `dynamic` are skipped.
+    bool dynamic = false;
+    for (auto& [key, value] : SplitAttrs(t.Payload))
+    {
+        if (key == "dynamic")
+        {
+            dynamic = true;
+            continue;
+        }
+        if (value.empty())
+            continue;
+        os << "    .Attr(::Seraph::AttributeKey(\"" << key << "\"), "
+           << AnyExpr(value) << ")\n";
+    }
+    if (dynamic)
+        os << "    .Dynamic()\n";
 
     if (!t.BaseQual.empty() && t.BaseReflected)
         os << "    .Base<" << t.BaseQual << ">()\n";
