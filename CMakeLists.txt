@@ -77,6 +77,16 @@ set(SERAPH_CMAKE_COMMAND "${CMAKE_COMMAND}")
 # for the engine and its consumers, so `#include <config.h>` resolves.
 configure_file(Seraph/src/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
 
+# SeraphHeaderTool: the reflection code-gen tool (libclang-based). Opt-in while
+# in development — it needs libclang installed. When ON, libSeraph generates
+# reflection registrations from SPROPERTY/SCLASS annotations via sht_reflect()
+# (see cmake/sht.cmake), and the tool + helpers are baked into SeraphConfig so
+# downstream Game modules can reflect their own annotated headers too. When OFF,
+# the engine builds with no libclang dependency and SHT is unwired everywhere.
+# Declared HERE (before the SDK package block) so its value is known when baking
+# SERAPH_HEADER_TOOL_EXE into SeraphConfig below.
+option(SERAPH_BUILD_HEADER_TOOL "Build SeraphHeaderTool (reflection code-gen; needs libclang)" ON)
+
 # --- SDK package: a hand-written SeraphConfig.cmake so a game project can
 # find_package(Seraph) against THIS local engine build (source-SDK model). It
 # defines an imported Seraph::Seraph target pointing at the built libSeraph plus
@@ -105,6 +115,17 @@ set(SERAPH_DYLIB_PATH
 set(SERAPH_IMPLIB_PATH "${CMAKE_BINARY_DIR}/bin/Seraph${CMAKE_IMPORT_LIBRARY_SUFFIX}")
 set(SERAPH_EDITOR_EXE  "${CMAKE_BINARY_DIR}/bin/Seraph-Editor${CMAKE_EXECUTABLE_SUFFIX}")
 set(SERAPH_RUNTIME_EXE "${CMAKE_BINARY_DIR}/bin/Seraph-Runtime${CMAKE_EXECUTABLE_SUFFIX}")
+# SHT wiring for downstream Game modules: the built code-gen tool + the sht.cmake
+# helpers (sht_reflect / sht_reflect_glob). Baked into SeraphConfig so a project
+# can reflect its own annotated script headers exactly like the engine does. Empty
+# tool path when SERAPH_BUILD_HEADER_TOOL=OFF -> SeraphConfig leaves SHT unwired.
+if(SERAPH_BUILD_HEADER_TOOL)
+    set(SERAPH_HEADER_TOOL_EXE
+        "${CMAKE_BINARY_DIR}/bin/SeraphHeaderTool${CMAKE_EXECUTABLE_SUFFIX}")
+else()
+    set(SERAPH_HEADER_TOOL_EXE "")
+endif()
+set(SERAPH_SHT_CMAKE "${PROJECT_SOURCE_DIR}/cmake/sht.cmake")
 configure_file(cmake/SeraphConfig.cmake.in
     "${CMAKE_BINARY_DIR}/SeraphConfig.cmake" @ONLY)
 write_basic_package_version_file(
@@ -115,13 +136,9 @@ write_basic_package_version_file(
 # standalone find_package(Seraph) build (its own dir/build), built by the editor's
 # Compile Scripts action or its own IDE. The engine build just produces the
 # engine + editor + runtime + the SeraphConfig package above.
-# SeraphHeaderTool: the reflection code-gen tool (libclang-based). Opt-in while
-# in development — it needs libclang installed. When ON, libSeraph generates
-# reflection registrations from SPROPERTY/SCLASS annotations via sht_reflect()
-# (see cmake/sht.cmake). When OFF (default), the engine builds with no libclang
-# dependency and simply omits the generated registrations. Added BEFORE the
-# engine so the SeraphHeaderTool target exists when Seraph calls sht_reflect().
-option(SERAPH_BUILD_HEADER_TOOL "Build SeraphHeaderTool (reflection code-gen; needs libclang)" ON)
+# The SeraphHeaderTool target is added BEFORE the engine (below) so it exists when
+# Seraph calls sht_reflect(). The option itself is declared above, before the SDK
+# package block, so SERAPH_HEADER_TOOL_EXE bakes correctly into SeraphConfig.
 if(SERAPH_BUILD_HEADER_TOOL)
     add_subdirectory(Tools/SeraphHeaderTool)
 endif()

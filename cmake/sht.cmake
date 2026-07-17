@@ -53,6 +53,23 @@ function(sht_reflect target)
     set(_inc_flags "$<$<BOOL:${_inc}>:-I$<JOIN:${_inc},;-I>>")
     set(_def_flags "$<$<BOOL:${_def}>:-D$<JOIN:${_def},;-D>>")
 
+    # Downstream (find_package) projects receive the engine's headers and ABI
+    # defs through the IMPORTED Seraph::Seraph target's USAGE REQUIREMENTS, which
+    # are applied to the compile line but do NOT land in the consuming target's
+    # own INCLUDE_DIRECTORIES/COMPILE_DEFINITIONS. Pass those interface sets too so
+    # the libclang parse resolves engine headers exactly as the real compile does.
+    # Empty (and therefore dropped by COMMAND_EXPAND_LISTS) in the engine's own
+    # build, where Seraph::Seraph doesn't exist and the target already carries its
+    # own include dirs.
+    set(_iface_inc_flags "")
+    set(_iface_def_flags "")
+    if(TARGET Seraph::Seraph)
+        set(_iinc "$<TARGET_PROPERTY:Seraph::Seraph,INTERFACE_INCLUDE_DIRECTORIES>")
+        set(_idef "$<TARGET_PROPERTY:Seraph::Seraph,INTERFACE_COMPILE_DEFINITIONS>")
+        set(_iface_inc_flags "$<$<BOOL:${_iinc}>:-I$<JOIN:${_iinc},;-I>>")
+        set(_iface_def_flags "$<$<BOOL:${_idef}>:-D$<JOIN:${_idef},;-D>>")
+    endif()
+
     set(_gen_sources "")
     foreach(_hdr ${SHT_HEADERS})
         get_filename_component(_hdr_abs "${_hdr}" ABSOLUTE)
@@ -64,7 +81,9 @@ function(sht_reflect target)
             OUTPUT "${_out}"
             COMMAND "${_sht_exe}" "${_hdr_abs}"
                     -o "${_out}" --include "${_hdr_abs}" --depfile "${_dep}"
-                    -- ${_sysroot} -std=c++20 "${_inc_flags}" "${_def_flags}"
+                    -- ${_sysroot} -std=c++20
+                    "${_inc_flags}" "${_def_flags}"
+                    "${_iface_inc_flags}" "${_iface_def_flags}"
             DEPENDS "${_hdr_abs}" "${_sht_dep}"
             DEPFILE "${_dep}"
             COMMAND_EXPAND_LISTS

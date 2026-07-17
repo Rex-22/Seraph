@@ -49,3 +49,28 @@ if(NOT TARGET Seraph::Seraph)
             IMPORTED_IMPLIB "@SERAPH_IMPLIB_PATH@")
     endif()
 endif()
+
+# SeraphHeaderTool (reflection code-gen) — the tool binary baked from the engine
+# build plus the sht_reflect()/sht_reflect_glob() helpers, so a Game module can
+# reflect its OWN annotated headers (SCLASS/SPROPERTY) exactly like the engine.
+# Usage in a project's CMakeLists after find_package(Seraph):
+#     sht_reflect_glob(Game DIRS "${CMAKE_CURRENT_SOURCE_DIR}/src")
+# The generated .gen.cpp compiles into libGame; its registrations run at dylib
+# load (inside the engine's Game-module reflection scope). Only available when the
+# engine was built with SERAPH_BUILD_HEADER_TOOL=ON.
+set(SERAPH_HEADER_TOOL_EXE "@SERAPH_HEADER_TOOL_EXE@")
+if(SERAPH_HEADER_TOOL_EXE AND EXISTS "${SERAPH_HEADER_TOOL_EXE}")
+    include("@SERAPH_SHT_CMAKE@")
+else()
+    # SHT unavailable (engine built without the header tool). Define a stub that
+    # fails loudly if a project tries to reflect, instead of an "unknown function"
+    # error that hides the real cause.
+    function(sht_reflect)
+        message(FATAL_ERROR
+            "sht_reflect: this Seraph build has no SeraphHeaderTool. Rebuild the "
+            "engine with -DSERAPH_BUILD_HEADER_TOOL=ON to reflect Game scripts.")
+    endfunction()
+    function(sht_reflect_glob)
+        sht_reflect()
+    endfunction()
+endif()
