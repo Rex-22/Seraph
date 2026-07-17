@@ -1,5 +1,33 @@
 Scene: TestProject
 Entities:
+  - Entity: 1309468107298538528
+    Tag: Entity
+    Transform:
+      Translation: [0, -3.26791, 8.091692]
+      Scale: [1, 1, 1]
+      Rotation: [0, -0, 0]
+    RigidBody:
+      BodyType: 2
+      LayerID: 1
+      Mass: 1
+      LinearDrag: 0.01
+      AngularDrag: 0.05
+      GravityFactor: 1
+      InitialLinearVelocity: [0, 0, 0]
+      InitialAngularVelocity: [0, 0, 0]
+    CapsuleCollider:
+      Radius: 0.5
+      HalfHeight: 0.5
+      Offset: [0, 0, 0]
+      IsTrigger: false
+      Friction: 0.5
+      Restitution: 0.15
+    Relationship:
+      Parent: 0
+      Children:
+        - 12403566664747799388
+    Script:
+      ScriptClass: Player
   - Entity: 2561095505170714115
     Tag: Cube 3
     Transform:
@@ -71,7 +99,7 @@ Entities:
         - 2561095505170714115
         - 17662605094292451532
   - Entity: 10465575276937791739
-    Tag: Entity
+    Tag: Player
     Transform:
       Translation: [-0.21553159, 7.5948563, -0.99050415]
       Scale: [0.64, 0.64, 0.64]
@@ -101,9 +129,9 @@ Entities:
   - Entity: 12403566664747799388
     Tag: Camera
     Transform:
-      Translation: [-0.2483291, -1.9598236, 10.950275]
+      Translation: [0, 0, -1.1799283]
       Scale: [1, 1, 1]
-      Rotation: [-0.20829603, 0, 0]
+      Rotation: [0, -0, 0]
     Camera:
       ProjectionType: Perspective
       PerspectiveFov: 45
@@ -114,7 +142,7 @@ Entities:
       OrthographicFar: 1
       IsPrimary: true
     Relationship:
-      Parent: 0
+      Parent: 1309468107298538528
       Children:
         []
   - Entity: 17662605094292451532
