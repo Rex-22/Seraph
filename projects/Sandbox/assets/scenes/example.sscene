@@ -4,8 +4,8 @@ Entities:
     Tag: Cube 3
     Transform:
       Translation: [4.2221837, 0, -2.6506805]
-      Rotation: [0, -0, 0]
       Scale: [0.52, 0.52, 0.52]
+      Rotation: [0, -0, 0]
     Mesh:
       Mesh: 2588111291914606650
       MaterialOverrides: [4431270448959175583]
@@ -17,8 +17,8 @@ Entities:
     Tag: Plane
     Transform:
       Translation: [0.056358278, -4.990764, 0.020184278]
-      Rotation: [0, -0, 0]
       Scale: [17.13192, 17.13192, 17.13192]
+      Rotation: [0, -0, 0]
     Mesh:
       Mesh: 7500292515646999820
       MaterialOverrides: [3884254406120167305]
@@ -45,8 +45,8 @@ Entities:
     Tag: Cube
     Transform:
       Translation: [0, 0, 0]
-      Rotation: [0, 0, 0]
       Scale: [1, 1, 1]
+      Rotation: [0, 0, 0]
     Mesh:
       Mesh: 2588111291914606650
       MaterialOverrides: [9201136865809239182]
@@ -74,8 +74,8 @@ Entities:
     Tag: Entity
     Transform:
       Translation: [-0.21553159, 7.5948563, -0.99050415]
-      Rotation: [0, -0, 0]
       Scale: [0.64, 0.64, 0.64]
+      Rotation: [0, -0, 0]
     Mesh:
       Mesh: 2588111291914606650
       MaterialOverrides: [4431270448959175583]
@@ -102,8 +102,8 @@ Entities:
     Tag: Camera
     Transform:
       Translation: [-0.2483291, -1.9598236, 10.950275]
-      Rotation: [-0.20829603, 0, 0]
       Scale: [1, 1, 1]
+      Rotation: [-0.20829603, 0, 0]
     Camera:
       ProjectionType: Perspective
       IsPrimary: true
@@ -121,8 +121,8 @@ Entities:
     Tag: Entity
     Transform:
       Translation: [0, 3.0967004, 0]
-      Rotation: [0, -0, 0]
       Scale: [0.55, 0.55, 0.55]
+      Rotation: [0, -0, 0]
     Mesh:
       Mesh: 2588111291914606650
       MaterialOverrides: [6600000042]
