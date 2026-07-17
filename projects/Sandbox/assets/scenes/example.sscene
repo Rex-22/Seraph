@@ -1,7 +1,7 @@
 Scene: TestProject
 Entities:
   - Entity: 1309468107298538528
-    Tag: Entity
+    Tag: Player
     Transform:
       Translation: [0, -3.26791, 8.091692]
       Scale: [1, 1, 1]
@@ -29,7 +29,7 @@ Entities:
     Script:
       ScriptClass: Player
   - Entity: 2561095505170714115
-    Tag: Cube 3
+    Tag: Cube 2
     Transform:
       Translation: [4.2221837, 0, -2.6506805]
       Scale: [0.52, 0.52, 0.52]
@@ -99,7 +99,7 @@ Entities:
         - 2561095505170714115
         - 17662605094292451532
   - Entity: 10465575276937791739
-    Tag: Player
+    Tag: Ball
     Transform:
       Translation: [-0.21553159, 7.5948563, -0.99050415]
       Scale: [0.64, 0.64, 0.64]
@@ -129,7 +129,7 @@ Entities:
   - Entity: 12403566664747799388
     Tag: Camera
     Transform:
-      Translation: [0, 0, -1.1799283]
+      Translation: [0, 0.49190497, -0.4632826]
       Scale: [1, 1, 1]
       Rotation: [0, -0, 0]
     Camera:
@@ -146,7 +146,7 @@ Entities:
       Children:
         []
   - Entity: 17662605094292451532
-    Tag: Entity
+    Tag: Cube 3
     Transform:
       Translation: [0, 3.0967004, 0]
       Scale: [0.55, 0.55, 0.55]
