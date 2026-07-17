@@ -621,7 +621,7 @@ Camera is low-value/high-friction; the v3 mechanisms (accessors, EditCondition, 
 ---
 
 ### 25. Reflection v3.6 — Asset-picker widget customization + detail customizations
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Low
 
@@ -638,6 +638,6 @@ Deferred from v3.4 — no consumer until the inspectors migrate, and the materia
 
 **Subtasks:**
 - [x] DONE (infra): PropertyDrawer::RegisterObjectCustom (per-component detail-customization hook, IDetailCustomization analog) + DrawObject dispatch; headless-verified. Companion to v3.1's value-customization registry.
-- [ ] REMAINING (interactive editor UX — needs visual verification): (1) asset-picker custom drawer for AssetHandle via RegisterCustom, wired editor-side w/ asset manager + AssetType filter; (2) EvalEditCondition string-== support; (3) projection Combo widget/variant for Camera's string ProjectionType; (4) Camera inspector -> DrawObject + EditCondition; (5) Mesh inspector -> RegisterObjectCustom keeping runtime material-slot combos. Serialization already reflection-driven; this is pure inspector UX.
+- [x] REMAINING (interactive editor UX — needs visual verification): (1) asset-picker custom drawer for AssetHandle via RegisterCustom, wired editor-side w/ asset manager + AssetType filter; (2) EvalEditCondition string-== support; (3) projection Combo widget/variant for Camera's string ProjectionType; (4) Camera inspector -> DrawObject + EditCondition; (5) Mesh inspector -> RegisterObjectCustom keeping runtime material-slot combos. Serialization already reflection-driven; this is pure inspector UX.
 
 ---
