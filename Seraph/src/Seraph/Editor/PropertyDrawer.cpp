@@ -1,6 +1,7 @@
 #include "Seraph/Editor/PropertyDrawer.h"
 
 #include "Seraph/Core/UUID.h"
+#include "Seraph/Editor/DisplayName.h" // Editor::FormatDisplayName
 #include "Seraph/Reflection/TypeId.h"
 #include "Seraph/Settings/SettingDescriptor.h" // Setting::Attr keys
 
@@ -227,8 +228,13 @@ bool PropertyDrawer::DrawProperty(void* obj, const Property& prop)
         if (*flags & SettingFlag_Hidden)
             return false;
 
-    const std::string* disp = prop.Attrs.Get<std::string>(Setting::Attr::DisplayName);
-    const std::string labelStore = disp ? *disp : std::string(prop.Name);
+    // Label priority: explicit editor.displayName -> settings.display (shared
+    // with the settings authoring path) -> the automatic name humanizer.
+    const std::string* disp = prop.Attrs.Get<std::string>(Editor::Attr::DisplayName);
+    if (!disp)
+        disp = prop.Attrs.Get<std::string>(Setting::Attr::DisplayName);
+    const std::string labelStore =
+        disp ? *disp : Editor::FormatDisplayName(prop.Name);
     const char* label = labelStore.c_str();
 
     const Type* pt = prop.PropType;

@@ -42,6 +42,12 @@ inline constexpr u64 EditConditionHides = AttributeKey("editor.editconditionhide
 // Absent -> the picker lists every asset type. Read by the editor's "assetPicker"
 // widget; reflection itself stays free of any Asset dependency.
 inline constexpr u64 AssetTypeFilter = AttributeKey("editor.assettype");
+
+// Explicit human-readable label for a property, overriding the automatic
+// name humanizer (Unreal meta=(DisplayName=...)). Value is a std::string.
+// Highest label priority; absent -> Setting::Attr::DisplayName -> the
+// auto-formatter (FormatDisplayName). See DisplayName.h.
+inline constexpr u64 DisplayName = AttributeKey("editor.displayName");
 } // namespace Editor::Attr
 
 class PropertyDrawer
