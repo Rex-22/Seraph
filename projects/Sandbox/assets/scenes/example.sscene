@@ -106,13 +106,13 @@ Entities:
       Rotation: [-0.20829603, 0, 0]
     Camera:
       ProjectionType: Perspective
-      IsPrimary: true
       PerspectiveFov: 45
       PerspectiveNear: 0.1
       PerspectiveFar: 1000
       OrthographicSize: 10
       OrthographicNear: -1
       OrthographicFar: 1
+      IsPrimary: true
     Relationship:
       Parent: 0
       Children:

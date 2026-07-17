@@ -75,20 +75,9 @@ static_assert(AllCopyablesSerialized<CopyableComponents>::value,
     "block to SerializeEntity and its parse block to LoadData, then list it in "
     "SerializedComponents.");
 
-// (glm::vec3 emit + DecodeVec3 removed — vec3 now flows through EmitAny/ParseAny
-// in the reflection path; the last bespoke user, Transform, was migrated in v3.2.)
-
-const char* ProjectionTypeToString(SceneCamera::ProjectionType type)
-{
-    return type == SceneCamera::ProjectionType::Orthographic ? "Orthographic"
-                                                             : "Perspective";
-}
-
-SceneCamera::ProjectionType ProjectionTypeFromString(const std::string& s)
-{
-    return s == "Orthographic" ? SceneCamera::ProjectionType::Orthographic
-                               : SceneCamera::ProjectionType::Perspective;
-}
+// (glm::vec3 emit + DecodeVec3 + ProjectionType<->string helpers removed —
+// vec3 flows through EmitAny/ParseAny, and Camera/Transform are now reflection-
+// driven; ProjectionType serializes via SceneCamera's string accessor. v3.2/v3.5.)
 
 // --- Reflection-driven component (de)serialization -----------------------
 // Generic emit/parse for the pure-data components (RigidBody, colliders,
@@ -265,27 +254,9 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
             Reflection::Get<TransformComponent>(),
             &entity.GetComponent<TransformComponent>());
 
-    if (entity.HasComponent<CameraComponent>()) {
-        const auto& cc = entity.GetComponent<CameraComponent>();
-        const SceneCamera& cam = cc.Camera;
-        emitter << YAML::Key << "Camera" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "ProjectionType" << YAML::Value
-                << ProjectionTypeToString(cam.GetProjectionType());
-        emitter << YAML::Key << "IsPrimary" << YAML::Value << cc.IsPrimary;
-        emitter << YAML::Key << "PerspectiveFov" << YAML::Value
-                << cam.GetDegPerspectiveVerticalFOV();
-        emitter << YAML::Key << "PerspectiveNear" << YAML::Value
-                << cam.GetPerspectiveNearClip();
-        emitter << YAML::Key << "PerspectiveFar" << YAML::Value
-                << cam.GetPerspectiveFarClip();
-        emitter << YAML::Key << "OrthographicSize" << YAML::Value
-                << cam.GetOrthographicSize();
-        emitter << YAML::Key << "OrthographicNear" << YAML::Value
-                << cam.GetOrthographicNearClip();
-        emitter << YAML::Key << "OrthographicFar" << YAML::Value
-                << cam.GetOrthographicFarClip();
-        emitter << YAML::EndMap;
-    }
+    if (entity.HasComponent<CameraComponent>())
+        SerializeComponent(emitter, "Camera", Reflection::Get<CameraComponent>(),
+            &entity.GetComponent<CameraComponent>());
 
     if (entity.HasComponent<MeshComponent>())
         SerializeComponent(emitter, "Mesh", Reflection::Get<MeshComponent>(),
@@ -364,20 +335,9 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
                 DeserializeComponent(t, Reflection::Get<TransformComponent>(),
                     &entity.GetComponent<TransformComponent>());
 
-            if (const YAML::Node c = node["Camera"]) {
-                auto& cc = entity.AddComponent<CameraComponent>();
-                SceneCamera& cam = cc.Camera;
-                const SceneCamera::ProjectionType proj = ProjectionTypeFromString(
-                    c["ProjectionType"].as<std::string>(std::string("Perspective")));
-                cam.SetProjectionType(proj);
-                cam.SetDegPerspectiveVerticalFOV(c["PerspectiveFov"].as<float>(45.0f));
-                cam.SetPerspectiveNearClip(c["PerspectiveNear"].as<float>(0.01f));
-                cam.SetPerspectiveFarClip(c["PerspectiveFar"].as<float>(1000.0f));
-                cam.SetOrthographicSize(c["OrthographicSize"].as<float>(10.0f));
-                cam.SetOrthographicNearClip(c["OrthographicNear"].as<float>(-1.0f));
-                cam.SetOrthographicFarClip(c["OrthographicFar"].as<float>(1.0f));
-                cc.IsPrimary = c["IsPrimary"].as<bool>(false);
-            }
+            if (const YAML::Node c = node["Camera"])
+                DeserializeComponent(c, Reflection::Get<CameraComponent>(),
+                    &entity.AddComponent<CameraComponent>());
 
             if (const YAML::Node m = node["Mesh"]) {
                 auto& mc = entity.AddComponent<MeshComponent>();
