@@ -5,6 +5,7 @@
 #pragma once
 
 #include "Seraph/Math/Math.h"
+#include "Seraph/Reflection/Annotations.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -14,16 +15,26 @@
 namespace Seraph
 {
 
-struct TransformComponent
+// Field declaration order is the on-disk serialization order (Translation,
+// Rotation, Scale) — SHT emits reflected properties in declaration order, so
+// Scale is intentionally declared after the rotation members. Rotation is an
+// ACCESSOR property (getter/setter) because RotationEuler and the derived quat
+// must stay in sync via Set/GetRotationEuler — see Reflection v3.2 / SPROPERTY.
+struct SCLASS() TransformComponent
 {
+    SPROPERTY()
     glm::vec3 Translation = {0.0f, 0.0f, 0.0f};
-    glm::vec3 Scale = {1.0f, 1.0f, 1.0f};
 
 private:
+    SPROPERTY(serialize.key = "Rotation", getter = GetRotationEuler,
+              setter = SetRotationEuler)
     glm::vec3 RotationEuler = {0.0f, 0.0f, 0.0f};
     glm::quat Rotation = {1.0f, 0.0f, 0.0f, 0.0f};
 
 public:
+    SPROPERTY()
+    glm::vec3 Scale = {1.0f, 1.0f, 1.0f};
+
     TransformComponent() = default;
     TransformComponent(const glm::vec3& translation) : Translation(translation)
     {

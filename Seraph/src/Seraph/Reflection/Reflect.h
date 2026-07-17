@@ -31,6 +31,7 @@
 #include "Seraph/Reflection/TypeId.h"
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string_view>
 #include <tuple>
@@ -226,26 +227,31 @@ public:
         return *this;
     }
 
-    // Computed property from free-function accessors (both NTTP):
-    //   Getter: M(*)(const T&)      Setter: void(*)(T&, const M&)  (M by value ok)
+    // Computed / accessor property (both NTTP). std::invoke unifies FREE
+    // functions and MEMBER functions, so either works (Unreal's Getter/Setter):
+    //   free:   M Get(const T&)                void Set(T&, const M&)
+    //   member: M (T::*)() const               void (T::*)(const M&)  (or by value)
+    // Use accessors when reads/writes must maintain an invariant (e.g. Transform
+    // rotation euler<->quat sync via Get/SetRotationEuler).
     template<auto Getter, auto Setter>
     TypeBuilder& Property(std::string_view name)
     {
-        using M = std::decay_t<std::invoke_result_t<decltype(Getter), const T&>>;
+        using M = std::decay_t<
+            std::invoke_result_t<decltype(Getter), const T&>>;
 
         ::Seraph::Property p;
         p.Name = name;
         p.PropTypeId = TypeIdOf<M>();
         p.PropType = Reflection::TryGet<M>(); // may be null now; back-patched later
         p.Get = +[](const void* obj) -> Any
-        { return Any(Getter(*static_cast<const T*>(obj))); };
+        { return Any(std::invoke(Getter, *static_cast<const T*>(obj))); };
         p.Set = +[](void* obj, const Any& v)
         {
             const M* m = v.template Cast<M>();
             SP_CORE_ASSERT(m != nullptr,
                            "Property::Set: Any type does not match the field");
             if (m)
-                Setter(*static_cast<T*>(obj), *m);
+                std::invoke(Setter, *static_cast<T*>(obj), *m);
         };
         AddProperty(std::move(p));
         return *this;

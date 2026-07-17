@@ -75,18 +75,8 @@ static_assert(AllCopyablesSerialized<CopyableComponents>::value,
     "block to SerializeEntity and its parse block to LoadData, then list it in "
     "SerializedComponents.");
 
-YAML::Emitter& operator<<(YAML::Emitter& emitter, const glm::vec3& v)
-{
-    emitter << YAML::Flow << YAML::BeginSeq << v.x << v.y << v.z << YAML::EndSeq;
-    return emitter;
-}
-
-glm::vec3 DecodeVec3(const YAML::Node& node, const glm::vec3& fallback)
-{
-    if (!node || !node.IsSequence() || node.size() != 3)
-        return fallback;
-    return { node[0].as<float>(), node[1].as<float>(), node[2].as<float>() };
-}
+// (glm::vec3 emit + DecodeVec3 removed — vec3 now flows through EmitAny/ParseAny
+// in the reflection path; the last bespoke user, Transform, was migrated in v3.2.)
 
 const char* ProjectionTypeToString(SceneCamera::ProjectionType type)
 {
@@ -265,14 +255,10 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
         emitter << YAML::Key << "Tag" << YAML::Value
                 << entity.GetComponent<TagComponent>().Tag;
 
-    if (entity.HasComponent<TransformComponent>()) {
-        const auto& t = entity.GetComponent<TransformComponent>();
-        emitter << YAML::Key << "Transform" << YAML::Value << YAML::BeginMap;
-        emitter << YAML::Key << "Translation" << YAML::Value << t.Translation;
-        emitter << YAML::Key << "Rotation" << YAML::Value << t.GetRotationEuler();
-        emitter << YAML::Key << "Scale" << YAML::Value << t.Scale;
-        emitter << YAML::EndMap;
-    }
+    if (entity.HasComponent<TransformComponent>())
+        SerializeComponent(emitter, "Transform",
+            Reflection::Get<TransformComponent>(),
+            &entity.GetComponent<TransformComponent>());
 
     if (entity.HasComponent<CameraComponent>()) {
         const auto& cc = entity.GetComponent<CameraComponent>();
@@ -378,12 +364,11 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
             // Auto-adds ID / Transform / Tag / Relationship — we populate below.
             Entity entity = scene->CreateEntityWithUUID(uuid, tag);
 
-            if (const YAML::Node t = node["Transform"]) {
-                auto& tc = entity.GetComponent<TransformComponent>();
-                tc.Translation = DecodeVec3(t["Translation"], glm::vec3(0.0f));
-                tc.Scale = DecodeVec3(t["Scale"], glm::vec3(1.0f));
-                tc.SetRotationEuler(DecodeVec3(t["Rotation"], glm::vec3(0.0f)));
-            }
+            // Transform is auto-added by CreateEntityWithUUID; populate it. The
+            // Rotation accessor property routes through SetRotationEuler.
+            if (const YAML::Node t = node["Transform"])
+                DeserializeComponent(t, Reflection::Get<TransformComponent>(),
+                    &entity.GetComponent<TransformComponent>());
 
             if (const YAML::Node c = node["Camera"]) {
                 auto& cc = entity.AddComponent<CameraComponent>();

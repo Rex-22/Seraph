@@ -158,7 +158,18 @@ struct PropertyInfo
     std::string TypeSpelling;
     std::string Payload;
     bool Private = false;
+    // Accessor property (Unreal UPROPERTY(Getter=,Setter=)): when both are set,
+    // the property is emitted as .Property<&T::Getter, &T::Setter>(...) rather
+    // than a field pointer. Lets a computed/invariant-maintaining value (e.g.
+    // Transform rotation euler<->quat) be reflected without touching the field.
+    std::string Getter;
+    std::string Setter;
     Location Loc;
+
+    [[nodiscard]] bool IsAccessor() const
+    {
+        return !Getter.empty() && !Setter.empty();
+    }
 };
 
 struct TypeInfo
@@ -218,6 +229,31 @@ CXChildVisitResult VisitRecordMember(CXCursor c, CXCursor, CXClientData data)
         prop.Loc = LocationOf(c);
         prop.Private =
             clang_getCXXAccessSpecifier(c) == CX_CXXPrivate;
+
+        // Extract getter=/setter= specifiers (consumed structurally, not emitted
+        // as attributes). Their presence makes this an accessor property.
+        for (auto& [key, value] : SplitAttrs(prop.Payload))
+        {
+            if (key == "getter")
+                prop.Getter = Trim(value);
+            else if (key == "setter")
+                prop.Setter = Trim(value);
+        }
+        if ((prop.Getter.empty()) != (prop.Setter.empty()))
+        {
+            std::fprintf(stderr,
+                "%s:%u:%u: error: SPROPERTY on '%s' has only one of getter/setter"
+                " — accessor properties need both\n",
+                prop.Loc.File.c_str(), prop.Loc.Line, prop.Loc.Col,
+                prop.Name.c_str());
+            ++type->Errors;
+            return CXChildVisit_Continue;
+        }
+
+        // Accessor properties use public getter/setter, so a private backing
+        // field needs no SP_REFLECT hook (no field pointer is formed).
+        if (prop.IsAccessor())
+            prop.Private = false;
 
         if (clang_Cursor_isBitField(c))
         {
@@ -302,12 +338,19 @@ std::string AnyExpr(const std::string& value)
 
 void EmitProperty(std::ofstream& os, const TypeInfo& t, const PropertyInfo& p)
 {
-    os << "    .Property<&" << t.QualName << "::" << p.Name << ">(\"" << p.Name
-       << "\")\n";
+    if (p.IsAccessor())
+        os << "    .Property<&" << t.QualName << "::" << p.Getter << ", &"
+           << t.QualName << "::" << p.Setter << ">(\"" << p.Name << "\")\n";
+    else
+        os << "    .Property<&" << t.QualName << "::" << p.Name << ">(\""
+           << p.Name << "\")\n";
+
     for (auto& [key, value] : SplitAttrs(p.Payload))
     {
         if (value.empty())
             continue; // bare flag with no value — skipped for now
+        if (key == "getter" || key == "setter")
+            continue; // structural specifiers, not attributes
         os << "        .Attr(::Seraph::AttributeKey(\"" << key << "\"), "
            << AnyExpr(value) << ")\n";
     }
