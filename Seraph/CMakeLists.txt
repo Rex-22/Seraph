@@ -76,15 +76,16 @@ if (APPLE)
     target_link_libraries(${PROJECT} PUBLIC "-framework CoreServices")
 endif ()
 
-# Reflection code-gen. When SeraphHeaderTool is enabled, generate runtime
-# reflection registrations from the SPROPERTY/SCLASS annotations in these headers
-# (the generated .gen.cpp is compiled into libSeraph and self-registers at load).
-# When OFF, these types simply aren't reflected — no libclang dependency. Types
-# with hand-written registration (ScriptableEntity, MaterialParameterType) are
-# NOT listed here: they demonstrate the hand-registration opt-out coexisting with
-# generated types. See cmake/sht.cmake and Todo/plans/reflection-plan.md.
+# Reflection code-gen. When SeraphHeaderTool is enabled, every engine header
+# carrying SPROPERTY/SCLASS/SENUM annotations is auto-discovered and its runtime
+# reflection registration generated (compiled into libSeraph, self-registers at
+# load). No manual header list — annotate a type and it's reflected on the next
+# reconfigure. When OFF, nothing is generated (no libclang dependency), and types
+# needing runtime reflection must be hand-registered (SP_REFLECT_TYPE). Types
+# that are ALWAYS hand-registered (ScriptableEntity, MaterialParameterType) use
+# no annotations, so the auto-discovery skips them — no double registration.
+# See cmake/sht.cmake and Todo/plans/reflection-plan.md.
 if (SERAPH_BUILD_HEADER_TOOL)
     include(${CMAKE_SOURCE_DIR}/cmake/sht.cmake)
-    sht_reflect(${PROJECT} HEADERS
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Seraph/Physics/PhysicsSettings.h)
+    sht_reflect_glob(${PROJECT} DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src)
 endif ()

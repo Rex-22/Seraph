@@ -76,3 +76,45 @@ function(sht_reflect target)
 
     target_sources(${target} PRIVATE ${_gen_sources})
 endfunction()
+
+# sht_reflect_glob(<target> DIRS <dir> [<dir> ...])
+#
+# Auto-discover annotated headers instead of listing them by hand: recursively
+# glob *.h under each DIR, keep only headers that actually contain an SHT
+# annotation macro (a cheap configure-time content scan), and hand the survivors
+# to sht_reflect. This removes the "annotated a header but forgot to add it to
+# the HEADERS list -> silently not reflected" footgun.
+#
+# Reconfigure semantics: CONFIGURE_DEPENDS re-globs on build so a brand-new file
+# is noticed, but the content filter runs at CONFIGURE time — so ADDING an
+# annotation to an existing header needs a reconfigure to be picked up (same cost
+# as adding any new source). Annotations.h (which DEFINES the macros) is excluded.
+function(sht_reflect_glob target)
+    cmake_parse_arguments(SHTG "" "" "DIRS" ${ARGN})
+
+    set(_annotated "")
+    foreach(_dir ${SHTG_DIRS})
+        file(GLOB_RECURSE _candidates CONFIGURE_DEPENDS "${_dir}/*.h")
+        foreach(_h ${_candidates})
+            get_filename_component(_name "${_h}" NAME)
+            if(_name STREQUAL "Annotations.h")
+                continue() # defines the macros; never a reflection subject
+            endif()
+            # Match a macro USE: the macro name followed by '(' but NOT preceded
+            # by '#define '. file(STRINGS REGEX) is line-based; exclude #define
+            # lines by requiring no '#' before the macro on the line.
+            file(STRINGS "${_h}" _hit
+                REGEX "^[^#]*S(CLASS|PROPERTY|ENUM|FUNCTION)[ \t]*\\("
+                LIMIT_COUNT 1)
+            if(_hit)
+                list(APPEND _annotated "${_h}")
+            endif()
+        endforeach()
+    endforeach()
+
+    list(LENGTH _annotated _count)
+    message(STATUS "SHT: ${_count} annotated header(s) auto-discovered for ${target}")
+    if(_annotated)
+        sht_reflect(${target} HEADERS ${_annotated})
+    endif()
+endfunction()

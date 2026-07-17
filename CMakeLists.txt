@@ -36,6 +36,7 @@ include(cmake/vendor.cmake)
 include(cmake/config.cmake)
 
 add_compile_definitions("SP_DEBUG=$<CONFIG:Debug>")
+add_compile_definitions("SP_SHT_PARSE")
 
 # The bundled sample project. Its asset dir is the FileSystem's fallback root,
 # and its .sproj is what the editor opens by default during development. Both are
@@ -120,7 +121,7 @@ write_basic_package_version_file(
 # (see cmake/sht.cmake). When OFF (default), the engine builds with no libclang
 # dependency and simply omits the generated registrations. Added BEFORE the
 # engine so the SeraphHeaderTool target exists when Seraph calls sht_reflect().
-option(SERAPH_BUILD_HEADER_TOOL "Build SeraphHeaderTool (reflection code-gen; needs libclang)" OFF)
+option(SERAPH_BUILD_HEADER_TOOL "Build SeraphHeaderTool (reflection code-gen; needs libclang)" ON)
 if(SERAPH_BUILD_HEADER_TOOL)
     add_subdirectory(Tools/SeraphHeaderTool)
 endif()

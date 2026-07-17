@@ -5,13 +5,14 @@
 
 #pragma once
 
+#include "Seraph/Reflection/Annotations.h"
 #include "Seraph/Core/Base.h"
 
 namespace Seraph
 {
 
 // Simulation behaviour of a rigid body. Maps to JPH::EMotionType in the backend.
-enum class BodyType : u8
+enum class SENUM() BodyType : u8
 {
     Static,    // never moves; infinite mass
     Dynamic,   // fully simulated
@@ -19,7 +20,7 @@ enum class BodyType : u8
 };
 
 // How an applied force/impulse is interpreted (mirrors typical engine semantics).
-enum class ForceMode : u8
+enum class SENUM() ForceMode : u8
 {
     Force,          // continuous force (mass-dependent, per second)
     Impulse,        // instantaneous impulse (mass-dependent)
@@ -28,7 +29,7 @@ enum class ForceMode : u8
 };
 
 // Contact event kind delivered to the contact callback.
-enum class ContactType : s8
+enum class SENUM() ContactType : s8
 {
     None = -1,
     CollisionBegin,
