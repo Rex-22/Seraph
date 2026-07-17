@@ -636,4 +636,8 @@ Editor-side widget customizations (uses the v3.1 registry), to retire the bespok
 ## Note
 Deferred from v3.4 — no consumer until the inspectors migrate, and the material-slot combo needs a runtime-aware detail customization. Serialization for Mesh is already reflection-driven (v3.4); this is purely inspector UX.
 
+**Subtasks:**
+- [x] DONE (infra): PropertyDrawer::RegisterObjectCustom (per-component detail-customization hook, IDetailCustomization analog) + DrawObject dispatch; headless-verified. Companion to v3.1's value-customization registry.
+- [ ] REMAINING (interactive editor UX — needs visual verification): (1) asset-picker custom drawer for AssetHandle via RegisterCustom, wired editor-side w/ asset manager + AssetType filter; (2) EvalEditCondition string-== support; (3) projection Combo widget/variant for Camera's string ProjectionType; (4) Camera inspector -> DrawObject + EditCondition; (5) Mesh inspector -> RegisterObjectCustom keeping runtime material-slot combos. Serialization already reflection-driven; this is pure inspector UX.
+
 ---
