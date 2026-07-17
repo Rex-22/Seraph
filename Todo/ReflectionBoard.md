@@ -481,11 +481,109 @@ Migrate the remaining BiMap enum<->string sites (Asset.cpp AssetType, MaterialRe
 ---
 
 ### 19. Reflection v2.6 — Migrate EntityInspectorPanel onto PropertyDrawer
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
 **Description:**
 Reflect the ECS component set and replace the hand-written DrawXComponent methods in EntityInspectorPanel with reflection-driven PropertyDrawer walks. Needs v2.1 (AssetHandle+enum) and v2.2 (containers). Keep bespoke widgets (DrawVec3Control colored row, AssetPicker) as attribute-driven special cases. Depends on components being reflected.
+
+**Subtasks:**
+- [x] PropertyDrawer::DrawObject/DrawProperty (nested struct recursion + container list); migrated RigidBody(+bespoke Layer combo)/Box/Sphere/Capsule colliders via ComponentReflection.cpp; visually confirmed
+- [x] Also delivered: SHT auto-discovery (sht_reflect_glob globs+filters annotated headers, no manual list) + Property back-patch (cross-TU init-order safety via PropTypeId)
+- [ ] REMAINING (follow-up): Transform (colored vec3 + euler/quat), Camera (SceneCamera getters), Mesh (AssetRef picker), Script (class dropdown), Tag — kept bespoke; migrate when attribute-driven special widgets exist
+
+---
+
+### 20. Reflection v3.1 — PropertyDrawer widget-customization registry
+- **Status:** Review
+- **Completed:** false
+- **Priority:** High
+
+**Description:**
+Unreal-inspired: separate the reflected data from the editor WIDGET. Add a registry of custom property drawers keyed by TypeId (and optionally by a per-property attribute), so the generic PropertyDrawer walk can be overridden for specific types — the miniature of Unreal's IPropertyTypeCustomization / detail-customization system.
+
+## Motivation
+Today PropertyDrawer dispatches on built-in type in a fixed switch. Custom widgets (colored vec3, AssetHandle asset-picker, per-slot materials) force whole components to stay hand-written. Unreal keeps the reflection walk generic and registers widget customizations per type/property. See the Unreal analysis in this session.
+
+## Scope
+- `PropertyDrawer::RegisterCustom(TypeId, DrawFn)` where DrawFn(label, void* obj/Any&, attrs) -> bool changed. Registry checked before the built-in switch.
+- Optional per-property override via an attribute (e.g. editor.widget = "color") so the same type can render differently by context (vec3 as drag vs color).
+- Register built-ins as customizations: vec3 (default drag), and a colored-vec3 variant behind an attribute; AssetHandle -> AssetPicker (see v3.4).
+- Keep DrawObject/DrawProperty generic; they consult the registry.
+
+## Acceptance
+- Registering a custom drawer for a TypeId overrides the default; unregistered types use the built-in path.
+- A component property can opt into a variant widget via attribute.
+- Existing inspector unchanged where no customization is registered.
+
+**Subtasks:**
+- [ ] RegisterCustom(TypeId)/RegisterVariant(name) + Editor::Attr::Widget; DrawValue dispatch variant->type->built-in; harness verifies precedence; full build clean
+
+---
+
+### 21. Reflection v3.2 — Accessor (getter/setter) properties + Transform
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Unreal UPROPERTY(Getter=,Setter=): route a reflected property through member functions so invariants hold. Fixes the Transform rotation case (euler<->quat sync via SetRotationEuler).
+
+## Scope
+- Extend TypeBuilder with member-function getter/setter computed properties (v2.3 only did free functions): .Property<&T::GetX, &T::SetX>("X").
+- SHT: support SPROPERTY on a member function OR a getter/setter specifier so it can be annotation-driven. (Evaluate: alternatively flip TransformComponent to STORE euler + derive quat, Unreal-style — RelativeRotation is an FRotator; that makes it a plain field and sidesteps accessors. Decide in this ticket.)
+- Migrate Transform serialization to reflection (Translation/Scale plain + Rotation euler via accessor-or-stored-field). Golden-diff verified (Transform is in every entity — the existing scene golden covers it).
+- Inspector Transform can stay bespoke (colored vec3 + degrees) until v3.1 provides the colored-vec3 customization.
+
+## Acceptance
+- Transform round-trips byte-identical (golden diff).
+- Rotation edits maintain the euler<->quat invariant.
+
+**Subtasks:**
+- [x] Computed Property overload now uses std::invoke -> supports member-fn getter/setter (Unreal Getter/Setter)
+- [x] SHT extended: SPROPERTY(getter=,setter=) emits accessor property; private backing field needs no SP_REFLECT hook
+- [x] Transform annotated (Rotation via GetRotationEuler/SetRotationEuler accessor; fields reordered for on-disk order); serialization migrated; GOLDEN DIFF byte-identical; no hand-written registration
+
+---
+
+### 22. Reflection v3.3 — EditCondition attribute (conditional property visibility)
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Unreal meta=(EditCondition="...", EditConditionHides): show/hide/disable a property based on another property's value. Fixes the Camera perspective-vs-ortho field toggling without a hand-written panel.
+
+## Scope
+- editor.editcondition attribute: a small expression referencing a sibling property (v1: "PropName == EnumValue" / bool prop). PropertyDrawer evaluates it against the live object and hides/disables the property.
+- Enables reflecting SceneCamera / CameraComponent settings as fields with EditCondition on the perspective/ortho sets (pairs with v3.4 for SceneCamera reflection).
+
+## Acceptance
+- A property with an unmet EditCondition is hidden (or disabled) in the drawer; met -> shown.
+- Camera-style perspective/ortho toggling works via metadata, no bespoke branch.
+
+**Subtasks:**
+- [ ] Editor::Attr::EditCondition + EditConditionHides; EvalEditCondition (enum ==, int/bool, ! negation) sibling lookup; DrawObject hides/disables; ImGui-free evaluator harness-verified; full build
+
+---
+
+### 23. Reflection v3.4 — Reflect asset refs + SceneCamera; migrate Mesh/Camera inspectors
+- **Status:** Todo
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Unreal: asset refs are reflected types with a registered asset-picker customization; component detail customizations handle runtime-driven UI (material slots). Final step to retire the remaining bespoke inspectors.
+
+## Scope
+- AssetHandle/AssetRef: register an AssetPicker widget customization (via v3.1 registry) so any AssetHandle property draws the picker. MaterialOverrides needs a flow-seq serialize variant (add serialize.flow attr) to preserve the on-disk flow format.
+- SceneCamera: reflect its logical fields via accessor properties (v3.2) + EditCondition (v3.3) for projection-dependent visibility; projection-type stored as enum (serialized as string today -> keep via enum-as-string serialize variant or accept int; decide + golden-diff the Camera block).
+- Mesh material-slot UI (runtime slot count) stays a per-component detail customization (v3.1 per-component override) — reflection provides MaterialOverrides, customization draws the per-slot combos.
+- Tag: keep bespoke (bare-scalar format) OR add a scalar-component serialize mode; low priority.
+
+## Acceptance
+- Mesh + Camera inspectors reflection-driven (with registered customizations); scene golden-diff byte-identical for Mesh/Camera blocks.
+- Depends on v3.1, v3.2, v3.3.
 
 ---
