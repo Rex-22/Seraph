@@ -17,7 +17,7 @@ struct SCLASS() CameraComponent
     SPROPERTY(serialize.flatten = true)
     Seraph::SceneCamera Camera;
 
-    SPROPERTY()
+    SPROPERTY(settings.display = "Primary")
     bool IsPrimary = true;
 
     operator SceneCamera& () { return Camera; }

@@ -325,6 +325,7 @@ PropertyDrawer::EditConditionResult PropertyDrawer::EvalEditCondition(
                 else
                     met = (std::to_string(*v.Cast<s64>()) == rhs);
             }
+            else if (const std::string* sv = v.Cast<std::string>()) met = (*sv == rhs);
             else if (v.Cast<s64>()) met = (std::to_string(*v.Cast<s64>()) == rhs);
             else if (v.Cast<s32>()) met = (std::to_string(*v.Cast<s32>()) == rhs);
             else if (v.Cast<u32>()) met = (std::to_string(*v.Cast<u32>()) == rhs);

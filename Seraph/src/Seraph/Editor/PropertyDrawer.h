@@ -36,6 +36,12 @@ inline constexpr u64 EditCondition = AttributeKey("editor.editcondition");
 // When true (default), an unmet condition HIDES the property; when false, it is
 // shown but DISABLED (greyed out). Unreal's EditConditionHides.
 inline constexpr u64 EditConditionHides = AttributeKey("editor.editconditionhides");
+
+// Restrict an asset-picker drawer (AssetHandle/UUID) to a single AssetType. Value
+// is a std::string naming the type (AssetTypeToString spelling, e.g. "Mesh").
+// Absent -> the picker lists every asset type. Read by the editor's "assetPicker"
+// widget; reflection itself stays free of any Asset dependency.
+inline constexpr u64 AssetTypeFilter = AttributeKey("editor.assettype");
 } // namespace Editor::Attr
 
 class PropertyDrawer

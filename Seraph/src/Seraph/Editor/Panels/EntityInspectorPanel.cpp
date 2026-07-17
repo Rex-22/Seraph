@@ -4,12 +4,14 @@
 
 #include "EntityInspectorPanel.h"
 
+#include "Seraph/Asset/Asset.h"
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Asset/AssetRef.h"
 #include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Editor/PropertyDrawer.h"
 #include "Seraph/Reflection/Reflection.h"
+#include "Seraph/Reflection/TypeId.h"
 #include "Seraph/Scene/Scene.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Graphics/SceneCamera.h"
@@ -88,6 +90,151 @@ bool MaterialSlotCombo(const char* label, AssetHandle& current)
         ImGui::EndCombo();
     }
     return changed;
+}
+
+// Combo over file-backed assets of `filter` (AssetType::None = every type) plus a
+// leading "(none)". Returns true if the selection changed. Backs the AssetHandle
+// widget customization and the Mesh detail customization below.
+bool AssetPickerCombo(const char* label, AssetType filter, AssetHandle& current)
+{
+    Ref<EditorAssetManager> ed = AssetManager::Get().As<EditorAssetManager>();
+    if (!ed)
+        return false;
+
+    std::vector<AssetHandle> handles;
+    const auto gather = [&](AssetType type) {
+        for (const AssetHandle h : ed->GetAllAssetsOfType(type))
+            if (!ed->GetMetadata(h).FilePath.empty())
+                handles.push_back(h);
+    };
+    if (filter == AssetType::None)
+        for (const AssetType t : { AssetType::Mesh, AssetType::Material,
+                                   AssetType::MaterialInstance, AssetType::Texture2D,
+                                   AssetType::Shader, AssetType::Scene })
+            gather(t);
+    else
+        gather(filter);
+
+    std::sort(handles.begin(), handles.end(), [](AssetHandle a, AssetHandle b) {
+        return static_cast<u64>(a) < static_cast<u64>(b);
+    });
+
+    const auto labelFor = [&](AssetHandle h) -> std::string {
+        const AssetMetadata md = ed->GetMetadata(h);
+        return md.FilePath.empty() ? std::to_string(static_cast<u64>(h))
+                                   : md.FilePath.filename().string();
+    };
+    const std::string preview =
+        static_cast<u64>(current) == c_NullAssetHandle ? "(none)" : labelFor(current);
+
+    bool changed = false;
+    if (ImGui::BeginCombo(label, preview.c_str())) {
+        if (ImGui::Selectable("(none)", static_cast<u64>(current) == c_NullAssetHandle)) {
+            current = c_NullAssetHandle;
+            changed = true;
+        }
+        for (const AssetHandle h : handles) {
+            ImGui::PushID(static_cast<int>(static_cast<u64>(h)));
+            if (ImGui::Selectable(labelFor(h).c_str(), h == current)) {
+                current = h;
+                changed = true;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    return changed;
+}
+
+// Wire the editor-side PropertyDrawer customizations the reflection-driven
+// inspector depends on (Reflection v3.6). Called once, lazily, before the first
+// draw. Registration only stores closures — the asset manager is touched at draw
+// time, so ordering against engine startup does not matter.
+void RegisterInspectorCustomizations()
+{
+    // AssetHandle (= UUID): replace the raw-u64 drag with an asset combo. Wired as
+    // BOTH the UUID type default (so every reflected AssetHandle becomes a picker)
+    // and a named "assetPicker" variant; an optional Editor::Attr::AssetTypeFilter
+    // restricts either to a single AssetType.
+    const PropertyDrawer::CustomDrawFn assetPicker =
+        [](const char* label, Any& value, const AttributeSet& attrs) -> bool {
+        const UUID* cur = value.Cast<UUID>();
+        if (!cur)
+            return false;
+        AssetHandle handle = *cur;
+        AssetType filter = AssetType::None;
+        if (const std::string* t = attrs.Get<std::string>(Editor::Attr::AssetTypeFilter))
+            filter = AssetTypeFromString(*t);
+        if (AssetPickerCombo(label, filter, handle)) {
+            value = Any(handle);
+            return true;
+        }
+        return false;
+    };
+    PropertyDrawer::RegisterCustom(TypeIdOf<UUID>(), assetPicker);
+    PropertyDrawer::RegisterVariant("assetPicker", assetPicker);
+
+    // Camera projection type is reflected as a string ("Perspective"/"Orthographic")
+    // for the scene format — draw it as a two-entry dropdown instead of a text box.
+    PropertyDrawer::RegisterVariant(
+        "projectionType",
+        [](const char* label, Any& value, const AttributeSet&) -> bool {
+            const std::string* cur = value.Cast<std::string>();
+            if (!cur)
+                return false;
+            const char* opts[] = { "Perspective", "Orthographic" };
+            int idx = (*cur == "Orthographic") ? 1 : 0;
+            if (ImGui::Combo(label, &idx, opts, IM_ARRAYSIZE(opts))) {
+                value = Any(std::string(opts[idx]));
+                return true;
+            }
+            return false;
+        });
+
+    // MeshComponent detail customization (IDetailCustomization analog): the per-slot
+    // material combos read the LOADED mesh's runtime slot count, which reflection
+    // can't express — so the whole object is drawn here (mesh picker + a combo per
+    // runtime slot) rather than by the generic property walk.
+    PropertyDrawer::RegisterObjectCustom(
+        TypeIdOf<MeshComponent>(), [](void* obj) -> bool {
+            auto* mc = static_cast<MeshComponent*>(obj);
+            bool changed = false;
+
+            AssetHandle mesh = mc->GetMeshHandle();
+            if (AssetPickerCombo("Mesh", AssetType::Mesh, mesh)) {
+                mc->SetMeshHandle(mesh);
+                changed = true;
+            }
+
+            if (mc->Mesh) {
+                ImGui::TextUnformatted(
+                    AssetManager::IsAssetLoaded(mc->Mesh.Handle()) ? "Loaded"
+                                                                   : "Loading...");
+
+                // Per-slot material assignment. A null (default) selection resolves
+                // to the mesh's baked slot default, then the engine default.
+                if (Ref<Mesh> loaded = mc->Mesh.As<Mesh>()) {
+                    const u32 slots = loaded->MaterialSlotCount();
+                    ImGui::TextUnformatted("Materials");
+                    for (u32 slot = 0; slot < slots; ++slot) {
+                        ImGui::PushID(static_cast<int>(slot));
+                        AssetHandle current =
+                            slot < mc->MaterialOverrides.size()
+                                ? mc->MaterialOverrides[slot]
+                                : AssetHandle(c_NullAssetHandle);
+                        const std::string label = "Slot " + std::to_string(slot);
+                        if (MaterialSlotCombo(label.c_str(), current)) {
+                            if (mc->MaterialOverrides.size() <= slot)
+                                mc->MaterialOverrides.resize(slot + 1, c_NullAssetHandle);
+                            mc->MaterialOverrides[slot] = current;
+                            changed = true;
+                        }
+                        ImGui::PopID();
+                    }
+                }
+            }
+            return changed;
+        });
 }
 
 } // namespace
@@ -178,6 +325,12 @@ static bool BeginComponentSection(const char* label, [[maybe_unused]] Entity ent
 
 void EntityInspectorPanel::OnImGuiRender()
 {
+    // One-time, lazy registration of the reflection-inspector customizations
+    // (asset picker, projection dropdown, Mesh detail customization). See
+    // RegisterInspectorCustomizations.
+    static const bool s_Registered = (RegisterInspectorCustomizations(), true);
+    (void) s_Registered;
+
     ImGui::Begin("Inspector");
 
     if (!m_SelectedEntity)
@@ -261,44 +414,10 @@ void EntityInspectorPanel::DrawCameraComponent()
 
     if (open)
     {
-        ImGui::Checkbox("Primary", &cc->IsPrimary);
-
-        // Projection type
-        const char* projTypes[] = { "Perspective", "Orthographic" };
-        int projIndex = (cc->Camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic) ? 1 : 0;
-        if (ImGui::Combo("Projection", &projIndex, projTypes, 2))
-            cc->Camera.SetProjectionType(projIndex == 0 ? SceneCamera::ProjectionType::Perspective
-                                                        : SceneCamera::ProjectionType::Orthographic);
-
-        if (cc->Camera.GetProjectionType() == SceneCamera::ProjectionType::Perspective)
-        {
-            float fov = cc->Camera.GetDegPerspectiveVerticalFOV();
-            if (ImGui::DragFloat("FOV", &fov, 0.5f, 1.0f, 179.0f))
-                cc->Camera.SetDegPerspectiveVerticalFOV(fov);
-
-            float nearClip = cc->Camera.GetPerspectiveNearClip();
-            if (ImGui::DragFloat("Near", &nearClip, 0.001f, 0.001f, 10.0f))
-                cc->Camera.SetPerspectiveNearClip(nearClip);
-
-            float farClip = cc->Camera.GetPerspectiveFarClip();
-            if (ImGui::DragFloat("Far", &farClip, 1.0f, 1.0f, 100000.0f))
-                cc->Camera.SetPerspectiveFarClip(farClip);
-        }
-        else
-        {
-            float size = cc->Camera.GetOrthographicSize();
-            if (ImGui::DragFloat("Size", &size, 0.1f, 0.1f, 1000.0f))
-                cc->Camera.SetOrthographicSize(size);
-
-            float nearClip = cc->Camera.GetOrthographicNearClip();
-            if (ImGui::DragFloat("Near", &nearClip, 0.01f))
-                cc->Camera.SetOrthographicNearClip(nearClip);
-
-            float farClip = cc->Camera.GetOrthographicFarClip();
-            if (ImGui::DragFloat("Far", &farClip, 0.01f))
-                cc->Camera.SetOrthographicFarClip(farClip);
-        }
-
+        // Fully reflection-driven: the projection dropdown is the "projectionType"
+        // widget variant, and the perspective/orthographic field split is expressed
+        // as EditConditions on SceneCamera (see SceneCamera.h / v3.6).
+        PropertyDrawer::DrawObject(Reflection::Get<CameraComponent>(), cc);
         ImGui::TreePop();
     }
 
@@ -317,43 +436,10 @@ void EntityInspectorPanel::DrawMeshComponent()
 
     if (open)
     {
-        if (mc->Mesh)
-        {
-            ImGui::Text("Mesh: %llu",
-                static_cast<unsigned long long>(mc->Mesh.Handle()));
-            ImGui::TextUnformatted(
-                AssetManager::IsAssetLoaded(mc->Mesh.Handle()) ? "Loaded"
-                                                               : "Loading...");
-
-            // Per-slot material assignment. A null (default) selection resolves
-            // to the mesh's baked slot default, then the engine default.
-            if (Ref<Mesh> mesh = mc->Mesh.As<Mesh>())
-            {
-                const u32 slots = mesh->MaterialSlotCount();
-                ImGui::TextUnformatted("Materials");
-                for (u32 slot = 0; slot < slots; ++slot)
-                {
-                    ImGui::PushID(static_cast<int>(slot));
-                    AssetHandle current =
-                        slot < mc->MaterialOverrides.size()
-                            ? mc->MaterialOverrides[slot]
-                            : AssetHandle(c_NullAssetHandle);
-                    const std::string label = "Slot " + std::to_string(slot);
-                    if (MaterialSlotCombo(label.c_str(), current))
-                    {
-                        if (mc->MaterialOverrides.size() <= slot)
-                            mc->MaterialOverrides.resize(slot + 1, c_NullAssetHandle);
-                        mc->MaterialOverrides[slot] = current;
-                    }
-                    ImGui::PopID();
-                }
-            }
-        }
-        else
-        {
-            ImGui::TextDisabled("No mesh assigned");
-        }
-
+        // Drawn by the registered MeshComponent detail customization: mesh asset
+        // picker + a material combo per runtime slot (see
+        // RegisterInspectorCustomizations / v3.6).
+        PropertyDrawer::DrawObject(Reflection::Get<MeshComponent>(), mc);
         ImGui::TreePop();
     }
 

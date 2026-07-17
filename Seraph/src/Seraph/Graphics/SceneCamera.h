@@ -57,33 +57,50 @@ class SCLASS() SceneCamera : public Camera
 	private:
 		// Reflected via accessors (Reflection v3.5); serialize keys match the
 		// scene format. One field per line so each carries its own SPROPERTY.
+		// The editor.* attributes drive the reflection-based inspector (v3.6):
+		// a projection-type dropdown plus EditCondition-gated perspective/ortho
+		// field groups (the editcondition names the reflected property, which is
+		// the backing field name m_ProjectionType, not the serialize key).
 		SPROPERTY(serialize.key = "ProjectionType",
-		          getter = GetProjectionTypeName, setter = SetProjectionTypeName)
+		          getter = GetProjectionTypeName, setter = SetProjectionTypeName,
+		          settings.display = "Projection", editor.widget = "projectionType")
 		ProjectionType m_ProjectionType = ProjectionType::Perspective;
 
 		SPROPERTY(serialize.key = "PerspectiveFov",
 		          getter = GetDegPerspectiveVerticalFOV,
-		          setter = SetDegPerspectiveVerticalFOV)
+		          setter = SetDegPerspectiveVerticalFOV,
+		          settings.display = "FOV", settings.step = 0.5f,
+		          editor.editcondition = "m_ProjectionType == Perspective")
 		f32 m_DegPerspectiveFOV = 45.0f;
 
 		SPROPERTY(serialize.key = "PerspectiveNear",
-		          getter = GetPerspectiveNearClip, setter = SetPerspectiveNearClip)
+		          getter = GetPerspectiveNearClip, setter = SetPerspectiveNearClip,
+		          settings.display = "Near", settings.step = 0.001f,
+		          editor.editcondition = "m_ProjectionType == Perspective")
 		f32 m_PerspectiveNear = 0.1f;
 
 		SPROPERTY(serialize.key = "PerspectiveFar",
-		          getter = GetPerspectiveFarClip, setter = SetPerspectiveFarClip)
+		          getter = GetPerspectiveFarClip, setter = SetPerspectiveFarClip,
+		          settings.display = "Far", settings.step = 1.0f,
+		          editor.editcondition = "m_ProjectionType == Perspective")
 		f32 m_PerspectiveFar = 1000.0f;
 
 		SPROPERTY(serialize.key = "OrthographicSize",
-		          getter = GetOrthographicSize, setter = SetOrthographicSize)
+		          getter = GetOrthographicSize, setter = SetOrthographicSize,
+		          settings.display = "Size", settings.step = 0.1f,
+		          editor.editcondition = "m_ProjectionType == Orthographic")
 		f32 m_OrthographicSize = 10.0f;
 
 		SPROPERTY(serialize.key = "OrthographicNear",
-		          getter = GetOrthographicNearClip, setter = SetOrthographicNearClip)
+		          getter = GetOrthographicNearClip, setter = SetOrthographicNearClip,
+		          settings.display = "Near", settings.step = 0.01f,
+		          editor.editcondition = "m_ProjectionType == Orthographic")
 		f32 m_OrthographicNear = -1.0f;
 
 		SPROPERTY(serialize.key = "OrthographicFar",
-		          getter = GetOrthographicFarClip, setter = SetOrthographicFarClip)
+		          getter = GetOrthographicFarClip, setter = SetOrthographicFarClip,
+		          settings.display = "Far", settings.step = 0.01f,
+		          editor.editcondition = "m_ProjectionType == Orthographic")
 		f32 m_OrthographicFar = 1.0f;
 
 		std::tuple<u32, u32, u32, u32> m_ViewportBounds = { 0, 0, 0, 0 };
