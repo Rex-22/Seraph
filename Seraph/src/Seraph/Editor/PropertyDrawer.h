@@ -10,16 +10,42 @@
 
 #include "Seraph/Reflection/Any.h"
 #include "Seraph/Reflection/Type.h"
+#include "Seraph/Reflection/TypeId.h"
+
+#include <functional>
+#include <string>
 
 namespace Seraph
 {
 
+// Editor-domain reflection attribute keys (read by PropertyDrawer). Distinct from
+// Settings/Serialize domains — each domain owns its own keys (reflection ships
+// none). See Todo/plans/reflection-plan.md example D.
+namespace Editor::Attr
+{
+// Select a named widget variant for a property (e.g. "assetPicker"), overriding
+// the type's default drawer. Value is a std::string naming a registered variant.
+inline constexpr u64 Widget = AttributeKey("editor.widget");
+} // namespace Editor::Attr
+
 class PropertyDrawer
 {
 public:
-    // Draw one editable value. `value` is mutated in place; returns true if the
-    // user changed it this frame. `attrs` supplies Min/Max/Step/Tooltip/Color
-    // (settings-domain keys). Unsupported types render as read-only text.
+    // A custom widget: draw an editable `value` for `label` using `attrs`; return
+    // true if changed. Registered per reflected type or as a named variant — the
+    // miniature of Unreal's IPropertyTypeCustomization. See Reflection v3.1.
+    using CustomDrawFn =
+        std::function<bool(const char* label, Any& value, const AttributeSet& attrs)>;
+
+    // Override the default widget for a reflected type (by TypeId). Idempotent —
+    // last registration wins.
+    static void RegisterCustom(TypeId type, CustomDrawFn fn);
+    // Register a named variant, selected per-property via Editor::Attr::Widget.
+    static void RegisterVariant(std::string name, CustomDrawFn fn);
+
+    // Draw one editable value. Dispatch order: named variant (Editor::Attr::Widget)
+    // -> type customization (RegisterCustom) -> built-in switch. `value` is mutated
+    // in place; returns true if the user changed it this frame.
     static bool DrawValue(const char* label, Any& value, const Type* type,
                           const AttributeSet& attrs);
 

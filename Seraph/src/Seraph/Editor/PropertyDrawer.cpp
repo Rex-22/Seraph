@@ -9,12 +9,27 @@
 
 #include <cstring>
 #include <string>
+#include <unordered_map>
 
 namespace Seraph
 {
 
 namespace
 {
+
+// Widget-customization registries (Reflection v3.1). Function-local statics so
+// registration from any TU is init-order safe.
+std::unordered_map<TypeId, PropertyDrawer::CustomDrawFn>& CustomByType()
+{
+    static std::unordered_map<TypeId, PropertyDrawer::CustomDrawFn> s;
+    return s;
+}
+std::unordered_map<std::string, PropertyDrawer::CustomDrawFn>& CustomByVariant()
+{
+    static std::unordered_map<std::string, PropertyDrawer::CustomDrawFn> s;
+    return s;
+}
+
 
 // Drag/slider for a scalar type T. Slider when both Min+Max present, else drag
 // (Step drives drag speed). Mutates `value` + returns true on change.
@@ -62,6 +77,16 @@ bool DrawVec(const char* label, Any& value, const AttributeSet& attrs, int n,
 
 } // namespace
 
+void PropertyDrawer::RegisterCustom(TypeId type, CustomDrawFn fn)
+{
+    CustomByType()[type] = std::move(fn);
+}
+
+void PropertyDrawer::RegisterVariant(std::string name, CustomDrawFn fn)
+{
+    CustomByVariant()[std::move(name)] = std::move(fn);
+}
+
 bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
                                const AttributeSet& attrs)
 {
@@ -69,6 +94,20 @@ bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
     {
         ImGui::TextDisabled("%s: <unset>", label);
         return false;
+    }
+
+    // Widget-customization dispatch (Reflection v3.1): named variant overrides
+    // the type default, which overrides the built-in switch below.
+    if (const std::string* variant = attrs.Get<std::string>(Editor::Attr::Widget))
+    {
+        auto& variants = CustomByVariant();
+        if (auto it = variants.find(*variant); it != variants.end())
+            return it->second(label, value, attrs);
+    }
+    {
+        auto& byType = CustomByType();
+        if (auto it = byType.find(type->Id); it != byType.end())
+            return it->second(label, value, attrs);
     }
 
     const TypeId id = type->Id;
