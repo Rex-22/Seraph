@@ -206,6 +206,10 @@ void Input::SetCursorMode(CursorMode mode)
         case CursorMode::Captured:
             SDL_SetWindowRelativeMouseMode(win, true);
             SDL_HideCursor();
+            // Discard motion accumulated while the cursor was free, so the first
+            // GetMouseDelta() after capture returns this frame's motion only and
+            // doesn't snap the view by the pre-capture jump.
+            SDL_GetRelativeMouseState(nullptr, nullptr);
             break;
     }
 }

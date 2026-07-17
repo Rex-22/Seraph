@@ -31,12 +31,6 @@ void Player::OnCreate()
     if (m_CameraEntity == 0)
         SP_WARN_TAG("Scripting", "Player has no child Camera — mouse look will only yaw");
 
-    // Anchor the look origin at the current cursor before capturing, so the first
-    // frame's delta is ~0 instead of a jump from wherever the cursor happened to be.
-    auto [mx, my] = Input::GetMousePosition();
-    m_LastMousePosition = { mx, my };
-
-    // Capture the cursor so mouse motion drives look (Escape releases it).
     Input::SetCursorMode(CursorMode::Captured);
 
     SP_INFO_TAG("Scripting", "Player::OnCreate (move {}, jump {})", m_MoveSpeed, m_JumpSpeed);
@@ -57,18 +51,15 @@ void Player::OnUpdate(f64 dt)
     }
 
     // --- Mouse look ---
-    // Delta from the last frame's absolute cursor position (not the relative-motion
-    // accumulator, which goes stale while the cursor is free and snaps on capture).
-    // m_LastMousePosition is re-anchored unconditionally at the end of this function,
-    // so the delta the frame capture begins is ~0.
-    auto [mx, my] = Input::GetMousePosition();
-    const glm::vec2 mouse{ mx, my };
-    const glm::vec2 delta = mouse - m_LastMousePosition;
-
+    // Relative motion (unbounded): the cursor is locked to the window in Captured
+    // mode, so absolute position would saturate at the window edge — the delta is
+    // what keeps reporting motion. SetCursorMode flushes this accumulator on capture,
+    // so there's no stale jump on the first frame.
     if (Input::GetCursorMode() == CursorMode::Captured)
     {
-        m_Yaw -= delta.x * m_LookSensitivity;   // mouse right turns right
-        m_Pitch -= delta.y * m_LookSensitivity; // mouse up looks up
+        auto [dx, dy] = Input::GetMouseDelta();
+        m_Yaw -= dx * m_LookSensitivity;   // mouse right turns right
+        m_Pitch -= dy * m_LookSensitivity; // mouse up looks up
 
         // Clamp pitch just shy of straight up/down to avoid gimbal flip.
         constexpr float kPitchLimit = 1.55f; // ~88.8 degrees
@@ -127,8 +118,4 @@ void Player::OnUpdate(f64 dt)
     }
 
     Transform().Translation = position;
-
-    // Re-anchor every frame — including while the cursor is free — so re-capturing
-    // never produces a stale jump.
-    m_LastMousePosition = mouse;
 }
