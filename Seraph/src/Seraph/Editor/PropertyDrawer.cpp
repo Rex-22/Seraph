@@ -29,6 +29,11 @@ std::unordered_map<std::string, PropertyDrawer::CustomDrawFn>& CustomByVariant()
     static std::unordered_map<std::string, PropertyDrawer::CustomDrawFn> s;
     return s;
 }
+std::unordered_map<TypeId, PropertyDrawer::ObjectDrawFn>& ObjectCustomByType()
+{
+    static std::unordered_map<TypeId, PropertyDrawer::ObjectDrawFn> s;
+    return s;
+}
 
 
 // Drag/slider for a scalar type T. Slider when both Min+Max present, else drag
@@ -85,6 +90,11 @@ void PropertyDrawer::RegisterCustom(TypeId type, CustomDrawFn fn)
 void PropertyDrawer::RegisterVariant(std::string name, CustomDrawFn fn)
 {
     CustomByVariant()[std::move(name)] = std::move(fn);
+}
+
+void PropertyDrawer::RegisterObjectCustom(TypeId type, ObjectDrawFn fn)
+{
+    ObjectCustomByType()[type] = std::move(fn);
 }
 
 bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
@@ -347,6 +357,13 @@ PropertyDrawer::EditConditionResult PropertyDrawer::EvalEditCondition(
 
 bool PropertyDrawer::DrawObject(const Type& type, void* obj)
 {
+    // A registered whole-object customization replaces the generic walk.
+    {
+        auto& objCustom = ObjectCustomByType();
+        if (auto it = objCustom.find(type.Id); it != objCustom.end())
+            return it->second(obj);
+    }
+
     bool changed = false;
     for (const Property& prop : type.Properties)
     {

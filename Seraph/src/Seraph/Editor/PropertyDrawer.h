@@ -53,6 +53,13 @@ public:
     // Register a named variant, selected per-property via Editor::Attr::Widget.
     static void RegisterVariant(std::string name, CustomDrawFn fn);
 
+    // A whole-object custom inspector (Unreal IDetailCustomization analog): draws
+    // the entire object for a reflected type, replacing the generic property walk.
+    // Use when a component's UI needs runtime data reflection can't express (e.g.
+    // MeshComponent's per-slot material combos read the loaded mesh's slot count).
+    using ObjectDrawFn = std::function<bool(void* obj)>;
+    static void RegisterObjectCustom(TypeId type, ObjectDrawFn fn);
+
     // Draw one editable value. Dispatch order: named variant (Editor::Attr::Widget)
     // -> type customization (RegisterCustom) -> built-in switch. `value` is mutated
     // in place; returns true if the user changed it this frame.
