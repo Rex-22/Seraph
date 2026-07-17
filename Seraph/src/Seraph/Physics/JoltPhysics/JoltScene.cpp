@@ -182,22 +182,63 @@ void JoltScene::Simulate(f32 dt)
     }
 
     m_Accumulator += dt;
-    int steps = 0;
+
+    // Plan this frame's substeps up front. Kinematic bodies are then driven with a
+    // velocity sized to the time we're about to simulate, so they land exactly on
+    // their authored transform after these steps (see SyncKinematicTransforms).
+    int plannedSteps = static_cast<int>(m_Accumulator / m_FixedTimeStep);
+    if (plannedSteps > static_cast<int>(m_MaxStepsPerFrame))
+        plannedSteps = static_cast<int>(m_MaxStepsPerFrame);
+
+    SyncKinematicTransforms(static_cast<f32>(plannedSteps) * m_FixedTimeStep);
+
     JPH::TempAllocator* tempAllocator = PhysicsSystem::GetTempAllocator();
     JPH::JobSystem* jobSystem = PhysicsSystem::GetJobSystem();
 
-    while (m_Accumulator >= m_FixedTimeStep && steps < static_cast<int>(m_MaxStepsPerFrame))
+    for (int step = 0; step < plannedSteps; ++step)
     {
         m_JoltSystem.Update(m_FixedTimeStep, 1, tempAllocator, jobSystem);
         m_Accumulator -= m_FixedTimeStep;
-        ++steps;
     }
     // Don't bank a backlog if we hit the clamp (avoids the spiral of death).
-    if (steps == static_cast<int>(m_MaxStepsPerFrame))
+    if (plannedSteps == static_cast<int>(m_MaxStepsPerFrame))
         m_Accumulator = 0.0f;
 
     DispatchQueuedContacts();
     WriteBackTransforms();
+}
+
+void JoltScene::SyncKinematicTransforms(f32 simTime)
+{
+    // No substeps this frame — nothing would integrate the target, and setting a
+    // velocity now would leak into the next stepped frame. The body simply waits;
+    // the transform stays authoritative (and rendered) meanwhile.
+    if (simTime <= 0.0f)
+        return;
+
+    JPH::BodyInterface& bi = m_JoltSystem.GetBodyInterface();
+    for (auto& [uuid, body] : m_Bodies)
+    {
+        Ref<JoltBody> joltBody = body.As<JoltBody>();
+        // Static bodies never move; dynamic bodies own their own pose (the solver
+        // writes it back). Only kinematic bodies are driven from the transform.
+        if (!joltBody->IsKinematic())
+            continue;
+
+        Entity entity = m_EntityScene->TryGetEntityWithUUID(uuid);
+        if (!entity)
+            continue;
+
+        // Transform is authoritative for kinematic bodies: read the entity's world
+        // pose (resolves parenting) and set the velocity that lands the body there
+        // after this frame's substeps. Unlike a teleport this sweeps the collider,
+        // so it carries and pushes the dynamic bodies it meets. MoveKinematic wakes
+        // the body if the resulting velocity is non-zero.
+        const TransformComponent world = m_EntityScene->GetWorldSpaceTransform(entity);
+        bi.MoveKinematic(
+            joltBody->GetBodyID(), JoltUtils::ToJoltRVec3(world.Translation),
+            JoltUtils::ToJoltQuat(world.GetRotation()), simTime);
+    }
 }
 
 void JoltScene::WriteBackTransforms()

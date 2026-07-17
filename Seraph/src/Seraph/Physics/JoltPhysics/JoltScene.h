@@ -50,6 +50,10 @@ public:
     JPH::PhysicsSystem& GetJoltSystem() { return m_JoltSystem; }
 
 private:
+    // Push game-authored poses of kinematic bodies into the solver before stepping.
+    // simTime is the wall-time about to be simulated this frame (plannedSteps *
+    // fixed step) so the driving velocity lands the body on its target exactly.
+    void SyncKinematicTransforms(f32 simTime);
     void WriteBackTransforms();
 
     // Declared before m_JoltSystem: the system holds references to these and must
