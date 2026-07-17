@@ -569,7 +569,7 @@ Unreal meta=(EditCondition="...", EditConditionHides): show/hide/disable a prope
 ---
 
 ### 23. Reflection v3.4 — Reflect asset refs + SceneCamera; migrate Mesh/Camera inspectors
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -585,5 +585,50 @@ Unreal: asset refs are reflected types with a registered asset-picker customizat
 ## Acceptance
 - Mesh + Camera inspectors reflection-driven (with registered customizations); scene golden-diff byte-identical for Mesh/Camera blocks.
 - Depends on v3.1, v3.2, v3.3.
+
+**Subtasks:**
+- [x] DONE: Mesh serialization migrated to reflection — AssetRef exposed as handle via accessors (no AssetRef reflection needed); new serialize.flow + serialize.omitempty attrs; golden byte-identical + omit-empty/flow round-trip verified
+- [ ] SPLIT OUT: Camera serialization -> v3.5 (blocked on CameraComponent dual-projection cleanup + enum-as-string); asset-picker/Mesh-inspector detail customization -> v3.6 (needs runtime-slot detail customization)
+
+---
+
+### 24. Reflection v3.5 — Camera serialization via reflection (needs CameraComponent cleanup)
+- **Status:** Todo
+- **Completed:** false
+- **Priority:** Low
+
+**Description:**
+Migrate CameraComponent serialization to reflection. BLOCKED on a design cleanup + one new serialize variant.
+
+## Blockers / prerequisites
+1. CameraComponent has TWO projection fields: its own `Type` (CameraComponent::Type enum) AND `Camera.GetProjectionType()` (SceneCamera::ProjectionType), synced on load (cc.ProjectionType mirror). Reflecting cleanly requires removing the redundant mirror (derive one from the other) — a CameraComponent design cleanup.
+2. The 8 camera values are getter/setter-wrapped on the nested SceneCamera (GetDegPerspectiveVerticalFOV, etc.) — reflect via accessor SPROPERTY (v3.2) with MeshComponent-style helper accessors on CameraComponent, OR reflect SceneCamera itself.
+3. ProjectionType serializes as a STRING ("Perspective"/"Orthographic"), not int — needs a new `serialize.enumAsString` attr (EmitAny/ParseAny use EnumToString/FromString when set). Small, reusable addition.
+4. Inspector already gets projection-dependent field visibility for free via EditCondition (v3.3) once fields are reflected.
+
+## Acceptance
+- Camera block byte-identical (golden diff) — all 8 keys + IsPrimary + ProjectionType-as-string, same order.
+- CameraComponent projection mirror removed or cleanly derived.
+
+## Note
+Camera is low-value/high-friction; the v3 mechanisms (accessors, EditCondition, enum-as-string) make it doable, but the CameraComponent cleanup is the real prerequisite. Currently Camera stays bespoke in SceneSerializer.
+
+---
+
+### 25. Reflection v3.6 — Asset-picker widget customization + detail customizations
+- **Status:** Todo
+- **Completed:** false
+- **Priority:** Low
+
+**Description:**
+Editor-side widget customizations (uses the v3.1 registry), to retire the bespoke Mesh/Camera INSPECTORS.
+
+## Scope
+- AssetHandle asset-picker: register a PropertyDrawer custom drawer (RegisterCustom by TypeIdOf<UUID>() or a named variant "assetPicker") that shows an asset picker (needs the editor asset manager + an AssetType filter attr). Currently AssetHandle draws as a raw u64 drag.
+- Per-component DETAIL customization (Unreal IDetailCustomization): the Mesh inspector's per-slot material combos read the LOADED mesh's runtime slot count — not reflectable. Needs a per-component custom drawer hook (register a drawer for MeshComponent that does the generic walk + the runtime-slot combos). Design the per-component override mechanism.
+- Once done, EntityInspectorPanel's DrawMeshComponent / DrawCameraComponent can be replaced by PropertyDrawer::DrawObject + registered customizations.
+
+## Note
+Deferred from v3.4 — no consumer until the inspectors migrate, and the material-slot combo needs a runtime-aware detail customization. Serialization for Mesh is already reflection-driven (v3.4); this is purely inspector UX.
 
 ---
