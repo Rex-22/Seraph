@@ -46,6 +46,46 @@ function(sht_reflect target)
         endif()
     endif()
 
+    # Clang resource dir for the libclang parse (non-Apple). libclang is a raw
+    # frontend and — unlike the clang++ driver — does NOT add its own builtin
+    # headers (stddef.h, stdarg.h, ...) to the include path. Without -resource-dir,
+    # parsing any header that pulls in <cstdint>/<cstddef> fails with
+    # "stddef.h file not found". On Apple the -isysroot above already covers this
+    # (and the macOS path is verified), so we only add it elsewhere to avoid
+    # overriding the toolchain's own resource dir. Resolved once (cached).
+    set(_resource "")
+    if(NOT APPLE)
+        find_program(SHT_CLANG_EXE
+            NAMES clang clang-19 clang-18 clang-17
+            DOC "clang binary used to locate the libclang resource dir for SHT")
+        set(_resdir "")
+        if(SHT_CLANG_EXE)
+            execute_process(COMMAND "${SHT_CLANG_EXE}" -print-resource-dir
+                OUTPUT_VARIABLE _resdir OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET)
+        endif()
+        # Fallback: derive from the libclang library location
+        # (<libdir>/clang/<ver> or <libdir>/../lib/clang/<ver>).
+        if((NOT _resdir OR NOT EXISTS "${_resdir}/include") AND SERAPH_LIBCLANG_LIBRARY)
+            get_filename_component(_lcdir "${SERAPH_LIBCLANG_LIBRARY}" DIRECTORY)
+            file(GLOB _res_incs
+                "${_lcdir}/clang/*/include" "${_lcdir}/../lib/clang/*/include")
+            if(_res_incs)
+                list(SORT _res_incs)
+                list(GET _res_incs -1 _res_inc) # highest version
+                get_filename_component(_resdir "${_res_inc}" DIRECTORY)
+            endif()
+        endif()
+        if(_resdir AND EXISTS "${_resdir}/include")
+            set(_resource -resource-dir "${_resdir}")
+        else()
+            message(WARNING
+                "sht_reflect(${target}): could not locate a clang resource dir; "
+                "libclang may fail to find builtin headers (stddef.h). Install "
+                "clang or pass -DSHT_CLANG_EXE=<path to clang>.")
+        endif()
+    endif()
+
     # Target include dirs + defs as -I / -D flags (generator expressions so they
     # reflect the fully-resolved set). COMMAND_EXPAND_LISTS splits the ';' lists.
     set(_inc "$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>")
@@ -81,7 +121,7 @@ function(sht_reflect target)
             OUTPUT "${_out}"
             COMMAND "${_sht_exe}" "${_hdr_abs}"
                     -o "${_out}" --include "${_hdr_abs}" --depfile "${_dep}"
-                    -- ${_sysroot} -std=c++20
+                    -- ${_sysroot} ${_resource} -std=c++20
                     "${_inc_flags}" "${_def_flags}"
                     "${_iface_inc_flags}" "${_iface_def_flags}"
             DEPENDS "${_hdr_abs}" "${_sht_dep}"

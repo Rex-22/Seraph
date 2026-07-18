@@ -36,7 +36,6 @@ include(cmake/vendor.cmake)
 include(cmake/config.cmake)
 
 add_compile_definitions("SP_DEBUG=$<CONFIG:Debug>")
-add_compile_definitions("SP_SHT_PARSE")
 
 # The bundled sample project. Its asset dir is the FileSystem's fallback root,
 # and its .sproj is what the editor opens by default during development. Both are
@@ -77,15 +76,26 @@ set(SERAPH_CMAKE_COMMAND "${CMAKE_COMMAND}")
 # for the engine and its consumers, so `#include <config.h>` resolves.
 configure_file(Seraph/src/config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
 
-# SeraphHeaderTool: the reflection code-gen tool (libclang-based). Opt-in while
-# in development — it needs libclang installed. When ON, libSeraph generates
-# reflection registrations from SPROPERTY/SCLASS annotations via sht_reflect()
-# (see cmake/sht.cmake), and the tool + helpers are baked into SeraphConfig so
-# downstream Game modules can reflect their own annotated headers too. When OFF,
-# the engine builds with no libclang dependency and SHT is unwired everywhere.
+# SeraphHeaderTool: the reflection code-gen tool (libclang-based). REQUIRED — it
+# generates the reflection registrations for engine component/enum types from their
+# SPROPERTY/SCLASS annotations via sht_reflect() (see cmake/sht.cmake), and the tool
+# + helpers are baked into SeraphConfig so downstream Game modules reflect their own
+# annotated headers too. libSeraph consumers call Reflection::Get<T>() for those
+# generated types (scene serialize, inspector, scripts), so a build without the tool
+# would leave them unregistered and crash at scene-load — hence libclang is a hard
+# build dependency and OFF is rejected below (see the "make SHT mandatory" decision).
 # Declared HERE (before the SDK package block) so its value is known when baking
 # SERAPH_HEADER_TOOL_EXE into SeraphConfig below.
-option(SERAPH_BUILD_HEADER_TOOL "Build SeraphHeaderTool (reflection code-gen; needs libclang)" ON)
+option(SERAPH_BUILD_HEADER_TOOL "Build SeraphHeaderTool (reflection code-gen; REQUIRED, needs libclang)" ON)
+if(NOT SERAPH_BUILD_HEADER_TOOL)
+    message(FATAL_ERROR
+        "Seraph requires SeraphHeaderTool (reflection code generation): libclang is a "
+        "required build dependency. -DSERAPH_BUILD_HEADER_TOOL=OFF is no longer "
+        "supported — engine code calls Reflection::Get<T>() for component/enum types "
+        "that only register when the tool runs, so an OFF build crashes at scene-load. "
+        "Install libclang (brew install llvm / apt install libclang-dev) or pass "
+        "-DSERAPH_LIBCLANG_LIBRARY=<path>; see Tools/SeraphHeaderTool/README.md.")
+endif()
 
 # --- SDK package: a hand-written SeraphConfig.cmake so a game project can
 # find_package(Seraph) against THIS local engine build (source-SDK model). It
