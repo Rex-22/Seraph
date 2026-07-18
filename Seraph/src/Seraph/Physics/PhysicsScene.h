@@ -9,6 +9,7 @@
 
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Core/UUID.h"
+#include "Seraph/Physics/CharacterController.h"
 #include "Seraph/Physics/PhysicsBody.h"
 #include "Seraph/Physics/PhysicsTypes.h"
 #include "Seraph/Physics/SceneQueries.h"
@@ -47,6 +48,12 @@ public:
     virtual Ref<PhysicsBody> CreateBody(Entity entity) = 0;
     virtual void DestroyBody(Entity entity) = 0;
 
+    // Character controller lifecycle. CreateCharacterController reads the
+    // entity's CharacterController + collider components; returns null if the
+    // entity is not eligible (e.g. no collider).
+    virtual Ref<CharacterController> CreateCharacterController(Entity entity) = 0;
+    virtual void DestroyCharacterController(Entity entity) = 0;
+
     // Closest-hit ray query. Returns false on a miss.
     virtual bool CastRay(const RayCastInfo& ray, SceneQueryHit& outHit) = 0;
 
@@ -60,6 +67,8 @@ public:
     // Map lookups (non-virtual, backend-independent).
     Ref<PhysicsBody> GetBody(Entity entity) const;
     Ref<PhysicsBody> GetBodyByEntityID(UUID id) const;
+    Ref<CharacterController> GetCharacterController(Entity entity) const;
+    Ref<CharacterController> GetCharacterControllerByEntityID(UUID id) const;
 
     void SetContactCallback(ContactCallbackFn fn) { m_ContactCallback = std::move(fn); }
 
@@ -84,6 +93,7 @@ protected:
 
     Scene* m_EntityScene = nullptr; // non-owning; see GetEntityScene()
     std::unordered_map<UUID, Ref<PhysicsBody>> m_Bodies;
+    std::unordered_map<UUID, Ref<CharacterController>> m_Characters;
 
     f32 m_FixedTimeStep = 1.0f / 60.0f;
     f32 m_Accumulator = 0.0f;

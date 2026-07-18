@@ -27,6 +27,19 @@ Ref<PhysicsBody> PhysicsScene::GetBodyByEntityID(UUID id) const
     return it != m_Bodies.end() ? it->second : nullptr;
 }
 
+Ref<CharacterController> PhysicsScene::GetCharacterController(Entity entity) const
+{
+    if (!entity)
+        return nullptr;
+    return GetCharacterControllerByEntityID(entity.GetUUID());
+}
+
+Ref<CharacterController> PhysicsScene::GetCharacterControllerByEntityID(UUID id) const
+{
+    const auto it = m_Characters.find(id);
+    return it != m_Characters.end() ? it->second : nullptr;
+}
+
 void PhysicsScene::QueueContact(ContactType type, UUID a, UUID b)
 {
     std::scoped_lock lock(m_ContactMutex);
