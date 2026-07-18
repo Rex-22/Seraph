@@ -40,6 +40,7 @@
 #include <cstdio>
 #include <exception>
 #include <filesystem>
+#include <optional>
 
 namespace Seraph
 {
@@ -62,6 +63,7 @@ void EditorLayer::OnAttach()
 {
     auto [w, h] = Application::Instance().Window().Size();
     m_RenderTarget.Create(w, h);
+    m_Picker.Create(w, h);
 
     m_EditorCamera.SetViewportBounds(0, 0, w, h);
     m_EditorCamera.SetViewId(k_SceneViewId);
@@ -82,6 +84,7 @@ void EditorLayer::OnDetach()
     if (m_ScriptCompileThread.joinable())
         m_ScriptCompileThread.join();
     m_RenderTarget.Destroy();
+    m_Picker.Destroy();
 }
 
 void EditorLayer::OnUpdate(f64 dt)
@@ -131,6 +134,18 @@ void EditorLayer::OnUpdate(f64 dt)
         m_EditorCamera.OnUpdate(dt);
         m_EditorScene->OnUpdateEditor(dt);
         m_EditorScene->OnRenderEditor(m_SceneRenderer, m_EditorCamera);
+
+        // Entity picking: consume a completed readback (from a click a couple of
+        // frames ago), then render/kick off any pending pick into its own views
+        // (2-3) as part of this same frame.
+        if (std::optional<UUID> picked = m_Picker.Poll())
+        {
+            Entity entity = (*picked == UUID(0))
+                ? Entity{}
+                : m_EditorScene->TryGetEntityWithUUID(*picked);
+            m_EntityBrowser.SetSelectedEntity(entity);
+        }
+        m_Picker.RenderPickPass(*m_EditorScene, m_EditorCamera);
     }
 }
 
@@ -619,12 +634,29 @@ void EditorLayer::OnImGuiRender()
         if (m_ViewportPanel.ConsumeDroppedAsset(droppedAsset))
             InstantiateAsset(droppedAsset);
 
+        // Left-click in the viewport selects the entity under the cursor via a
+        // color-ID pick — unless the click lands on the gizmo (which owns it) or
+        // is mid-drag. The pick renders + reads back over the next few frames.
+        if (m_ViewportPanel.IsHovered() &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            !m_Gizmo.IsUsing() && !m_Gizmo.IsOver())
+        {
+            const ImVec2 mouse  = ImGui::GetMousePos();
+            const ImVec2 origin = m_ViewportPanel.GetContentPos();
+            const float  localX = mouse.x - origin.x;
+            const float  localY = mouse.y - origin.y;
+            if (localX >= 0.0f && localY >= 0.0f)
+                m_Picker.RequestPick(
+                    static_cast<u32>(localX), static_cast<u32>(localY));
+        }
+
         const ImVec2 sz = m_ViewportPanel.GetContentSize();
         if (sz.x > 0.0f && sz.y > 0.0f &&
             (static_cast<u32>(sz.x) != m_RenderTarget.width || static_cast<u32>(sz.y) != m_RenderTarget.height))
         {
             m_RenderTarget.Resize(
                 static_cast<u32>(sz.x), static_cast<u32>(sz.y));
+            m_Picker.Resize(static_cast<u32>(sz.x), static_cast<u32>(sz.y));
             m_EditorCamera.SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
             m_EditorScene->SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
         }

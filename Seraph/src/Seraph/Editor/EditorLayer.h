@@ -15,6 +15,7 @@
 #include "Seraph/Core/Layer.h"
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Editor/EditorCamera.h"
+#include "Seraph/Editor/EntityPicker.h"
 #include "Seraph/Editor/Panels/AssetBrowserPanel.h"
 #include "Seraph/Editor/Panels/EditorGizmo.h"
 #include "Seraph/Editor/Panels/EntityBrowserPanel.h"
@@ -111,7 +112,8 @@ private:
     static constexpr const char* k_ScenePath = "scenes/example.sscene";
 
     // bgfx view 0 = backbuffer clear, view 255 = ImGui overlay.
-    // View 1 is reserved for the offscreen scene render target.
+    // View 1 is reserved for the offscreen scene render target; views 2-3 are
+    // the entity picker's color-ID render + readback blit (see EntityPicker).
     static constexpr u16 k_SceneViewId = 1;
 
     Ref<Scene>           m_EditorScene;   // authoritative scene; saved/loaded
@@ -127,6 +129,7 @@ private:
     SettingsPanel        m_SettingsPanel;
     EditorGizmo          m_Gizmo;
     RenderTarget         m_RenderTarget;
+    EntityPicker         m_Picker;
 
     bool                 m_RuntimeMode = false;
     bool                 m_PendingRuntimeToggle = false; // processed at top of OnUpdate
