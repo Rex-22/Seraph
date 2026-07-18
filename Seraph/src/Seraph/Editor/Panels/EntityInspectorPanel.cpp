@@ -468,7 +468,8 @@ void EntityInspectorPanel::OnImGuiRender()
     DrawPlainComponent<BoxColliderComponent>(m_SelectedEntity, "Box Collider");
     DrawPlainComponent<SphereColliderComponent>(m_SelectedEntity, "Sphere Collider");
     DrawPlainComponent<CapsuleColliderComponent>(m_SelectedEntity, "Capsule Collider");
-    DrawPlainComponent<CharacterControllerComponent>(m_SelectedEntity, "Character Controller");
+    if (m_SelectedEntity.HasComponent<CharacterControllerComponent>())
+        DrawCharacterControllerComponent();
     if (m_SelectedEntity.HasComponent<ScriptComponent>())          DrawScriptComponent();
     ImGui::Spacing();
     DrawAddComponentMenu();
@@ -566,6 +567,40 @@ void EntityInspectorPanel::DrawMeshComponent()
         m_SelectedEntity.RemoveComponent<MeshComponent>();
 }
 
+// Godot-style collision-bitmask editor: a button summarizing the selected layers
+// that opens a popup with a checkbox per named layer (PhysicsLayerManager).
+static void DrawLayerMaskField(const char* label, u32& mask)
+{
+    std::string preview;
+    for (u32 i = 0; i < PhysicsLayerManager::LayerCount; ++i)
+        if (mask & (1u << i))
+        {
+            if (!preview.empty())
+                preview += ", ";
+            preview += std::to_string(i);
+        }
+    if (preview.empty())
+        preview = "None";
+
+    ImGui::PushID(label);
+    ImGui::TextUnformatted(label);
+    ImGui::SameLine(120.0f);
+    if (ImGui::Button(preview.c_str(), ImVec2(-1.0f, 0.0f)))
+        ImGui::OpenPopup("layers");
+    if (ImGui::BeginPopup("layers"))
+    {
+        for (u32 i = 0; i < PhysicsLayerManager::LayerCount; ++i)
+        {
+            bool set = (mask & (1u << i)) != 0;
+            const std::string item = std::to_string(i) + ": " + PhysicsLayerManager::GetLayerName(i);
+            if (ImGui::Checkbox(item.c_str(), &set))
+                mask = set ? (mask | (1u << i)) : (mask & ~(1u << i));
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+}
+
 void EntityInspectorPanel::DrawRigidBodyComponent()
 {
     auto* rb = m_SelectedEntity.TryGetComponent<RigidBodyComponent>();
@@ -577,32 +612,40 @@ void EntityInspectorPanel::DrawRigidBodyComponent()
 
     if (open)
     {
-        // Most fields are reflection-driven; LayerID is Hidden in reflection and
-        // drawn here with a bespoke dropdown sourced from the runtime layer
-        // registry (which the generic drawer can't enumerate).
+        // Most fields are reflection-driven; the collision bitmasks are Hidden in
+        // reflection and drawn here as bespoke layer grids the generic drawer can't.
         PropertyDrawer::DrawObject(Reflection::Get<RigidBodyComponent>(), rb);
-
-        const std::vector<PhysicsLayer>& layers = PhysicsLayerManager::GetLayers();
-        const char* preview = PhysicsLayerManager::IsLayerValid(rb->LayerID)
-            ? layers[rb->LayerID].Name.c_str() : "(invalid)";
-        if (ImGui::BeginCombo("Layer", preview))
-        {
-            for (const PhysicsLayer& layer : layers)
-            {
-                const bool selected = (layer.LayerID == rb->LayerID);
-                if (ImGui::Selectable(layer.Name.c_str(), selected))
-                    rb->LayerID = layer.LayerID;
-                if (selected)
-                    ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndCombo();
-        }
+        DrawLayerMaskField("Collision Layer", rb->CollisionLayer);
+        DrawLayerMaskField("Collision Mask", rb->CollisionMask);
 
         ImGui::TreePop();
     }
 
     if (remove)
         m_SelectedEntity.RemoveComponent<RigidBodyComponent>();
+}
+
+void EntityInspectorPanel::DrawCharacterControllerComponent()
+{
+    auto* cc = m_SelectedEntity.TryGetComponent<CharacterControllerComponent>();
+    if (!cc)
+        return;
+
+    bool remove = false;
+    bool open = BeginComponentSection<CharacterControllerComponent>(
+        "Character Controller", m_SelectedEntity, &remove);
+
+    if (open)
+    {
+        PropertyDrawer::DrawObject(Reflection::Get<CharacterControllerComponent>(), cc);
+        DrawLayerMaskField("Collision Layer", cc->CollisionLayer);
+        DrawLayerMaskField("Collision Mask", cc->CollisionMask);
+
+        ImGui::TreePop();
+    }
+
+    if (remove)
+        m_SelectedEntity.RemoveComponent<CharacterControllerComponent>();
 }
 
 // Box / Sphere / Capsule colliders are drawn generically via DrawPlainComponent<T>

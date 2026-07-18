@@ -26,6 +26,7 @@ private:
     void DrawCameraComponent();
     void DrawMeshComponent();
     void DrawRigidBodyComponent();
+    void DrawCharacterControllerComponent();
     // Box/Sphere/Capsule colliders (and future pure-data components) are drawn
     // generically via DrawPlainComponent<T> in the .cpp — no per-type method.
     void DrawScriptComponent();
