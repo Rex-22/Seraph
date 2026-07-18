@@ -5,6 +5,7 @@
 #include "JoltScene.h"
 
 #include "JoltBody.h"
+#include "JoltCharacterController.h"
 #include "JoltDebugRenderer.h"
 #include "JoltShapes.h"
 #include "JoltUtils.h"
@@ -14,19 +15,25 @@
 #include "Seraph/Physics/PhysicsSystem.h"
 #include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
+#include "Seraph/Scene/Components/CharacterControllerComponent.h"
 #include "Seraph/Scene/Components/RigidBodyComponent.h"
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Scene.h"
 
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Body/BodyManager.h>
+#include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/EActivation.h>
 
+#include <glm/common.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
 namespace Seraph
@@ -49,6 +56,11 @@ JoltScene::JoltScene(Scene* scene)
 
 JoltScene::~JoltScene()
 {
+    // Release the virtual characters while m_JoltSystem is still alive: they were
+    // created against it, and m_Characters (a base member) would otherwise
+    // destruct after m_JoltSystem (a derived member).
+    m_Characters.clear();
+
     JPH::BodyInterface& bi = m_JoltSystem.GetBodyInterface();
     for (auto& [uuid, body] : m_Bodies)
     {
@@ -80,28 +92,11 @@ Ref<PhysicsBody> JoltScene::CreateBody(Entity entity)
     const auto& rb = entity.GetComponent<RigidBodyComponent>();
     const TransformComponent world = m_EntityScene->GetWorldSpaceTransform(entity);
 
-    // Build the shape from whichever collider is present (one per body this pass).
-    JPH::ShapeRefC shape;
-    bool isTrigger = false;
-    ColliderMaterial material;
-    if (auto* c = entity.TryGetComponent<BoxColliderComponent>())
-    {
-        shape = JoltShapes::MakeBox(*c, world.Scale);
-        isTrigger = c->IsTrigger;
-        material = c->Material;
-    }
-    else if (auto* c = entity.TryGetComponent<SphereColliderComponent>())
-    {
-        shape = JoltShapes::MakeSphere(*c, world.Scale);
-        isTrigger = c->IsTrigger;
-        material = c->Material;
-    }
-    else if (auto* c = entity.TryGetComponent<CapsuleColliderComponent>())
-    {
-        shape = JoltShapes::MakeCapsule(*c, world.Scale);
-        isTrigger = c->IsTrigger;
-        material = c->Material;
-    }
+    // Build the shape from every collider present (compound when there's >1).
+    const JoltShapes::EntityShape built = JoltShapes::BuildEntityShape(entity, world.Scale);
+    const JPH::ShapeRefC& shape = built.Shape;
+    const bool isTrigger = built.IsTrigger;
+    const ColliderMaterial& material = built.Material;
 
     if (shape == nullptr)
     {
@@ -170,6 +165,56 @@ void JoltScene::DestroyBody(Entity entity)
         bi.DestroyBody(id);
     }
     m_Bodies.erase(it);
+    m_PreviousPoses.erase(entity.GetUUID());
+}
+
+Ref<CharacterController> JoltScene::CreateCharacterController(Entity entity)
+{
+    if (!entity.HasComponent<CharacterControllerComponent>())
+        return nullptr;
+
+    const auto& cc = entity.GetComponent<CharacterControllerComponent>();
+    const TransformComponent world = m_EntityScene->GetWorldSpaceTransform(entity);
+
+    // Shared shape path with rigid bodies. The shape is centred on the entity
+    // origin (matching the collider + mesh), so the character position maps
+    // straight to the entity translation — no feet/centre offset bookkeeping.
+    const JoltShapes::EntityShape built = JoltShapes::BuildEntityShape(entity, world.Scale);
+    if (built.Shape == nullptr)
+    {
+        SP_CORE_WARN_TAG(
+            "Physics", "Entity '{}' has a CharacterController but no (valid) collider — skipping",
+            entity.Name());
+        return nullptr;
+    }
+
+    u32 layer = cc.LayerID;
+    if (!PhysicsLayerManager::IsLayerValid(layer))
+    {
+        SP_CORE_WARN_TAG("Physics", "Invalid physics layer {} — falling back to 1 (Moving)", layer);
+        layer = PhysicsLayerManager::MovingLayer();
+    }
+
+    JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
+    settings->mShape = built.Shape;
+    settings->mMass = cc.Mass;
+    settings->mMaxSlopeAngle = glm::radians(cc.SlopeLimitDeg);
+
+    JPH::Ref<JPH::CharacterVirtual> character = new JPH::CharacterVirtual(
+        settings, JoltUtils::ToJoltRVec3(world.Translation),
+        JoltUtils::ToJoltQuat(world.GetRotation()),
+        static_cast<JPH::uint64>(entity.GetUUID()), &m_JoltSystem);
+
+    Ref<JoltCharacterController> controller =
+        Ref<JoltCharacterController>::Create(entity, this, character, cc, layer);
+    m_Characters[entity.GetUUID()] = controller;
+    return controller;
+}
+
+void JoltScene::DestroyCharacterController(Entity entity)
+{
+    m_Characters.erase(entity.GetUUID());
+    m_PreviousPoses.erase(entity.GetUUID());
 }
 
 void JoltScene::Simulate(f32 dt)
@@ -197,6 +242,14 @@ void JoltScene::Simulate(f32 dt)
 
     for (int step = 0; step < plannedSteps; ++step)
     {
+        // Snapshot poses just before the final step so WriteBackTransforms can
+        // interpolate render pose across that last step (previous -> current).
+        if (step == plannedSteps - 1)
+            CapturePreviousTransforms();
+
+        // Advance the virtual characters, then let the body solver integrate the
+        // impulses they applied to whatever they pushed this step.
+        UpdateCharacters(m_FixedTimeStep);
         m_JoltSystem.Update(m_FixedTimeStep, 1, tempAllocator, jobSystem);
         m_Accumulator -= m_FixedTimeStep;
     }
@@ -205,7 +258,41 @@ void JoltScene::Simulate(f32 dt)
         m_Accumulator = 0.0f;
 
     DispatchQueuedContacts();
-    WriteBackTransforms();
+
+    // Leftover fraction of a fixed step: render between the last two solver
+    // states so bodies don't stutter when the frame rate isn't a multiple of the
+    // fixed rate.
+    const f32 alpha =
+        m_FixedTimeStep > 0.0f ? glm::clamp(m_Accumulator / m_FixedTimeStep, 0.0f, 1.0f) : 0.0f;
+    WriteBackTransforms(alpha);
+}
+
+void JoltScene::CapturePreviousTransforms()
+{
+    JPH::BodyInterface& bi = m_JoltSystem.GetBodyInterface();
+    for (auto& [uuid, body] : m_Bodies)
+    {
+        Ref<JoltBody> joltBody = body.As<JoltBody>();
+        if (joltBody->IsStatic() || joltBody->IsKinematic())
+            continue;
+        const JPH::BodyID id = joltBody->GetBodyID();
+        if (!bi.IsActive(id))
+            continue;
+        m_PreviousPoses[uuid] = { JoltUtils::FromJoltVector(bi.GetPosition(id)),
+                                  JoltUtils::FromJoltQuat(bi.GetRotation(id)) };
+    }
+
+    for (auto& [uuid, character] : m_Characters)
+    {
+        Ref<JoltCharacterController> jcc = character.As<JoltCharacterController>();
+        m_PreviousPoses[uuid] = { jcc->GetTranslation(), glm::quat(1.0f, 0.0f, 0.0f, 0.0f) };
+    }
+}
+
+void JoltScene::UpdateCharacters(f32 dt)
+{
+    for (auto& [uuid, character] : m_Characters)
+        character.As<JoltCharacterController>()->Update(dt);
 }
 
 void JoltScene::SyncKinematicTransforms(f32 simTime)
@@ -241,8 +328,28 @@ void JoltScene::SyncKinematicTransforms(f32 simTime)
     }
 }
 
-void JoltScene::WriteBackTransforms()
+void JoltScene::WriteBackTransforms(f32 alpha)
 {
+    // Write a world-space pose onto an entity, folding into local space when the
+    // entity is parented. Scale is preserved (physics has none).
+    const auto writePose = [this](Entity entity, const glm::vec3& worldPos, const glm::quat& worldRot)
+    {
+        auto& tc = entity.GetComponent<TransformComponent>();
+        const glm::vec3 keepScale = tc.Scale;
+        if (entity.GetParent())
+        {
+            const glm::mat4 worldMatrix = glm::translate(glm::mat4(1.0f), worldPos) *
+                glm::toMat4(worldRot) * glm::scale(glm::mat4(1.0f), keepScale);
+            m_EntityScene->SetWorldSpaceTransformMatrix(entity, worldMatrix);
+        }
+        else
+        {
+            tc.Translation = worldPos;
+            tc.SetRotation(worldRot);
+            tc.Scale = keepScale;
+        }
+    };
+
     JPH::BodyInterface& bi = m_JoltSystem.GetBodyInterface();
     for (auto& [uuid, body] : m_Bodies)
     {
@@ -259,23 +366,42 @@ void JoltScene::WriteBackTransforms()
         if (!entity)
             continue;
 
-        auto& tc = entity.GetComponent<TransformComponent>();
-        const glm::vec3 keepScale = tc.Scale;
-        const glm::vec3 worldPos = JoltUtils::FromJoltVector(bi.GetPosition(id));
-        const glm::quat worldRot = JoltUtils::FromJoltQuat(bi.GetRotation(id));
+        glm::vec3 worldPos = JoltUtils::FromJoltVector(bi.GetPosition(id));
+        glm::quat worldRot = JoltUtils::FromJoltQuat(bi.GetRotation(id));
 
+        // Interpolate from the pose captured before the last step, when we have one.
+        if (const auto prev = m_PreviousPoses.find(uuid); prev != m_PreviousPoses.end())
+        {
+            worldPos = glm::mix(prev->second.Translation, worldPos, alpha);
+            worldRot = glm::slerp(prev->second.Rotation, worldRot, alpha);
+        }
+
+        writePose(entity, worldPos, worldRot);
+    }
+
+    // Characters: translation is solver-owned; rotation stays game-authoritative
+    // (yaw is set on the transform by gameplay code), so only translation is
+    // written back.
+    for (auto& [uuid, character] : m_Characters)
+    {
+        Entity entity = m_EntityScene->TryGetEntityWithUUID(uuid);
+        if (!entity)
+            continue;
+
+        glm::vec3 worldPos = character.As<JoltCharacterController>()->GetTranslation();
+        if (const auto prev = m_PreviousPoses.find(uuid); prev != m_PreviousPoses.end())
+            worldPos = glm::mix(prev->second.Translation, worldPos, alpha);
+
+        auto& tc = entity.GetComponent<TransformComponent>();
         if (entity.GetParent())
         {
-            // Physics is world-space; fold back into the entity's local space.
             const glm::mat4 worldMatrix = glm::translate(glm::mat4(1.0f), worldPos) *
-                glm::toMat4(worldRot) * glm::scale(glm::mat4(1.0f), keepScale);
+                glm::toMat4(tc.GetRotation()) * glm::scale(glm::mat4(1.0f), tc.Scale);
             m_EntityScene->SetWorldSpaceTransformMatrix(entity, worldMatrix);
         }
         else
         {
             tc.Translation = worldPos;
-            tc.SetRotation(worldRot);
-            tc.Scale = keepScale;
         }
     }
 }
@@ -292,8 +418,37 @@ bool JoltScene::CastRay(const RayCastInfo& ray, SceneQueryHit& outHit)
         JoltUtils::ToJoltVector(direction * ray.MaxDistance)
     };
 
+    // Only accept object layers whose bit is set in the ray's LayerMask.
+    class LayerMaskFilter final : public JPH::ObjectLayerFilter
+    {
+    public:
+        explicit LayerMaskFilter(u32 mask) : m_Mask(mask) {}
+        bool ShouldCollide(JPH::ObjectLayer layer) const override
+        {
+            return layer >= 32 || (m_Mask & (1u << layer)) != 0;
+        }
+    private:
+        u32 m_Mask;
+    };
+
+    // Skip sensor bodies so a trigger volume doesn't block the ray.
+    class IgnoreSensorsFilter final : public JPH::BodyFilter
+    {
+    public:
+        bool ShouldCollideLocked(const JPH::Body& body) const override
+        {
+            return !body.IsSensor();
+        }
+    };
+
+    const LayerMaskFilter layerFilter(ray.LayerMask);
+    const IgnoreSensorsFilter sensorFilter;
+    const JPH::BodyFilter passAllBodies;
+
     JPH::RayCastResult result;
-    if (!m_JoltSystem.GetNarrowPhaseQuery().CastRay(rayCast, result))
+    if (!m_JoltSystem.GetNarrowPhaseQuery().CastRay(
+            rayCast, result, {}, layerFilter,
+            ray.HitTriggers ? passAllBodies : static_cast<const JPH::BodyFilter&>(sensorFilter)))
         return false;
 
     outHit.Distance = result.mFraction * ray.MaxDistance;

@@ -33,6 +33,9 @@ public:
     Ref<PhysicsBody> CreateBody(Entity entity) override;
     void DestroyBody(Entity entity) override;
 
+    Ref<CharacterController> CreateCharacterController(Entity entity) override;
+    void DestroyCharacterController(Entity entity) override;
+
     bool CastRay(const RayCastInfo& ray, SceneQueryHit& outHit) override;
 
     // Forward JPH::PhysicsSystem::DrawBodies through the DebugRendererSimple
@@ -54,7 +57,24 @@ private:
     // simTime is the wall-time about to be simulated this frame (plannedSteps *
     // fixed step) so the driving velocity lands the body on its target exactly.
     void SyncKinematicTransforms(f32 simTime);
-    void WriteBackTransforms();
+
+    // Capture each solver-owned body's pose before this frame's substeps run, so
+    // WriteBackTransforms can interpolate render pose from previous -> current.
+    void CapturePreviousTransforms();
+    // alpha in [0,1] is the leftover-accumulator fraction of a fixed step; the
+    // written pose is lerp(previous, current, alpha) to remove sub-60fps jitter.
+    void WriteBackTransforms(f32 alpha);
+
+    // Advance the virtual character controllers one fixed step each.
+    void UpdateCharacters(f32 dt);
+
+    // Previous-step pose of a solver-owned body, kept for render interpolation.
+    struct BodyPose
+    {
+        glm::vec3 Translation{ 0.0f };
+        glm::quat Rotation{ 1.0f, 0.0f, 0.0f, 0.0f };
+    };
+    std::unordered_map<UUID, BodyPose> m_PreviousPoses;
 
     // Declared before m_JoltSystem: the system holds references to these and must
     // be destroyed first (members destruct in reverse declaration order).
