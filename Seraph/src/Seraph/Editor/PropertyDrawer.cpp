@@ -73,7 +73,18 @@ bool DrawScalar(const char* label, Any& value, const AttributeSet& attrs,
                                       || dt == ImGuiDataType_Double
                                   ? 0.01f
                                   : 1.0f);
-        changed = ImGui::DragScalar(label, dt, &v, speed);
+        // Pass whichever single bound exists so a min-only / max-only constraint
+        // still clamps (SliderScalar above handles the both-bounds case). ImGui
+        // treats a null p_min/p_max as unbounded; clamp explicitly after the edit
+        // so the value can't be dragged/typed past the one bound that is set.
+        changed = ImGui::DragScalar(label, dt, &v, speed, mn, mx);
+        if (changed)
+        {
+            if (mn && v < *mn)
+                v = *mn;
+            if (mx && v > *mx)
+                v = *mx;
+        }
     }
     if (changed)
         value = Any(v);
@@ -270,9 +281,18 @@ bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
 bool PropertyDrawer::DrawProperty(void* obj, const Property& prop)
 {
     // Hidden properties are skipped (the owner draws them with a bespoke widget).
+    // Read-only properties are still drawn but their edit widgets are disabled, so
+    // the value shows but can't be changed (matches the settings panel). The edit
+    // sites below bracket their widgets in BeginDisabled/EndDisabled rather than
+    // the whole property, so a read-only struct/container tree node stays
+    // expandable for viewing.
+    bool readOnly = false;
     if (const u32* flags = prop.Attrs.Get<u32>(Setting::Attr::Flags))
+    {
         if (*flags & SettingFlag_Hidden)
             return false;
+        readOnly = (*flags & SettingFlag_ReadOnly) != 0;
+    }
 
     // Label priority: explicit editor.displayName -> settings.display (shared
     // with the settings authoring path) -> the automatic name humanizer.
@@ -291,7 +311,9 @@ bool PropertyDrawer::DrawProperty(void* obj, const Property& prop)
         bool changed = false;
         if (ImGui::TreeNodeEx(label, ImGuiTreeNodeFlags_DefaultOpen))
         {
+            if (readOnly) ImGui::BeginDisabled();
             changed = DrawObject(*pt, prop.GetAddress(obj));
+            if (readOnly) ImGui::EndDisabled();
             ImGui::TreePop();
         }
         return changed;
@@ -307,6 +329,7 @@ bool PropertyDrawer::DrawProperty(void* obj, const Property& prop)
         if (ImGui::TreeNodeEx(label, ImGuiTreeNodeFlags_DefaultOpen, "%s [%zu]",
                               label, n))
         {
+            if (readOnly) ImGui::BeginDisabled();
             for (std::size_t i = 0; i < n; ++i)
             {
                 ImGui::PushID(static_cast<int>(i));
@@ -325,6 +348,7 @@ bool PropertyDrawer::DrawProperty(void* obj, const Property& prop)
                 ImGui::SameLine();
                 if (ImGui::SmallButton("-")) { ci.Resize(c, n - 1); changed = true; }
             }
+            if (readOnly) ImGui::EndDisabled();
             ImGui::TreePop();
         }
         return changed;
@@ -334,7 +358,10 @@ bool PropertyDrawer::DrawProperty(void* obj, const Property& prop)
     if (prop.Get && prop.Set)
     {
         Any v = prop.Get(obj);
-        if (DrawValue(label, v, pt, prop.Attrs))
+        if (readOnly) ImGui::BeginDisabled();
+        const bool edited = DrawValue(label, v, pt, prop.Attrs);
+        if (readOnly) ImGui::EndDisabled();
+        if (edited)
         {
             prop.Set(obj, v);
             return true;
