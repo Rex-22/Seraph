@@ -6,9 +6,11 @@
 
 #pragma once
 
+#include "Seraph/Physics/PhysicsTypes.h"
 #include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
+#include "Seraph/Scene/Entity.h"
 
 #include <Jolt/Jolt.h>
 
@@ -24,5 +26,20 @@ namespace Seraph::JoltShapes
 JPH::ShapeRefC MakeBox(const BoxColliderComponent& collider, const glm::vec3& worldScale);
 JPH::ShapeRefC MakeSphere(const SphereColliderComponent& collider, const glm::vec3& worldScale);
 JPH::ShapeRefC MakeCapsule(const CapsuleColliderComponent& collider, const glm::vec3& worldScale);
+
+// Build the collision shape for an entity from ALL of its collider components.
+// With a single collider the shape is returned directly; with several it is a
+// StaticCompoundShape combining each (their local Offset already baked in). Used
+// by both rigid bodies and character controllers so they share one shape path.
+// Returns null (logged by callers) when the entity has no valid collider.
+// outMaterial/outIsTrigger are taken from the colliders (material from the
+// first; isTrigger true if any collider is a trigger).
+struct EntityShape
+{
+    JPH::ShapeRefC Shape;
+    ColliderMaterial Material;
+    bool IsTrigger = false;
+};
+EntityShape BuildEntityShape(Entity entity, const glm::vec3& worldScale);
 
 } // namespace Seraph::JoltShapes
