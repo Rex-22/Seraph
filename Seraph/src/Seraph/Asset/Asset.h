@@ -8,6 +8,7 @@
 #include "Seraph/Asset/AssetHandle.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Ref.h"
+#include "Seraph/Reflection/Annotations.h"
 
 #include <string_view>
 #include <vector>
@@ -15,7 +16,7 @@
 namespace Seraph
 {
 
-enum class AssetType : u16
+enum class SENUM() AssetType : u16
 {
     None = 0,
     Mesh,

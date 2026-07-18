@@ -37,17 +37,3 @@ bgfx::UniformType::Enum ToBgfxUniformType(MaterialParameterType type)
 
 } // namespace Seraph
 
-// Reflected enum: labels match the historical BiMap string keys exactly, so
-// on-disk material data round-trips unchanged.
-SP_REFLECT_ENUM(Seraph::MaterialParameterType)
-    .Value("Bool", Seraph::MaterialParameterType::Bool)
-    .Value("Int", Seraph::MaterialParameterType::Int)
-    .Value("Float", Seraph::MaterialParameterType::Float)
-    .Value("Vec2", Seraph::MaterialParameterType::Vec2)
-    .Value("Vec3", Seraph::MaterialParameterType::Vec3)
-    .Value("Vec4", Seraph::MaterialParameterType::Vec4)
-    .Value("Color", Seraph::MaterialParameterType::Color)
-    .Value("Mat3", Seraph::MaterialParameterType::Mat3)
-    .Value("Mat4", Seraph::MaterialParameterType::Mat4)
-    .Value("Texture", Seraph::MaterialParameterType::Texture)
-SP_REFLECT_ENUM_END();

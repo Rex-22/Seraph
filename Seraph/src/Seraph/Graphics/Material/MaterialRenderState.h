@@ -6,17 +6,18 @@
 #pragma once
 
 #include "Seraph/Core/Base.h"
+#include "Seraph/Reflection/Annotations.h"
 
 #include <string_view>
 
 namespace Seraph
 {
 
-enum class BlendMode : u8 { Opaque = 0, AlphaBlend, Additive, Multiply };
-enum class CullMode : u8 { Back = 0, Front, None };
+enum class SENUM() BlendMode : u8 { Opaque = 0, AlphaBlend, Additive, Multiply };
+enum class SENUM() CullMode : u8 { Back = 0, Front, None };
 // Depth test uses reversed-Z by default (GREATER), matching the camera's [0,1]
 // reversed-Z projection.
-enum class DepthTest : u8 { Greater = 0, GreaterEqual, Less, LessEqual, Always, Disabled };
+enum class SENUM() DepthTest : u8 { Greater = 0, GreaterEqual, Less, LessEqual, Always, Disabled };
 
 struct MaterialRenderState
 {

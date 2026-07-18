@@ -30,15 +30,3 @@ AssetType AssetTypeFromString(const std::string_view type)
 }
 
 } // namespace Seraph
-
-// Reflected enum: labels match the historical BiMap keys exactly, so on-disk
-// asset-registry (.srr) data round-trips unchanged.
-SP_REFLECT_ENUM(Seraph::AssetType)
-    .Value("None", Seraph::AssetType::None)
-    .Value("Mesh", Seraph::AssetType::Mesh)
-    .Value("Material", Seraph::AssetType::Material)
-    .Value("MaterialInstance", Seraph::AssetType::MaterialInstance)
-    .Value("Texture2D", Seraph::AssetType::Texture2D)
-    .Value("Shader", Seraph::AssetType::Shader)
-    .Value("Scene", Seraph::AssetType::Scene)
-SP_REFLECT_ENUM_END();

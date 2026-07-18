@@ -90,26 +90,3 @@ DepthTest DepthTestFromString(std::string_view s) { return EnumValue(s, DepthTes
 
 } // namespace Seraph
 
-// Reflected enums: labels match the historical BiMap keys exactly so .smaterial
-// render-state data round-trips unchanged.
-SP_REFLECT_ENUM(Seraph::BlendMode)
-    .Value("Opaque", Seraph::BlendMode::Opaque)
-    .Value("AlphaBlend", Seraph::BlendMode::AlphaBlend)
-    .Value("Additive", Seraph::BlendMode::Additive)
-    .Value("Multiply", Seraph::BlendMode::Multiply)
-SP_REFLECT_ENUM_END();
-
-SP_REFLECT_ENUM(Seraph::CullMode)
-    .Value("Back", Seraph::CullMode::Back)
-    .Value("Front", Seraph::CullMode::Front)
-    .Value("None", Seraph::CullMode::None)
-SP_REFLECT_ENUM_END();
-
-SP_REFLECT_ENUM(Seraph::DepthTest)
-    .Value("Greater", Seraph::DepthTest::Greater)
-    .Value("GreaterEqual", Seraph::DepthTest::GreaterEqual)
-    .Value("Less", Seraph::DepthTest::Less)
-    .Value("LessEqual", Seraph::DepthTest::LessEqual)
-    .Value("Always", Seraph::DepthTest::Always)
-    .Value("Disabled", Seraph::DepthTest::Disabled)
-SP_REFLECT_ENUM_END();

@@ -13,6 +13,7 @@
 
 #include "Seraph/Asset/AssetHandle.h"
 #include "Seraph/Core/Base.h"
+#include "Seraph/Reflection/Annotations.h"
 
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
@@ -24,7 +25,7 @@
 namespace Seraph
 {
 
-enum class MaterialParameterType : u8
+enum class SENUM() MaterialParameterType : u8
 {
     Bool = 0,
     Int,
