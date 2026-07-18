@@ -28,6 +28,12 @@ Entities:
         - 12403566664747799388
     Script:
       ScriptClass: Player
+      Fields:
+        m_MoveSpeed: 5
+        m_JumpSpeed: 6
+        m_GroundLevel: -3.26791
+        m_LookSensitivity: 0.0025
+        m_Camera: 12403566664747799388
   - Entity: 2561095505170714115
     Tag: Cube 2
     Transform:
