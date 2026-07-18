@@ -206,6 +206,17 @@ struct PropertyInfo
     }
 };
 
+// A method annotated with SFUNCTION(...). The registration builder derives the
+// parameter/return types from the function signature (template deduction in
+// .Method<&Fn>), so the tool only needs the name + the attribute payload.
+struct MethodInfo
+{
+    std::string Name;
+    std::string Payload; // SFUNCTION(...) argument list -> method-level attributes
+    bool Private = false;
+    Location Loc;
+};
+
 struct TypeInfo
 {
     std::string QualName;
@@ -215,6 +226,7 @@ struct TypeInfo
     bool BaseReflected = false;
     bool HasReflectHook = false; // SP_REFLECT() present (SpReflectMembers member)
     std::vector<PropertyInfo> Properties;
+    std::vector<MethodInfo> Methods;
     std::vector<std::string> Enumerators;
     std::string EnumQual;
     int Errors = 0;
@@ -251,18 +263,33 @@ CXChildVisitResult VisitRecordMember(CXCursor c, CXCursor, CXClientData data)
         return CXChildVisit_Continue;
     }
 
-    // SFUNCTION on a method: method reflection is a deferred feature, so we cannot
-    // emit a registration for it. Warn loudly (with file:line) rather than drop it
-    // silently — the annotation implies an expectation the tool can't yet meet.
+    // SFUNCTION on a method -> a reflected, invocable method (the console surfaces
+    // these as commands). The registration builder derives the signature via
+    // template deduction, so we only capture the name + attribute payload here.
     if (kind == CXCursor_CXXMethod
         && SpAnnotation(c).rfind("sp:function:", 0) == 0)
     {
-        Location loc = LocationOf(c);
-        std::fprintf(stderr,
-            "%s:%u:%u: warning: SFUNCTION on '%s' ignored — method reflection is "
-            "not yet supported\n",
-            loc.File.c_str(), loc.Line, loc.Col,
-            Str(clang_getCursorSpelling(c)).c_str());
+        MethodInfo m;
+        m.Name = Str(clang_getCursorSpelling(c));
+        m.Payload = Payload(SpAnnotation(c));
+        m.Loc = LocationOf(c);
+        m.Private = clang_getCXXAccessSpecifier(c) == CX_CXXPrivate;
+
+        // A function template / overload set can't have its address taken as
+        // &T::Name unambiguously — the generated .Method<&T::Name> would fail to
+        // compile. Reject static methods too (Method binds a member function).
+        if (clang_getCursorKind(c) == CXCursor_CXXMethod
+            && clang_CXXMethod_isStatic(c))
+        {
+            std::fprintf(stderr,
+                "%s:%u:%u: error: SFUNCTION on static method '%s' is unsupported "
+                "(reflected methods bind to an instance)\n",
+                m.Loc.File.c_str(), m.Loc.Line, m.Loc.Col, m.Name.c_str());
+            ++type->Errors;
+            return CXChildVisit_Continue;
+        }
+
+        type->Methods.push_back(std::move(m));
         return CXChildVisit_Continue;
     }
 
@@ -457,6 +484,23 @@ void EmitProperty(std::ostream& os, const TypeInfo& t, const PropertyInfo& p)
     }
 }
 
+void EmitMethod(std::ostream& os, const TypeInfo& t, const MethodInfo& m)
+{
+    os << "    .Method<&" << t.QualName << "::" << m.Name << ">(\"" << m.Name
+       << "\")\n";
+    for (auto& [key, value] : SplitAttrs(m.Payload))
+    {
+        // A bare flag (e.g. SFUNCTION(cheat)) becomes a boolean-true attribute, so
+        // the console can test presence uniformly; key = value becomes that value.
+        if (value.empty())
+            os << "        .Attr(::Seraph::AttributeKey(\"" << key
+               << "\"), ::Seraph::Any(true))\n";
+        else
+            os << "        .Attr(::Seraph::AttributeKey(\"" << key << "\"), "
+               << AnyExpr(value) << ")\n";
+    }
+}
+
 // Returns false on a loud failure (already reported).
 bool EmitType(std::ostream& os, const TypeInfo& t)
 {
@@ -489,12 +533,16 @@ bool EmitType(std::ostream& os, const TypeInfo& t)
     bool hasPrivate = false;
     for (const PropertyInfo& p : t.Properties)
         hasPrivate |= p.Private;
+    // A private method's address (&T::m) can only be formed inside T, i.e. from the
+    // intrusive SP_REFLECT_IMPL hook — same rule as a private SPROPERTY field.
+    for (const MethodInfo& m : t.Methods)
+        hasPrivate |= m.Private;
 
     if (hasPrivate && !t.HasReflectHook)
     {
         std::fprintf(stderr,
-                     "%s:%u:%u: error: '%s' has a private SPROPERTY but no "
-                     "SP_REFLECT(%s) in the class body\n",
+                     "%s:%u:%u: error: '%s' has a private SPROPERTY/SFUNCTION but "
+                     "no SP_REFLECT(%s) in the class body\n",
                      t.Loc.File.c_str(), t.Loc.Line, t.Loc.Col,
                      t.QualName.c_str(), t.QualName.c_str());
         return false;
@@ -535,6 +583,9 @@ bool EmitType(std::ostream& os, const TypeInfo& t)
 
     for (const PropertyInfo& p : t.Properties)
         EmitProperty(os, t, p);
+
+    for (const MethodInfo& m : t.Methods)
+        EmitMethod(os, t, m);
 
     if (intrusive)
         os << "SP_REFLECT_IMPL_END(" << t.QualName << ")\n\n";
@@ -644,6 +695,11 @@ void Dump(const std::vector<TypeInfo>& types)
                         p.Name.c_str(), p.Private ? " (private)" : "",
                         p.Payload.empty() ? ""
                                           : (" {" + p.Payload + "}").c_str());
+        for (const MethodInfo& m : t.Methods)
+            std::printf("    ( ) %s%s%s\n", m.Name.c_str(),
+                        m.Private ? " (private)" : "",
+                        m.Payload.empty() ? ""
+                                          : (" {" + m.Payload + "}").c_str());
     }
 }
 
