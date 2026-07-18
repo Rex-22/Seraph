@@ -7,7 +7,27 @@ statuses:
   - Done
 ---
 
-### 1. Physics 4 — Jolt backend implementation
+### 1. Physics 13 — Godot-style collision layer + mask bitmasks
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Medium
+
+**Description:**
+DECISION (confirmed with user): Godot layer + mask model. Each body gets TWO 32-bit bitmasks — CollisionLayer (which layers it occupies) + CollisionMask (which layers it scans). Two bodies collide iff (A.layer & B.mask) || (B.layer & A.mask). This REPLACES the global PhysicsLayerManager CollidesWith matrix as the source of pair truth. Not started (user chose to leave in Todo).
+
+Current state: RigidBody/CharacterController carry a single u32 LayerID = index into a process-global PhysicsLayerManager with a pairwise CollidesWith matrix; JoltLayerInterface maps object layer 1:1 to broadphase. Static-vs-Static disabled, Moving collides with all.
+
+Planned work:
+- Component fields: CollisionLayer (u32 bitmask) + CollisionMask (u32 bitmask) on RigidBodyComponent and CharacterControllerComponent, replacing LayerID (with serialization migration from the old field).
+- Jolt encoding: adopt Jolt's mask scheme — ObjectLayerPairFilterMask + BroadPhaseLayerInterfaceMask + ObjectVsBroadPhaseLayerFilterMask (Jolt/Physics/Collision/ObjectLayerPairFilterMask.h etc.), which pack group(layer)+mask into the ObjectLayer. Check JPH_OBJECT_LAYER_BITS width (default 16) — may need to widen to 32 for a full 32-layer model, or cap layer count. Replace JoltLayerInterface accordingly and update BodyCreationSettings/CharacterVirtual object-layer construction.
+- Inspector: a bitmask/flags PropertyDrawer widget (checkbox grid, named layers from PhysicsLayerManager) for CollisionLayer + CollisionMask.
+- Serialization: two bitmask ints; migrate old LayerID.
+- Reconcile with the raycast RayCastInfo.LayerMask added in Physics 10b.
+- PhysicsLayerManager becomes a name registry (layer 0..N names) rather than the collision-matrix authority.
+
+---
+
+### 2. Physics 4 — Jolt backend implementation
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -63,7 +83,7 @@ Implemented as designed, with these deviations discovered against the real Jolt 
 
 ---
 
-### 2. Physics 3 — Abstract PhysicsScene / PhysicsBody interfaces
+### 3. Physics 3 — Abstract PhysicsScene / PhysicsBody interfaces
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -112,7 +132,7 @@ Implemented as planned. One minor deviation:
 
 ---
 
-### 3. Physics 2 — Physics types, settings & collision layers
+### 4. Physics 2 — Physics types, settings & collision layers
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -169,7 +189,7 @@ Minor additions beyond the original plan (all additive, no rework):
 
 ---
 
-### 4. Physics 1 — Vendor Jolt Physics & global init
+### 5. Physics 1 — Vendor Jolt Physics & global init
 - **Status:** Done
 - **Completed:** true
 - **Priority:** Critical
@@ -234,7 +254,7 @@ Deviations from the original plan, discovered during implementation (all verifie
 
 ---
 
-### 5. Physics 5 — Physics components & Scene runtime lifecycle
+### 6. Physics 5 — Physics components & Scene runtime lifecycle
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -293,7 +313,7 @@ The bulk was already in place: the four components (+ `Components.cpp` include) 
 
 ---
 
-### 6. Physics 6 — Scene::Copy & play-in-editor safety
+### 7. Physics 6 — Scene::Copy & play-in-editor safety
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -359,7 +379,7 @@ Implemented as designed. Deviations / clarifications:
 
 ---
 
-### 7. Physics 7 — Serialization & inspector UI for physics components
+### 8. Physics 7 — Serialization & inspector UI for physics components
 - **Status:** Done
 - **Completed:** true
 - **Priority:** Medium
@@ -414,7 +434,7 @@ Implemented as designed, reusing every existing helper.
 
 ---
 
-### 8. Physics 8 — Debug line renderer & shader
+### 9. Physics 8 — Debug line renderer & shader
 - **Status:** Done
 - **Completed:** true
 - **Priority:** Medium
@@ -470,7 +490,7 @@ Implemented as designed. One deviation, forced by init ordering:
 
 ---
 
-### 9. Physics 9 — Jolt DebugRenderer bridge & collider wireframes
+### 10. Physics 9 — Jolt DebugRenderer bridge & collider wireframes
 - **Status:** Done
 - **Completed:** true
 - **Priority:** Medium
@@ -531,9 +551,9 @@ Implemented as designed, with one architectural refinement to preserve the "no J
 
 ---
 
-### 10. Physics 10 — Character controller (JPH::CharacterVirtual)
-- **Status:** Review
-- **Completed:** false
+### 11. Physics 10 — Character controller (JPH::CharacterVirtual)
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -552,9 +572,9 @@ Builds clean: Seraph, Seraph-Editor, Game. TO VERIFY in editor: player blocked b
 
 ---
 
-### 11. Physics 10b — Body wake + raycast filtering fixes
-- **Status:** Review
-- **Completed:** false
+### 12. Physics 10b — Body wake + raycast filtering fixes
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -568,9 +588,9 @@ TO VERIFY: slept dynamic body moves when a script sets velocity; a ray through a
 
 ---
 
-### 12. Physics 11 — Fixed-step render interpolation
-- **Status:** Review
-- **Completed:** false
+### 13. Physics 11 — Fixed-step render interpolation
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -582,9 +602,9 @@ TO VERIFY: at an uncapped/non-60 framerate a falling dynamic body renders smooth
 
 ---
 
-### 13. Physics 12 — Compound / multi-collider shapes
-- **Status:** Review
-- **Completed:** false
+### 14. Physics 12 — Compound / multi-collider shapes
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -595,25 +615,5 @@ Refactored collider->shape selection into JoltShapes::BuildEntityShape(entity, w
 Also documented the un-coded audit items in docs/physics-system.md: broadphase optimized once, runtime rescale doesn't rebuild colliders, AddForce(Force/Acceleration) applied on only the first of N substeps. Added a Character controller section to the docs too.
 
 TO VERIFY: an entity with two colliders has both participate in collision.
-
----
-
-### 14. Physics 13 — Godot-style collision layer + mask bitmasks
-- **Status:** Todo
-- **Completed:** false
-- **Priority:** Medium
-
-**Description:**
-DECISION (confirmed with user): Godot layer + mask model. Each body gets TWO 32-bit bitmasks — CollisionLayer (which layers it occupies) + CollisionMask (which layers it scans). Two bodies collide iff (A.layer & B.mask) || (B.layer & A.mask). This REPLACES the global PhysicsLayerManager CollidesWith matrix as the source of pair truth. Not started (user chose to leave in Todo).
-
-Current state: RigidBody/CharacterController carry a single u32 LayerID = index into a process-global PhysicsLayerManager with a pairwise CollidesWith matrix; JoltLayerInterface maps object layer 1:1 to broadphase. Static-vs-Static disabled, Moving collides with all.
-
-Planned work:
-- Component fields: CollisionLayer (u32 bitmask) + CollisionMask (u32 bitmask) on RigidBodyComponent and CharacterControllerComponent, replacing LayerID (with serialization migration from the old field).
-- Jolt encoding: adopt Jolt's mask scheme — ObjectLayerPairFilterMask + BroadPhaseLayerInterfaceMask + ObjectVsBroadPhaseLayerFilterMask (Jolt/Physics/Collision/ObjectLayerPairFilterMask.h etc.), which pack group(layer)+mask into the ObjectLayer. Check JPH_OBJECT_LAYER_BITS width (default 16) — may need to widen to 32 for a full 32-layer model, or cap layer count. Replace JoltLayerInterface accordingly and update BodyCreationSettings/CharacterVirtual object-layer construction.
-- Inspector: a bitmask/flags PropertyDrawer widget (checkbox grid, named layers from PhysicsLayerManager) for CollisionLayer + CollisionMask.
-- Serialization: two bitmask ints; migrate old LayerID.
-- Reconcile with the raycast RayCastInfo.LayerMask added in Physics 10b.
-- PhysicsLayerManager becomes a name registry (layer 0..N names) rather than the collision-matrix authority.
 
 ---
