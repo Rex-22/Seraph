@@ -26,7 +26,7 @@ class JoltCharacterController final : public CharacterController
 public:
     JoltCharacterController(
         Entity entity, JoltScene* scene, JPH::Ref<JPH::CharacterVirtual> character,
-        const CharacterControllerComponent& component, u32 layerID);
+        const CharacterControllerComponent& component, JPH::ObjectLayer objectLayer);
 
     // CharacterController interface.
     void Move(const glm::vec3& velocity) override;
@@ -49,7 +49,7 @@ private:
     JoltScene* m_Scene = nullptr;
     JPH::Ref<JPH::CharacterVirtual> m_Character;
 
-    u32 m_LayerID = 1;
+    JPH::ObjectLayer m_ObjectLayer = 0;
     f32 m_StepOffset = 0.3f;
     bool m_GravityEnabled = true;
     bool m_ControlMovementInAir = true;

@@ -77,10 +77,12 @@ private:
     std::unordered_map<UUID, BodyPose> m_PreviousPoses;
 
     // Declared before m_JoltSystem: the system holds references to these and must
-    // be destroyed first (members destruct in reverse declaration order).
-    JoltBroadPhaseLayerInterface m_BroadPhaseLayerInterface;
+    // be destroyed first (members destruct in reverse declaration order). The
+    // layer table is declared first — the layer filters reference it.
+    JoltObjectLayerTable m_LayerTable;
+    JoltBroadPhaseLayerInterface m_BroadPhaseLayerInterface{ m_LayerTable };
     JoltObjectVsBroadPhaseLayerFilter m_ObjectVsBroadPhaseFilter;
-    JoltObjectLayerPairFilter m_ObjectLayerPairFilter;
+    JoltObjectLayerPairFilter m_ObjectLayerPairFilter{ m_LayerTable };
     JoltContactListener m_ContactListener;
 
     JPH::PhysicsSystem m_JoltSystem;

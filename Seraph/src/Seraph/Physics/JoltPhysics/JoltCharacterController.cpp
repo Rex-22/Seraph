@@ -18,11 +18,11 @@ namespace Seraph
 
 JoltCharacterController::JoltCharacterController(
     Entity entity, JoltScene* scene, JPH::Ref<JPH::CharacterVirtual> character,
-    const CharacterControllerComponent& component, u32 layerID)
+    const CharacterControllerComponent& component, JPH::ObjectLayer objectLayer)
     : CharacterController(entity)
     , m_Scene(scene)
     , m_Character(std::move(character))
-    , m_LayerID(layerID)
+    , m_ObjectLayer(objectLayer)
     , m_StepOffset(component.StepOffset)
     , m_GravityEnabled(!component.DisableGravity)
     , m_ControlMovementInAir(component.ControlMovementInAir)
@@ -108,11 +108,10 @@ void JoltCharacterController::Update(f32 dt)
     settings.mWalkStairsStepUp = JPH::Vec3(0.0f, m_StepOffset, 0.0f);
     settings.mStickToFloorStepDown = JPH::Vec3(0.0f, -m_StepOffset, 0.0f);
 
-    const auto layer = static_cast<JPH::ObjectLayer>(m_LayerID);
     m_Character->ExtendedUpdate(
         dt, gravity, settings,
-        system.GetDefaultBroadPhaseLayerFilter(layer),
-        system.GetDefaultLayerFilter(layer),
+        system.GetDefaultBroadPhaseLayerFilter(m_ObjectLayer),
+        system.GetDefaultLayerFilter(m_ObjectLayer),
         JPH::BodyFilter{}, JPH::ShapeFilter{}, *PhysicsSystem::GetTempAllocator());
 
     m_Grounded =

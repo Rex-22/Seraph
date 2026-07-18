@@ -106,17 +106,15 @@ Ref<PhysicsBody> JoltScene::CreateBody(Entity entity)
         return nullptr;
     }
 
-    u32 layer = rb.LayerID;
-    if (!PhysicsLayerManager::IsLayerValid(layer))
-    {
-        SP_CORE_WARN_TAG("Physics", "Invalid physics layer {} — falling back to 0", layer);
-        layer = 0;
-    }
+    // Godot-style layer/mask -> a Jolt ObjectLayer index. Static bodies go in the
+    // non-moving broadphase group.
+    const JPH::ObjectLayer objectLayer =
+        m_LayerTable.GetOrCreate(rb.CollisionLayer, rb.CollisionMask, rb.Type != BodyType::Static);
 
     JPH::BodyCreationSettings settings(
         shape, JoltUtils::ToJoltRVec3(world.Translation),
         JoltUtils::ToJoltQuat(world.GetRotation()), JoltUtils::ToJoltMotionType(rb.Type),
-        static_cast<JPH::ObjectLayer>(layer));
+        objectLayer);
     settings.mLinearDamping = rb.LinearDrag;
     settings.mAngularDamping = rb.AngularDrag;
     settings.mGravityFactor = rb.GravityFactor;
@@ -188,12 +186,9 @@ Ref<CharacterController> JoltScene::CreateCharacterController(Entity entity)
         return nullptr;
     }
 
-    u32 layer = cc.LayerID;
-    if (!PhysicsLayerManager::IsLayerValid(layer))
-    {
-        SP_CORE_WARN_TAG("Physics", "Invalid physics layer {} — falling back to 1 (Moving)", layer);
-        layer = PhysicsLayerManager::MovingLayer();
-    }
+    // Character is a moving object; its layer/mask feed the same ObjectLayer table.
+    const JPH::ObjectLayer objectLayer =
+        m_LayerTable.GetOrCreate(cc.CollisionLayer, cc.CollisionMask, /*moving=*/true);
 
     JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
     settings->mShape = built.Shape;
@@ -206,7 +201,7 @@ Ref<CharacterController> JoltScene::CreateCharacterController(Entity entity)
         static_cast<JPH::uint64>(entity.GetUUID()), &m_JoltSystem);
 
     Ref<JoltCharacterController> controller =
-        Ref<JoltCharacterController>::Create(entity, this, character, cc, layer);
+        Ref<JoltCharacterController>::Create(entity, this, character, cc, objectLayer);
     m_Characters[entity.GetUUID()] = controller;
     return controller;
 }
@@ -418,16 +413,19 @@ bool JoltScene::CastRay(const RayCastInfo& ray, SceneQueryHit& outHit)
         JoltUtils::ToJoltVector(direction * ray.MaxDistance)
     };
 
-    // Only accept object layers whose bit is set in the ray's LayerMask.
+    // Accept a body when its collision layers intersect the ray's LayerMask. The
+    // ObjectLayer is a table index, so decode the body's real layer bits first.
     class LayerMaskFilter final : public JPH::ObjectLayerFilter
     {
     public:
-        explicit LayerMaskFilter(u32 mask) : m_Mask(mask) {}
+        LayerMaskFilter(const JoltObjectLayerTable& table, u32 mask)
+            : m_Table(table), m_Mask(mask) {}
         bool ShouldCollide(JPH::ObjectLayer layer) const override
         {
-            return layer >= 32 || (m_Mask & (1u << layer)) != 0;
+            return (m_Table.Layer(layer) & m_Mask) != 0;
         }
     private:
+        const JoltObjectLayerTable& m_Table;
         u32 m_Mask;
     };
 
@@ -441,7 +439,7 @@ bool JoltScene::CastRay(const RayCastInfo& ray, SceneQueryHit& outHit)
         }
     };
 
-    const LayerMaskFilter layerFilter(ray.LayerMask);
+    const LayerMaskFilter layerFilter(m_LayerTable, ray.LayerMask);
     const IgnoreSensorsFilter sensorFilter;
     const JPH::BodyFilter passAllBodies;
 
