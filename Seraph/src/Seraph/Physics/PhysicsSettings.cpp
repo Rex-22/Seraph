@@ -7,103 +7,46 @@
 #include "Seraph/Core/Assert.h"
 #include "Seraph/Core/Log.h"
 
+#include <iterator>
+#include <string>
+
 namespace Seraph
 {
 
-std::vector<PhysicsLayer> PhysicsLayerManager::s_Layers;
+std::array<std::string, PhysicsLayerManager::LayerCount> PhysicsLayerManager::s_LayerNames;
 
 void PhysicsLayerManager::InitDefaults()
 {
-    s_Layers.clear();
-    const u32 staticLayer = AddLayer("Static", /*collidesWithAll=*/true);
-    const u32 movingLayer = AddLayer("Moving", /*collidesWithAll=*/true);
+    // A few useful named slots; the rest are "Layer N". Names are just editor
+    // labels — collision is decided by each body's CollisionLayer/CollisionMask.
+    static const char* const kDefaults[] = {
+        "Default", "Static", "Player", "Enemy", "Environment", "Trigger",
+        "Projectile", "Interactable",
+    };
 
-    // Static bodies never move, so two static bodies never need to collide.
-    SetLayerCollision(staticLayer, staticLayer, false);
-    (void)movingLayer;
-}
-
-u32 PhysicsLayerManager::AddLayer(const std::string& name, bool collidesWithAll)
-{
-    const auto layerID = static_cast<u32>(s_Layers.size());
-
-    PhysicsLayer layer;
-    layer.LayerID = layerID;
-    layer.Name = name;
-    layer.BitValue = 1u << layerID;
-    layer.CollidesWith = 0;
-    layer.CollidesWithSelf = true;
-    s_Layers.push_back(layer);
-
-    if (collidesWithAll)
+    for (u32 i = 0; i < LayerCount; ++i)
     {
-        // New layer collides with every existing layer, and they with it.
-        for (auto& other : s_Layers)
-        {
-            other.CollidesWith |= layer.BitValue;
-            s_Layers[layerID].CollidesWith |= other.BitValue;
-        }
+        if (i < std::size(kDefaults))
+            s_LayerNames[i] = kDefaults[i];
+        else
+            s_LayerNames[i] = "Layer " + std::to_string(i);
     }
-
-    return layerID;
 }
 
-void PhysicsLayerManager::SetLayerCollision(u32 layerA, u32 layerB, bool shouldCollide)
+const std::string& PhysicsLayerManager::GetLayerName(u32 index)
 {
-    if (!IsLayerValid(layerA) || !IsLayerValid(layerB))
+    SP_CORE_ASSERT(IsValidLayerIndex(index), "Invalid physics layer index");
+    return s_LayerNames[index];
+}
+
+void PhysicsLayerManager::SetLayerName(u32 index, const std::string& name)
+{
+    if (!IsValidLayerIndex(index))
     {
-        SP_CORE_WARN_TAG("Physics", "SetLayerCollision: invalid layer {} or {}", layerA, layerB);
+        SP_CORE_WARN_TAG("Physics", "SetLayerName: invalid layer index {}", index);
         return;
     }
-
-    if (layerA == layerB)
-    {
-        s_Layers[layerA].CollidesWithSelf = shouldCollide;
-        return;
-    }
-
-    if (shouldCollide)
-    {
-        s_Layers[layerA].CollidesWith |= s_Layers[layerB].BitValue;
-        s_Layers[layerB].CollidesWith |= s_Layers[layerA].BitValue;
-    }
-    else
-    {
-        s_Layers[layerA].CollidesWith &= ~s_Layers[layerB].BitValue;
-        s_Layers[layerB].CollidesWith &= ~s_Layers[layerA].BitValue;
-    }
-}
-
-bool PhysicsLayerManager::ShouldCollide(u32 layerA, u32 layerB)
-{
-    if (!IsLayerValid(layerA) || !IsLayerValid(layerB))
-        return false;
-
-    if (layerA == layerB)
-        return s_Layers[layerA].CollidesWithSelf;
-
-    return (s_Layers[layerA].CollidesWith & s_Layers[layerB].BitValue) != 0;
-}
-
-const PhysicsLayer& PhysicsLayerManager::GetLayer(u32 layerID)
-{
-    SP_CORE_ASSERT(IsLayerValid(layerID), "Invalid physics layer id");
-    return s_Layers[layerID];
-}
-
-const std::vector<PhysicsLayer>& PhysicsLayerManager::GetLayers()
-{
-    return s_Layers;
-}
-
-u32 PhysicsLayerManager::GetLayerCount()
-{
-    return static_cast<u32>(s_Layers.size());
-}
-
-bool PhysicsLayerManager::IsLayerValid(u32 layerID)
-{
-    return layerID < s_Layers.size();
+    s_LayerNames[index] = name;
 }
 
 } // namespace Seraph

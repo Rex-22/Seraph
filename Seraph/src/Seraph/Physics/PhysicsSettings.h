@@ -9,51 +9,35 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
 #include <string>
-#include <vector>
 
 namespace Seraph
 {
 
-// One collision layer. Two bodies collide iff their layers are configured to.
-// BitValue = (1u << LayerID); CollidesWith is a bitmask of other layers.
-struct PhysicsLayer
-{
-    u32 LayerID = 0;
-    std::string Name;
-    u32 BitValue = 0;
-    u32 CollidesWith = 0;
-    bool CollidesWithSelf = true;
-};
-
-// Registry of collision layers + the pairwise collision matrix. Static because
-// the layer set is process-global (the Jolt layer-filter interfaces read it).
-// InitDefaults() is called from PhysicsSystem::Init().
+// Registry of the 32 named collision layers (Godot-style). It is ONLY a name
+// table for the editor now — whether two bodies collide is decided per body by
+// their CollisionLayer / CollisionMask bitmasks (see RigidBodyComponent), using
+// the rule (A.Layer & B.Mask) && (B.Layer & A.Mask). Process-global; the names
+// are runtime defaults set by InitDefaults() (called from PhysicsSystem::Init).
 class PhysicsLayerManager
 {
 public:
-    // Reset to the canonical two-layer setup: 0 = Static, 1 = Moving.
-    // Static-vs-Static does not collide; Moving collides with Static + Moving.
+    // Number of collision layers, matching a 32-bit CollisionLayer/Mask bitmask.
+    static constexpr u32 LayerCount = 32;
+
+    // Reset the layer names to their defaults.
     static void InitDefaults();
 
-    // Register a new layer; returns its LayerID. When collidesWithAll is true the
-    // new layer collides with every existing layer (and they with it).
-    static u32 AddLayer(const std::string& name, bool collidesWithAll = true);
+    static const std::string& GetLayerName(u32 index);
+    static void SetLayerName(u32 index, const std::string& name);
+    static bool IsValidLayerIndex(u32 index) { return index < LayerCount; }
 
-    static void SetLayerCollision(u32 layerA, u32 layerB, bool shouldCollide);
-    static bool ShouldCollide(u32 layerA, u32 layerB);
-
-    static const PhysicsLayer& GetLayer(u32 layerID);
-    static const std::vector<PhysicsLayer>& GetLayers();
-    static u32 GetLayerCount();
-    static bool IsLayerValid(u32 layerID);
-
-    // Convenience accessors for the two defaults.
-    static u32 StaticLayer() { return 0; }
-    static u32 MovingLayer() { return 1; }
+    // Bit for a layer index (1u << index), 0 if out of range.
+    static u32 LayerBit(u32 index) { return index < LayerCount ? (1u << index) : 0u; }
 
 private:
-    static std::vector<PhysicsLayer> s_Layers;
+    static std::array<std::string, LayerCount> s_LayerNames;
 };
 
 // Global simulation tuning, owned by PhysicsSystem and read when a scene starts.
