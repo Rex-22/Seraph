@@ -127,6 +127,11 @@ void EditorGizmo::DrawToolbar()
     ImGui::End();
 }
 
+bool EditorGizmo::IsOver() const
+{
+    return ImGuizmo::IsOver();
+}
+
 bool EditorGizmo::FindPrimaryCamera(glm::mat4& outView, glm::mat4& outProj)
 {
     for (auto [handle, cc] : m_Scene->GetAllEntitiesWith<CameraComponent>().each())

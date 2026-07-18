@@ -40,6 +40,11 @@ public:
     // True while the user is actively dragging a gizmo handle.
     bool IsUsing() const { return m_IsUsing; }
 
+    // True when the cursor is over any part of the gizmo, so a viewport click
+    // should manipulate the gizmo rather than pick through it. Valid only after
+    // OnImGuiRender has run this frame.
+    bool IsOver() const;
+
     // Call once per frame between ImGui::NewFrame() and ImGui::Render().
     void OnImGuiRender();
 
