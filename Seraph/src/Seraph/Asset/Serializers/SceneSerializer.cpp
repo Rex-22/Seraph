@@ -262,20 +262,28 @@ void SerializeScript(YAML::Emitter& e, ScriptComponent& sc)
     e << YAML::Key << "Script" << YAML::Value << YAML::BeginMap;
     EmitProps(e, Reflection::Get<ScriptComponent>(), &sc); // ScriptClass
 
-    if (!sc.ScriptClass.empty() && !sc.Fields.empty()) {
-        if (ScriptableEntity* tmp = ScriptTypes::Create(sc.ScriptClass)) {
-            const Type& type = tmp->GetType();
-            e << YAML::Key << "Fields" << YAML::Value << YAML::BeginMap;
-            for (const Property& p : type.Properties) {
-                const auto it = sc.Fields.find(std::string(p.Name));
-                if (it == sc.Fields.end() || it->second.IsEmpty())
-                    continue;
-                e << YAML::Key << SerializeKey(p) << YAML::Value;
-                EmitAny(e, it->second, p.PropType);
-            }
-            e << YAML::EndMap;
-            delete tmp;
+    ScriptableEntity* tmp = sc.ScriptClass.empty() && sc.Fields.empty()
+                                ? nullptr
+                                : ScriptTypes::Create(sc.ScriptClass);
+    if (tmp) {
+        // Class resolved: emit the live per-field values.
+        const Type& type = tmp->GetType();
+        e << YAML::Key << "Fields" << YAML::Value << YAML::BeginMap;
+        for (const Property& p : type.Properties) {
+            const auto it = sc.Fields.find(std::string(p.Name));
+            if (it == sc.Fields.end() || it->second.IsEmpty())
+                continue;
+            e << YAML::Key << SerializeKey(p) << YAML::Value;
+            EmitAny(e, it->second, p.PropType);
         }
+        e << YAML::EndMap;
+        delete tmp;
+    } else if (!sc.RawFieldsYaml.empty()) {
+        // Class unresolved but we preserved the authored Fields on load — re-emit
+        // them verbatim so switching to a build without the module doesn't erase
+        // the values (see DeserializeScript). Reparse the stored YAML into a node
+        // and stream it back under the same key.
+        e << YAML::Key << "Fields" << YAML::Value << YAML::Load(sc.RawFieldsYaml);
     }
     e << YAML::EndMap;
 }
@@ -298,6 +306,14 @@ void DeserializeScript(const YAML::Node& node, ScriptComponent& sc)
                 sc.Fields[std::string(p.Name)] = v;
         }
         delete tmp;
+    } else {
+        // Class unresolved (module not built yet / renamed). Keep the raw Fields
+        // YAML so a later save re-emits the authored values verbatim instead of
+        // dropping them (previously this was a silent data loss on round-trip).
+        sc.RawFieldsYaml = YAML::Dump(fields);
+        SP_CORE_WARN_TAG("Scene",
+            "Script class '{}' not resolved on load; preserving its authored "
+            "field values verbatim for round-trip", sc.ScriptClass);
     }
 }
 

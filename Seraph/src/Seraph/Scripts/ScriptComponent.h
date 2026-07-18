@@ -29,6 +29,13 @@ struct SCLASS() ScriptComponent
     // it stays valid across a script hot-reload.
     std::unordered_map<std::string, Any> Fields;
 
+    // Verbatim YAML of the "Fields" map as read from disk, kept ONLY when the
+    // script class could not be resolved at load (module not built / class
+    // renamed), so a subsequent save re-emits the authored values instead of
+    // silently dropping them. Empty once the class resolves (Fields is then the
+    // source of truth). Opaque string to avoid coupling this component to yaml-cpp.
+    std::string RawFieldsYaml;
+
     ScriptableEntity* Instance = nullptr;
 
     ScriptComponent() = default;
