@@ -248,6 +248,21 @@ CXChildVisitResult VisitRecordMember(CXCursor c, CXCursor, CXClientData data)
         return CXChildVisit_Continue;
     }
 
+    // SFUNCTION on a method: method reflection is a deferred feature, so we cannot
+    // emit a registration for it. Warn loudly (with file:line) rather than drop it
+    // silently — the annotation implies an expectation the tool can't yet meet.
+    if (kind == CXCursor_CXXMethod
+        && SpAnnotation(c).rfind("sp:function:", 0) == 0)
+    {
+        Location loc = LocationOf(c);
+        std::fprintf(stderr,
+            "%s:%u:%u: warning: SFUNCTION on '%s' ignored — method reflection is "
+            "not yet supported\n",
+            loc.File.c_str(), loc.Line, loc.Col,
+            Str(clang_getCursorSpelling(c)).c_str());
+        return CXChildVisit_Continue;
+    }
+
     if (kind == CXCursor_FieldDecl)
     {
         std::string ann = SpAnnotation(c);

@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Seraph
 {
@@ -183,6 +184,31 @@ void Reflection::ClearModule(ModuleTag module) noexcept
                   { return o.Module == module; });
     if (s.Owned.size() != before)
     {
+        // Null any surviving pointer that referenced a just-freed type, so no
+        // Base / Property::PropType / Container::ElementType dangles into the
+        // unloaded module. Safe under the engine-never-references-Game topology,
+        // but defensive against a future cross-module reference. The *TypeId
+        // fields are kept, so if that type re-registers later the back-patch in
+        // Insert() re-links PropType/ElementType. (Base has no id back-patch — it
+        // is nulled and not restored; acceptable, as engine types never base off
+        // Game types.) Pointer-compare only — freed targets are never dereferenced.
+        std::unordered_set<const Type*> live;
+        live.reserve(s.Owned.size());
+        for (const Storage::OwnedType& o : s.Owned)
+            live.insert(o.Ptr.get());
+        for (Storage::OwnedType& o : s.Owned)
+        {
+            Type* t = o.Ptr.get();
+            if (t->Base && !live.count(t->Base))
+                t->Base = nullptr;
+            for (Property& prop : t->Properties)
+                if (prop.PropType && !live.count(prop.PropType))
+                    prop.PropType = nullptr;
+            if (t->Container && t->Container->ElementType
+                && !live.count(t->Container->ElementType))
+                t->Container->ElementType = nullptr;
+        }
+
         s.RebuildIndices();
         SP_CORE_INFO_TAG("Reflection",
                          "Cleared module {} ({} types dropped, {} remain)",
