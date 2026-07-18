@@ -6,13 +6,6 @@ Entities:
       Translation: [0, -3.26791, 8.091692]
       Scale: [1, 1, 1]
       Rotation: [0, -0, 0]
-    CharacterController:
-      SlopeLimitDeg: 45
-      StepOffset: 0.3
-      Mass: 70
-      DisableGravity: false
-      ControlMovementInAir: true
-      LayerID: 1
     CapsuleCollider:
       Radius: 0.5
       HalfHeight: 0.5
@@ -20,6 +13,14 @@ Entities:
       IsTrigger: false
       Friction: 0.5
       Restitution: 0.15
+    CharacterController:
+      SlopeLimitDeg: 45
+      StepOffset: 0.3
+      Mass: 70
+      DisableGravity: false
+      ControlMovementInAir: true
+      CollisionLayer: 1
+      CollisionMask: 1
     Relationship:
       Parent: 0
       Children:
@@ -55,7 +56,8 @@ Entities:
       MaterialOverrides: [3884254406120167305]
     RigidBody:
       BodyType: 0
-      LayerID: 0
+      CollisionLayer: 1
+      CollisionMask: 1
       Mass: 1
       LinearDrag: 0.01
       AngularDrag: 0.05
@@ -83,7 +85,8 @@ Entities:
       MaterialOverrides: [9201136865809239182]
     RigidBody:
       BodyType: 1
-      LayerID: 1
+      CollisionLayer: 1
+      CollisionMask: 1
       Mass: 40
       LinearDrag: 0.01
       AngularDrag: 0.05
@@ -112,7 +115,8 @@ Entities:
       MaterialOverrides: [4431270448959175583]
     RigidBody:
       BodyType: 1
-      LayerID: 1
+      CollisionLayer: 1
+      CollisionMask: 1
       Mass: 25.33
       LinearDrag: 0.01
       AngularDrag: 0.05
