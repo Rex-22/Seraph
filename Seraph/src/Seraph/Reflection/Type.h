@@ -138,6 +138,7 @@ struct MethodInfo
     const Type* ReturnType = nullptr; // null for void
     std::vector<const Type*> ParamTypes;
     Any (*Invoke)(void* obj, const Any* args, std::size_t argc) = nullptr;
+    AttributeSet Attrs; // domain metadata (e.g. console command name / help / cheat)
 };
 
 struct EnumInfo

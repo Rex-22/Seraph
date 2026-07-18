@@ -337,17 +337,29 @@ public:
                 obj, args, std::make_index_sequence<N>{});
         };
         m_Type.Methods.push_back(std::move(m));
+        m_LastMethod = m_Type.Methods.size() - 1; // index: realloc-safe
+        m_LastTarget = AttrTarget::Method;
         return *this;
     }
 
-    // Attach an attribute to the last-added property, or to the type itself if
-    // no property has been added yet.
+    // Attach an attribute to the most-recently-added property or method, or to the
+    // type itself if neither has been added yet. The target follows whichever
+    // .Property/.Method call came last (a method's attrs feed the console command
+    // metadata; a property's feed the inspector/settings vocabulary).
     TypeBuilder& Attr(u64 key, Any value)
     {
-        if (m_LastProperty != k_NoProperty)
-            m_Type.Properties[m_LastProperty].Attrs.Set(key, std::move(value));
-        else
-            m_Type.Attrs.Set(key, std::move(value));
+        switch (m_LastTarget)
+        {
+            case AttrTarget::Property:
+                m_Type.Properties[m_LastProperty].Attrs.Set(key, std::move(value));
+                break;
+            case AttrTarget::Method:
+                m_Type.Methods[m_LastMethod].Attrs.Set(key, std::move(value));
+                break;
+            case AttrTarget::Type:
+                m_Type.Attrs.Set(key, std::move(value));
+                break;
+        }
         return *this;
     }
 
@@ -417,15 +429,27 @@ public:
 private:
     static constexpr std::size_t k_NoProperty = static_cast<std::size_t>(-1);
 
+    // Which construct a following .Attr() decorates (the last .Property / .Method,
+    // else the type). Starts at Type so pre-property .Attr()s are type attributes.
+    enum class AttrTarget
+    {
+        Type,
+        Property,
+        Method,
+    };
+
     void AddProperty(::Seraph::Property&& p)
     {
         m_Type.Properties.push_back(std::move(p));
         m_LastProperty = m_Type.Properties.size() - 1; // index: realloc-safe
+        m_LastTarget = AttrTarget::Property;
     }
 
     Type m_Type;
     const Type* m_Base = nullptr;
     std::size_t m_LastProperty = k_NoProperty;
+    std::size_t m_LastMethod = k_NoProperty;
+    AttrTarget m_LastTarget = AttrTarget::Type;
     bool m_Committed = false;
 };
 
