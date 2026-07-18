@@ -84,7 +84,7 @@ Entities:
     RigidBody:
       BodyType: 1
       LayerID: 1
-      Mass: 1
+      Mass: 40
       LinearDrag: 0.01
       AngularDrag: 0.05
       GravityFactor: 1
