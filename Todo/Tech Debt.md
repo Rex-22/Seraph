@@ -229,7 +229,7 @@ For the two UI `Cast` sites where crashing the editor is worse than a no-op, gua
 ---
 
 ### 21. [Reflection] TypeId FNV-1a collision silently aliases two types in release (serialization/inspection corruption)
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -241,7 +241,7 @@ On a `TypeId` hash clash, `Reflection` (`Reflection.cpp:60-73`, `Insert`) assert
 ---
 
 ### 22. [Reflection] Enum crosses the Any boundary as s64 via properties but as its own TypeId when constructed directly (inconsistent contract)
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -253,25 +253,26 @@ Failure: a consumer that does `prop.Get(obj).Is<SomeEnum>()` gets `false`, and `
 ---
 
 ### 23. [Reflection] Element/nested-struct/reference handling is inconsistent — latent data loss and null-deref in serialization
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
 **Description:**
-Three related gaps in how non-scalar properties flow through `Any`/serialization (all latent today because no shipping component hits them, but the paths are wired and inconsistent):
+Three related gaps in non-scalar property flow through Any/serialization (latent — no shipping type hit them yet, but the paths were wired inconsistently).
 
-1. **PropType back-patch is incomplete.** `Reflection.cpp:86-90` back-patches only `Property::PropType`. `ContainerInfo::ElementType` (`Reflect.h:135`), `MethodInfo` return/param types, and reference `PropType` are resolved once via `TryGet<>` at registration and stay `nullptr` forever if the referenced type registers later. A `std::vector<CustomStruct>` whose element type's TU inits after the container's has a permanently-null `ElementType`.
+**FIX APPLIED:**
+1. **Back-patch ElementType.** Added `ContainerInfo::ElementTypeId` (`Type.h`), set it in `RegisterContainerType` (`Reflect.h`), and extended `Reflection::Register`'s back-patch loop (`Reflection.cpp`) to resolve a container's element type if it registers after the container — mirrors `Property::PropTypeId`. Fixes permanently-null `ElementType` for `std::vector<Foo>` when Foo's TU inits later.
+2. **Non-Flatten nested struct no longer lost.** `EmitProps` now emits a non-flattened `Struct` property as a nested map (recurse under its key) and `DeserializeComponent` reads it back from that sub-map, instead of falling through to `EmitAny` (no Struct case → silent `YAML::Null` on save).
+3. **Container-element crash guarded.** `EmitAny`'s enum and reference branches now null-check the `Cast` and warn instead of dereferencing null — a container of enum/reference wrappers (whose element Any doesn't match the declared ElementType) no longer crashes the serializer.
 
-2. **Non-`Flatten` nested struct serializes as null (data loss).** `EmitAny`/`ParseAny` have no `TypeKind::Struct` case (`SceneSerializer.cpp:100-137,181-211`); `EmitProps` recurses only when `Serialize::Attr::Flatten` is set (`:146-150`), so a plain nested-struct property emits `YAML::Null` and load keeps the default. The **inspector** *does* recurse (`PropertyDrawer.cpp:283-292`) → UI shows a field that never persists.
+**VERIFIED:** `SceneSerializer.cpp`, `Reflection.cpp`, `PropertyDrawer.cpp` all compile clean with real build flags.
 
-3. **Container of reference/struct/enum corrupts or crashes.** `RegisterContainerType` stores the raw element in the Any (`Reflect.h:138-139`); if `E` is `EntityRef`/`TAssetRef`, `ElementType->Kind==Reference` and the serializer does `*v.Cast<UUID>()` (`SceneSerializer.cpp:110-112`) → null → **deref**. Only `vector<AssetHandle>` (primitive `UUID`) exists today, so it's not yet triggered.
-
-**Fix:** back-patch all referenced-type slots; add Struct/enum/reference cases to `EmitAny`/`ParseAny` (and container element handling) consistent with the scalar paths, or explicitly reject unsupported element kinds at registration. Severity: Medium (latent).
+**KNOWN LIMITATION (documented, not a crash):** a `std::vector<EntityRef/TAssetRef>` still isn't truly serializable — `ContainerInfo::GetElement` yields `Any(wrapper)` not the extracted UUID (scalar reference properties extract via ReferenceTraits; the container path doesn't). Now it warns + emits Null rather than crashing. True container-of-reference support is a follow-up if a real case appears. **NOT runtime-verified** (needs a scene with a nested-struct property to round-trip). Severity: Medium.
 
 ---
 
 ### 24. [Reflection/Editor] PropertyDrawer ignores SettingFlag_ReadOnly and does not clamp single-bound (min-only/max-only) numerics
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -287,21 +288,26 @@ Two inspector attribute-handling gaps in `PropertyDrawer`:
 ---
 
 ### 25. [Reflection/Scene] Per-entity script field values silently dropped when the Game module is absent or the class was renamed
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
 **Description:**
-Script field (de)serialization enumerates a script's reflected fields by constructing a transient instance via `ScriptTypes::Create(sc.ScriptClass)` (`SceneSerializer.cpp:260-302`). If the module isn't built/loaded or the class was renamed, `Create` returns `nullptr`:
-- `DeserializeScript` (`:290`) then never populates `sc.Fields` from the YAML `Fields` node — the in-memory overrides are lost on load.
-- `SerializeScript` (`:265-266`) then emits no `Fields` block — a subsequent save writes the authored overrides out of existence.
+Script field (de)serialization builds a transient via `ScriptTypes::Create(sc.ScriptClass)`; if the module isn't built/loaded or the class was renamed, `Create` returns null and the authored `Fields` were neither loaded nor re-emitted → opening a scene without the module and saving erased every per-entity script override.
 
-Failure scenario: open a scene while `libGame` isn't built yet (or after renaming a script class), save, and every authored per-entity script override is erased from disk. The code comment at `:258` acknowledges the round-trip "is skipped, not fatal" — so it's a known tradeoff, but it's silent data loss. **Fix:** preserve the raw YAML `Fields` subtree when the class can't be resolved and re-emit it verbatim on save (round-trip-preserve), or surface a loud warning/dirty-block guard. Severity: Medium.
+**FIX APPLIED:**
+- `ScriptComponent.h`: added `std::string RawFieldsYaml` — opaque verbatim YAML of the `Fields` map, kept only when the class can't be resolved (no yaml-cpp coupling in the component; not `SPROPERTY`, so not double-serialized).
+- `SceneSerializer.cpp` `DeserializeScript`: on unresolved class, store `YAML::Dump(fields)` into `RawFieldsYaml` + warn (instead of silently skipping).
+- `SceneSerializer.cpp` `SerializeScript`: if the class resolves, emit live `Fields` as before; else if `RawFieldsYaml` is non-empty, re-emit it verbatim via `YAML::Load` under the `Fields` key. When the class later resolves on a fresh load, `Fields` becomes source of truth and the raw copy stays empty.
+
+**VERIFIED:** `SceneSerializer.cpp` compiles clean with real build flags (`YAML::Dump`/`YAML::Load` confirmed present in vendored yaml-cpp).
+
+**NOT verified (needs runtime):** an actual round-trip — open a scene with `libGame` absent, save, confirm the `Fields` block is preserved byte-for-byte and that a later build-with-module still applies them. Please exercise this in the editor. Severity: Medium.
 
 ---
 
 ### 26. [Reflection/Project] ProjectManager::Open (switch while active) skips Settings::SaveDirty and explicit ScriptLibrary::Unload
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -315,7 +321,7 @@ Note: the core unload wiring itself is correct — `ScriptLibrary::Unload` (`Scr
 ---
 
 ### 27. [Reflection/Scene] TagComponent is copyable + serialized but not reflected (silent-gap when copy/serialize fully migrate to a reflection walk)
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -327,27 +333,25 @@ Failure scenario: the stated end goal is to drive copy/serialization from the re
 ---
 
 ### 28. [Reflection/Migration] Migrate the 5 remaining hand-written SP_REFLECT_ENUM registrations to SHT SENUM() annotations
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
 **Description:**
-Per the goal to migrate all manual reflection to the header tool: the audit found **zero** hand-written `SP_REFLECT_TYPE`/`SP_REFLECT_IMPL` struct/class blocks left (all components/structs are already SHT-annotated), but **5 enums are still hand-registered**:
+Goal: migrate all manual reflection to the header tool. All struct/class registration was already SHT; this covered the 5 remaining hand-written enums.
 
-- `AssetType` — `Asset/Asset.cpp:36-44` (decl `Asset.h:18`)
-- `MaterialParameterType` — `Graphics/Material/MaterialParameter.cpp:42-53` (decl `MaterialParameter.h:27`)
-- `BlendMode` — `Graphics/Material/MaterialRenderState.cpp:95-100` (decl `MaterialRenderState.h:15`)
-- `CullMode` — `Graphics/Material/MaterialRenderState.cpp:102-106` (decl `MaterialRenderState.h:16`)
-- `DepthTest` — `Graphics/Material/MaterialRenderState.cpp:108-115` (decl `MaterialRenderState.h:19`)
+**DONE:** added `SENUM()` (+ `#include Annotations.h`) to `AssetType` (`Asset.h`), `MaterialParameterType` (`MaterialParameter.h`), and `BlendMode`/`CullMode`/`DepthTest` (`MaterialRenderState.h`); deleted the hand-written `SP_REFLECT_ENUM` blocks in the three matching `.cpp`s (replaced with a comment pointing at the generated file). Labels equal enumerator names, so on-disk `.srr`/`.smaterial` data round-trips unchanged.
 
-This leaves two coexisting enum idioms — `PhysicsTypes.h`'s `BodyType`/`ForceMode`/`ContactType` already use `SENUM()`. Migration = add `SENUM()` to each enum decl and delete the hand block; safe because each `.Value("Label", E::Label)` label already equals the enumerator identifier (exactly what SHT emits).
+**VERIFIED:** (1) all three `.cpp`s compile clean with the real build flags (`SENUM()` expands to nothing normally); (2) running SeraphHeaderTool on each header produces `SP_REFLECT_ENUM` output **identical** to the deleted hand blocks (same labels/values/order) for all 5 enums.
 
-**Cautions:** (a) adding `SENUM()` **without** deleting the hand block double-registers the enum; (b) `Graphics/Mesh.cpp:20-23` `RegisterAssetRefType<Mesh>()` is a legitimate hand-written opt-out (template ref-type registration bound to a complete `Mesh`) — keep it and document it as intentional. **This migration is blocked by the Linux SHT parse blocker and gated by the SHT-mandatory decision** (see the two SHT items above). Relates to ReflectionBoard "Make SHT mandatory…" (Deferred) and "Reflection v2.5 — Migrate remaining BiMap enum sites". Severity: Medium.
+**REMAINING opt-out (intentional):** `Graphics/Mesh.cpp` `RegisterAssetRefType<Mesh>()` stays hand-written (template ref-type registration bound to a complete `Mesh`; not SHT-expressible) — documented as intentional.
+
+**ACTION FOR NEXT BUILD:** these headers newly contain annotations, so a **CMake reconfigure** is required for `sht_reflect_glob`'s configure-time content scan to pick them up (a plain rebuild won't). After reconfigure, confirm material/asset serialization round-trips. Severity: Medium.
 
 ---
 
 ### 29. [Reflection/SHT] Drift guard is cosmetic (type-level tautology); a bitfield SPROPERTY writes a misleading "success" file before the late error exit
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -363,40 +367,43 @@ The plan's day-one invariant is "every annotation produced a registration or the
 ---
 
 ### 30. [Reflection/SHT] Emitter/parser robustness: reference members & anonymous unions not rejected, attribute-splitter mishandles braces/quotes, SFUNCTION silently dropped
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
 **Description:**
-`SeraphHeaderTool` parser/emitter gaps vs the plan's "fail loudly on unsupported constructs" rule (reflection-plan.md:479):
+SeraphHeaderTool parser/emitter robustness vs "fail loudly on unsupported constructs".
 
-1. **Reference members & anonymous unions not rejected.** `VisitRecordMember` (`main.cpp:220-271`) only checks bitfields and getter/setter symmetry. An `SPROPERTY` on a reference member emits `.Property<&T::Ref>(...)`, which is ill-formed C++ → a confusing downstream compile error in the `.gen.cpp` instead of the promised tool-level `file:line` error + exit 1. (Now relevant since `MeshComponent` carries a `TAssetRef<Mesh>` reference field — confirm the emitter treats reference *fields* correctly.)
+**DONE (verified with the tool):**
+- **Reference members rejected** — non-accessor `SPROPERTY` on an `&`/`&&` field errors with file:line + exit 1 (was ill-formed emitted code).
+- **`SplitAttrs` brace/escape aware** — `{}`/`()`/`[]` depth + escaped quotes handled; `Default = {1,2,3}` stays one attr, `"a \"b\", c"` preserved.
+- **`SFUNCTION` no longer silent** — a method carrying `sp:function` now emits a file:line **warning** ("method reflection not yet supported") and continues (still emits the type's valid SPROPERTYs, exit 0). Non-fatal by design: method reflection is deferred, so a warning is correct — not a hard error. Verified: a `SFUNCTION() void DoThing()` warns and the sibling `SPROPERTY` still generates.
 
-2. **`SplitAttrs` mishandles braces, char literals, escaped quotes.** `main.cpp:125-153` toggles string state only on `"` and splits on any top-level `,`. `SPROPERTY(Default = {1, 2, 3})` splits at the inner commas → malformed `.Attr(...)`; `Tooltip = "a \"b\""` mis-toggles the in-string flag. (Plain string payloads with commas *do* work — verified on `SampleReflected.h`.)
+**DEFERRED (rare, low value):**
+- **Anonymous unions** not explicitly rejected — genuinely rare; leave until a real case appears rather than add speculative detection.
 
-3. **`SFUNCTION` silently dropped.** `Annotations.h:27` defines `SFUNCTION` and the glob matches `FUNCTION` (`sht.cmake:126`), but `main.cpp` never handles `sp:function`; a header annotated only with `SFUNCTION` emits an empty `.gen.cpp`, prints "0 -> 0", and exits 0 — a silent no-op (method reflection is deferred, but the silent path violates fail-loudly).
-
-Also minor: `sht_reflect_glob`'s line-based content scan false-positives on `SCLASS(...)`/`SPROPERTY(...)` text inside a raw-string template (`Project/ProjectTemplates.h:169,178`) — benign wasted parse. **Fix:** reject reference members/anon unions with `file:line`+exit 1; make the attribute splitter brace/char/escape aware; error (or explicitly warn) on unhandled `SFUNCTION`. Severity: Medium.
+Severity: Medium.
 
 ---
 
 ### 31. [Reflection/Editor] SceneSerializer & EntityInspectorPanel are only partially reflection-driven (per-component dispatch still hand-written; dual DrawXComponent paths)
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Low
 
 **Description:**
-The migration reached "field-level reflection" but not the plan's end state of a fully reflection-driven walk:
+The migration reached field-level reflection but not full per-component auto-dispatch. Investigated the full scope and made a scoped, risk-weighted decision rather than a blind rewrite.
 
-- **Serializer.** Per-entity dispatch is still hand-written: `SerializeEntity` (`SceneSerializer.cpp:304-358`) and `LoadData` (`:380-442`) enumerate each component with explicit `HasComponent`/`AddComponent` + block name; `TagComponent` is fully bespoke (`:309-311`); Transform/Mesh/Camera are special-cased. Only the *fields inside* a component are reflection-driven. The completeness guard `static_assert(AllCopyablesSerialized<...>)` (`:52-78`) the plan wanted to eliminate is still present and only checks membership in a hand-maintained list, not that emit/parse blocks exist.
-- **Inspector.** `EntityInspectorPanel::OnImGuiRender` hand-lists every component (`:441-447`); `DrawTransformComponent` (`:474-498`) and `DrawTagComponent` (`:454-472`) are entirely bespoke ImGui (never touch reflection); `DrawRigidBodyComponent` (`:544-581`) is a hybrid. Adding a component requires editing the panel — dual code paths remain.
+**DONE — inspector consolidation (verified compile):** the three identical collider `DrawXComponent` methods (Box/Sphere/Capsule — each just `BeginComponentSection<T>` + `PropertyDrawer::DrawObject` + remove) are replaced by a single generic `DrawPlainComponent<T>(entity, label)` helper. A new pure-data component is now one line in `OnImGuiRender`, no bespoke method. Genuinely special drawers (Tag/Transform/Camera/Mesh/RigidBody/Script — bespoke widgets, Layer combo, asset picker, euler) intentionally keep their own methods. `EntityInspectorPanel.{h,cpp}` compile clean with real build flags.
 
-This is the known deferred state (see ReflectionBoard "Reflection v2.6 — Migrate EntityInspectorPanel onto PropertyDrawer", in Review, and the existing "Harden SceneSerializer" tech-debt item), tracked here for visibility of the reflection end-goal. Severity: Low (tracked/expected).
+**DELIBERATELY NOT DONE — serializer rewrite (documented rationale):** `SerializeEntity`/`LoadData` keep their explicit per-component dispatch. Reasons: (1) it is **already guarded** against the silent-gap bug class by `static_assert(AllCopyablesSerialized<CopyableComponents>)` — the concern that motivated this ticket; (2) several components need genuinely special handling (Tag as a bare scalar, Transform/Relationship populate-not-add, Mesh missing-handle warning, Script's bespoke Fields round-trip); (3) a table-driven rewrite of working save/load is the single highest-risk change in this audit — a subtle break silently corrupts scenes — and it **cannot be runtime-verified in this offline environment**. The maintainability gain over the existing compile-time guard is marginal and not worth that risk.
+
+**Remaining true end-goal (still deferred):** full auto-discovery where both serializer and inspector iterate a component-ops table (entt has/add/get/remove) driven by `CopyableComponents`, so a new component needs zero dispatch edits. Requires a type-erased component-ops registry + a full scene round-trip verification pass. Left for a focused, runtime-verifiable change. Severity: Low.
 
 ---
 
 ### 32. [Reflection] Documentation drift across reflection plan / SHT README / docs / source comments
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Low
 
@@ -415,23 +422,26 @@ The reflection docs and several source comments have drifted from the implemente
 ---
 
 ### 33. [Reflection] Latent robustness cluster: Any copy-assign exception-safety, cross-module pointer invalidation, base-offset assumption, SHT libclang portability
-- **Status:** Backlog
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Low
 
 **Description:**
-A group of low-severity latent issues surfaced by the audit, safe under today's usage but worth hardening:
+Grab-bag of low-severity latent issues from the audit.
 
-- **`Any` copy-assignment not strongly exception-safe.** `Any.h:91-99` `Reset()`s (destroys current value) before `CopyFrom`; if the copy throws (heap alloc / throwing copy ctor of a heap-spilled type) the target is left empty instead of retaining its previous value. Value/copy *ctors* are fine; only assignment regresses.
-- **`ClearModule` doesn't invalidate surviving cross-module pointers.** `Reflection.cpp:95-107,164-178` rebuilds the id/name/all indices but doesn't null out a surviving `Type`'s `Base`/`Property::PropType`/`ContainerInfo::ElementType` that pointed into an erased module. Safe under the intended engine-never-references-Game topology, but a Game→Game or future engine↔Game reference would dangle.
-- **`ScriptTypes::Create` assumes the `ScriptableEntity` subobject is at offset 0.** `ScriptTypes.cpp:66` `static_cast<ScriptableEntity*>(t->HeapConstruct())` on a `void*` with no base-offset adjustment — correct only for single inheritance with `ScriptableEntity` first (the v1 constraint) but nothing enforces it; add a `static_assert`.
-- **`ScriptComponent::Fields` could dangle a `Type*` for a future Game-module struct field.** `ScriptComponent.h:30` says Fields stays valid across hot-reload, but `Any` carries a `const Type*`; today all reflected field types (float, `EntityRef`) are engine-registered. A script field of a *Game* struct type would leave a dangling `Type*` after `ClearModule`.
-- **Reference drawer ignores the per-property attribute bag.** The reference handler's `const AttributeSet&` (property attrs) param is unused (`EntityInspectorPanel.cpp:236-237`); only the reference *Type's* attrs are read, so a per-field filter/override on a reference property is impossible.
-- **Game-module self-registration + `--gc-sections`.** Generated `.gen.cpp` self-reg globals are anonymous-namespace `const bool` (internal linkage) compiled into the `SHARED` Game lib; they run on `dlopen` today, but confirm the Game link flags don't enable `--gc-sections` (would strip them).
-- **SHT libclang portability.** `sht.cmake:33-35` HINTS omit LLVM 19–22 (works here only via the `/usr/lib/libclang.so` top-level symlink); a distro installing under `/usr/lib/llvm-22/lib` without the symlink needs a manual `-DSERAPH_LIBCLANG_LIBRARY`.
-- **`TypeId` is per-toolchain.** The FNV-1a hash is over the compiler's type-name spelling, so the serialization key is stable within one toolchain's engine+Game build but not across a Clang-built asset loaded by an MSVC build (`docs/reflection-system.md:106`) — a portability constraint for shipped/cross-compiled assets.
+**FIXED (verified compile/parse):**
+- **`Any` copy-assign strong exception safety** — copy-and-move (build copy first, commit via noexcept move-assign). (`Any.h`)
+- **`ClearModule` cross-module pointer invalidation** — after erasing a module, a defensive pass nulls any surviving `Base`/`Property::PropType`/`Container::ElementType` that pointed into a freed type (pointer-compare against the live set; freed targets never dereferenced). `*TypeId` fields are kept so a later re-registration re-links via the existing back-patch (Base excepted — nulled, not restored, which is fine as engine types never base off Game types). (`Reflection.cpp`)
+- **SHT libclang search widened** to LLVM 19–22. (`Tools/SeraphHeaderTool/CMakeLists.txt`)
+- **Stale Sandbox CMake comment** corrected to the reflection self-registration model. (`projects/Sandbox/CMakeLists.txt`)
 
-Severity: Low (latent). Split out individually if any becomes load-bearing.
+**DEFERRED (inherent limitation / no consumer — documented, not fixed):**
+- **`ScriptTypes::Create` base-at-offset-0** — inherent to v1 single-inheritance; concrete type unknown at the runtime construction site, no clean `static_assert`. Documented in `Type.h`/`ScriptTypes.cpp`.
+- **Reference drawer ignores per-property attribute bag** — no consumer authors a per-field reference filter yet; adding the plumbing now would be speculative.
+- **`ScriptComponent::Fields` dangling `Type*` for a future Game-module struct field** — latent; no such field type exists today.
+- **`TypeId` per-toolchain** — inherent to name-hash identity; already documented.
+
+Severity: Low.
 
 ---
 
@@ -449,5 +459,30 @@ Clang silently accepts `[[clang::annotate]]`, so the macOS build never noticed. 
 Latent until now: on Linux the build previously failed earlier at SHT code-gen (the #18 `stddef.h` parse blocker), so it never reached the engine compile. Fixing #18 unmasked this.
 
 **FIX APPLIED:** removed `add_compile_definitions("SP_SHT_PARSE")` from `CMakeLists.txt` (left a comment explaining why it must never be global). **VERIFIED:** `c++ -std=c++20 -fsyntax-only -Werror=attributes` on a TU including `PhysicsTypes.h` — WITH `-DSP_SHT_PARSE` reproduces the exact error, WITHOUT it compiles clean (exit 0). Severity: Critical (build-breaking on GCC/Linux).
+
+---
+
+### 35. [Reflection/SHT] Auto-generate .gen.cpp for annotation changes without a manual reconfigure
+- **Status:** Review
+- **Completed:** false
+- **Priority:** High
+
+**Description:**
+Adding/removing an `SCLASS/SPROPERTY/SENUM` on an existing header used to require a manual CMake reconfigure: `sht_reflect_glob` filtered headers by a configure-time content scan, so the build's source list (and thus which headers got a gen step) was frozen until reconfigure. This bit the enum migration — a plain rebuild left `AssetType` unregistered.
+
+**FIX APPLIED:**
+- `cmake/sht.cmake`: `sht_reflect_glob` now wires a gen step for **every** header under the dirs (excluding `Annotations.h`), not just the ones annotated at configure time.
+- `Tools/SeraphHeaderTool/src/main.cpp`: the tool fast-skips headers with no annotation macro via a cheap text pre-scan (`HasAnnotationMacro`) — emits an empty `.gen.cpp` + trivial depfile, **no libclang**. Only genuinely annotated headers pay the parse cost.
+
+Result: adding an annotation to an existing header is picked up by a plain **build** (header changed → its gen command reruns → tool now sees the annotation). No command, no reconfigure.
+
+**Performance:** per-header text scan is negligible; empty stubs compile in ms; only ~19 of 147 headers invoke libclang; the DEPFILE keeps shared-header edits from reparsing everything.
+
+**VERIFIED (tool level):** annotated header (Asset.h) still emits AssetType; non-annotated header (Ref.h) fast-skips and succeeds with **zero** include dirs (proves libclang not invoked); `ProjectTemplates.h` raw-string false-positive falls through to libclang, which correctly emits nothing. `cmake -P sht.cmake` parses.
+
+**CAVEATS / NOT verified here:**
+- A brand-**new** header file (one that didn't exist at configure) still triggers a `CONFIGURE_DEPENDS` reconfigure — unavoidable; CMake can't compile a source it has never seen. Only *editing* an existing header is reconfigure-free.
+- Adopting this needs **one** reconfigure (to switch to the new all-headers wiring); full engine build couldn't run in this offline sandbox (assimp FetchContent needs network). Confirm on a networked build: touch an annotation, plain `ninja`, see the enum register.
+- The all-headers approach adds ~130 tiny empty object files to libSeraph; link-time impact expected negligible but worth a glance on the first full build. Severity: High (workflow correctness).
 
 ---
