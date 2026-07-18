@@ -133,6 +133,7 @@ const Type* RegisterContainerType()
 
     auto ci = std::make_unique<ContainerInfo>();
     ci->ElementType = Reflection::TryGet<E>();
+    ci->ElementTypeId = TypeIdOf<E>(); // for back-patch if E registers later
     ci->Size = +[](const void* c)
     { return static_cast<const Vec*>(c)->size(); };
     ci->GetElement = +[](const void* c, std::size_t i) -> Any

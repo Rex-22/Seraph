@@ -120,6 +120,9 @@ struct Property
 struct ContainerInfo
 {
     const Type* ElementType = nullptr;
+    TypeId ElementTypeId = 0; // identity of the element type (for back-patch, like
+                              // Property::PropTypeId — resolved late if the element
+                              // type registers after the container)
     std::size_t (*Size)(const void* container) = nullptr;
     Any (*GetElement)(const void* container, std::size_t index) = nullptr;
     void (*SetElement)(void* container, std::size_t index, const Any& value) = nullptr;

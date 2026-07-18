@@ -83,15 +83,24 @@ struct Reflection::Storage
         ByName.emplace(p->Name, p);
         AllList.push_back(p);
 
-        // Back-patch any earlier-registered property whose type is THIS type but
-        // was unresolved at its own registration time. Static-init order across
+        // Back-patch anything earlier-registered whose referenced type is THIS type
+        // but was unresolved at its own registration time. Static-init order across
         // TUs is undefined, so a component can register before the enum/struct it
         // references (e.g. RigidBodyComponent before its SHT-generated BodyType).
         for (OwnedType& o : Owned)
+        {
             for (Property& prop : o.Ptr->Properties)
                 if (prop.PropType == nullptr && prop.PropTypeId != 0
                     && prop.PropTypeId == p->Id)
                     prop.PropType = p;
+
+            // Container element types resolve late the same way (e.g. a
+            // std::vector<Foo> property registered before Foo).
+            if (o.Ptr->Container && o.Ptr->Container->ElementType == nullptr
+                && o.Ptr->Container->ElementTypeId != 0
+                && o.Ptr->Container->ElementTypeId == p->Id)
+                o.Ptr->Container->ElementType = p;
+        }
 
         return p;
     }

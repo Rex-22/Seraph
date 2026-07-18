@@ -104,11 +104,30 @@ void EmitAny(YAML::Emitter& e, const Any& v, const Type* t)
         return;
     }
     if (t->Kind == TypeKind::Enum) { // enum -> underlying int
-        e << static_cast<int>(*v.Cast<s64>());
+        // Guard the cast: a container element whose declared ElementType is an enum
+        // but whose Any holds a different representation would otherwise null-deref.
+        if (const s64* i = v.Cast<s64>())
+            e << static_cast<int>(*i);
+        else {
+            SP_CORE_WARN_TAG("SceneSerializer",
+                "enum value/type mismatch emitting '{}'", t->Name);
+            e << YAML::Null;
+        }
         return;
     }
     if (t->Kind == TypeKind::Reference) { // reference -> its target's id (u64)
-        e << static_cast<u64>(*v.Cast<UUID>());
+        // A scalar reference property Get() yields Any(UUID); a container of
+        // reference wrappers currently yields Any(wrapper), which does NOT cast to
+        // UUID — guard rather than deref null (container-of-reference is unsupported;
+        // see the tech-debt note).
+        if (const UUID* id = v.Cast<UUID>())
+            e << static_cast<u64>(*id);
+        else {
+            SP_CORE_WARN_TAG("SceneSerializer",
+                "reference value/type mismatch emitting '{}' (container of "
+                "references is not supported)", t->Name);
+            e << YAML::Null;
+        }
         return;
     }
     const TypeId id = t->Id;
@@ -143,9 +162,17 @@ void EmitProps(YAML::Emitter& e, const Type& type, void* obj)
     for (const Property& p : type.Properties) {
         const Type* pt = p.PropType;
 
-        if (pt && pt->Kind == TypeKind::Struct && p.GetAddress
-            && p.Attrs.Has(Serialize::Attr::Flatten)) {
-            EmitProps(e, *pt, p.GetAddress(obj)); // inline, no key/map
+        if (pt && pt->Kind == TypeKind::Struct && p.GetAddress) {
+            if (p.Attrs.Has(Serialize::Attr::Flatten)) {
+                EmitProps(e, *pt, p.GetAddress(obj)); // inline, no key/map
+            } else {
+                // Non-flattened nested struct: emit as a nested map under its key
+                // (previously fell through to EmitAny, which has no Struct case and
+                // silently wrote Null — a data-loss round-trip).
+                e << YAML::Key << SerializeKey(p) << YAML::Value << YAML::BeginMap;
+                EmitProps(e, *pt, p.GetAddress(obj));
+                e << YAML::EndMap;
+            }
             continue;
         }
 
@@ -226,6 +253,13 @@ void DeserializeComponent(const YAML::Node& node, const Type& type, void* obj)
         const YAML::Node child = node[SerializeKey(p)];
         if (!child)
             continue; // absent -> keep default
+
+        // Non-flattened nested struct: read from its own sub-map (mirrors EmitProps).
+        if (pt && pt->Kind == TypeKind::Struct && p.GetAddress) {
+            if (child.IsMap())
+                DeserializeComponent(child, *pt, p.GetAddress(obj));
+            continue;
+        }
 
         if (pt && pt->Kind == TypeKind::Container && pt->Container && p.GetAddress) {
             if (!child.IsSequence())
