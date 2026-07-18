@@ -413,6 +413,27 @@ static bool BeginComponentSection(const char* label, [[maybe_unused]] Entity ent
     return open;
 }
 
+// Generic drawer for a "plain" component: collapsing section + fully
+// reflection-driven PropertyDrawer + right-click remove, with no per-component
+// customization. A new pure-data component needs only a DrawPlainComponent<T>()
+// line in OnImGuiRender — no bespoke DrawXComponent method. Components that need
+// special widgets (Tag/Transform/Camera/Mesh/RigidBody/Script) keep their own.
+template<typename T>
+static void DrawPlainComponent(Entity entity, const char* label)
+{
+    T* c = entity.TryGetComponent<T>();
+    if (!c)
+        return;
+    bool remove = false;
+    if (BeginComponentSection<T>(label, entity, &remove))
+    {
+        PropertyDrawer::DrawObject(Reflection::Get<T>(), c);
+        ImGui::TreePop();
+    }
+    if (remove)
+        entity.RemoveComponent<T>();
+}
+
 void EntityInspectorPanel::OnImGuiRender()
 {
     // One-time, lazy registration of the reflection-inspector customizations
@@ -441,9 +462,11 @@ void EntityInspectorPanel::OnImGuiRender()
     if (m_SelectedEntity.HasComponent<CameraComponent>())          DrawCameraComponent();
     if (m_SelectedEntity.HasComponent<MeshComponent>())            DrawMeshComponent();
     if (m_SelectedEntity.HasComponent<RigidBodyComponent>())       DrawRigidBodyComponent();
-    if (m_SelectedEntity.HasComponent<BoxColliderComponent>())     DrawBoxColliderComponent();
-    if (m_SelectedEntity.HasComponent<SphereColliderComponent>())  DrawSphereColliderComponent();
-    if (m_SelectedEntity.HasComponent<CapsuleColliderComponent>()) DrawCapsuleColliderComponent();
+    // Plain (pure-data) components: no bespoke widget, drawn generically. Add a new
+    // one here with a single line — no DrawXComponent method needed.
+    DrawPlainComponent<BoxColliderComponent>(m_SelectedEntity, "Box Collider");
+    DrawPlainComponent<SphereColliderComponent>(m_SelectedEntity, "Sphere Collider");
+    DrawPlainComponent<CapsuleColliderComponent>(m_SelectedEntity, "Capsule Collider");
     if (m_SelectedEntity.HasComponent<ScriptComponent>())          DrawScriptComponent();
     ImGui::Spacing();
     DrawAddComponentMenu();
@@ -580,62 +603,9 @@ void EntityInspectorPanel::DrawRigidBodyComponent()
         m_SelectedEntity.RemoveComponent<RigidBodyComponent>();
 }
 
-void EntityInspectorPanel::DrawBoxColliderComponent()
-{
-    auto* c = m_SelectedEntity.TryGetComponent<BoxColliderComponent>();
-    if (!c)
-        return;
-
-    bool remove = false;
-    bool open = BeginComponentSection<BoxColliderComponent>("Box Collider", m_SelectedEntity, &remove);
-
-    if (open)
-    {
-        PropertyDrawer::DrawObject(Reflection::Get<BoxColliderComponent>(), c);
-        ImGui::TreePop();
-    }
-
-    if (remove)
-        m_SelectedEntity.RemoveComponent<BoxColliderComponent>();
-}
-
-void EntityInspectorPanel::DrawSphereColliderComponent()
-{
-    auto* c = m_SelectedEntity.TryGetComponent<SphereColliderComponent>();
-    if (!c)
-        return;
-
-    bool remove = false;
-    bool open = BeginComponentSection<SphereColliderComponent>("Sphere Collider", m_SelectedEntity, &remove);
-
-    if (open)
-    {
-        PropertyDrawer::DrawObject(Reflection::Get<SphereColliderComponent>(), c);
-        ImGui::TreePop();
-    }
-
-    if (remove)
-        m_SelectedEntity.RemoveComponent<SphereColliderComponent>();
-}
-
-void EntityInspectorPanel::DrawCapsuleColliderComponent()
-{
-    auto* c = m_SelectedEntity.TryGetComponent<CapsuleColliderComponent>();
-    if (!c)
-        return;
-
-    bool remove = false;
-    bool open = BeginComponentSection<CapsuleColliderComponent>("Capsule Collider", m_SelectedEntity, &remove);
-
-    if (open)
-    {
-        PropertyDrawer::DrawObject(Reflection::Get<CapsuleColliderComponent>(), c);
-        ImGui::TreePop();
-    }
-
-    if (remove)
-        m_SelectedEntity.RemoveComponent<CapsuleColliderComponent>();
-}
+// Box / Sphere / Capsule colliders are drawn generically via DrawPlainComponent<T>
+// in OnImGuiRender (they were three identical section + DrawObject + remove
+// methods) — no bespoke methods needed.
 
 void EntityInspectorPanel::DrawScriptComponent()
 {
