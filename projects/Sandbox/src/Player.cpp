@@ -11,17 +11,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-using Seraph::Input;
-using Seraph::CursorMode;
-namespace Key = Seraph::Key;
-namespace Mouse = Seraph::Mouse;
+using namespace Seraph;
 
 void Player::OnCreate()
 {
     // The camera to pitch is assigned in the editor (the Camera slot on this
     // script). Kinematic body yaws, camera pitches. Seed the pitch from the
     // camera's current rotation so the first mouse move doesn't snap.
-    if (Seraph::Entity camera = TryFindEntity(m_Camera.Get()))
+    if (Entity camera = TryFindEntity(m_Camera.Get()))
         m_Pitch = camera.Transform().GetRotationEuler().x;
     else
         SP_WARN_TAG("Scripting",
@@ -35,7 +32,7 @@ void Player::OnCreate()
 
 void Player::OnUpdate(f64 dt)
 {
-    const Seraph::PhysicsSettings& settings = Seraph::PhysicsSystem::GetSettings();
+    const PhysicsSettings& settings = PhysicsSystem::GetSettings();
     float gravity = settings.Gravity.y;
 
     const float ft = static_cast<float>(dt);
@@ -68,7 +65,7 @@ void Player::OnUpdate(f64 dt)
 
     // Yaw drives the body; pitch drives the assigned camera (world = body * camera).
     Transform().SetRotationEuler(glm::vec3(0.0f, m_Yaw, 0.0f));
-    if (Seraph::Entity camera = TryFindEntity(m_Camera.Get()))
+    if (Entity camera = TryFindEntity(m_Camera.Get()))
         camera.Transform().SetRotationEuler(glm::vec3(m_Pitch, 0.0f, 0.0f));
 
     glm::vec3 position = Transform().Translation;
