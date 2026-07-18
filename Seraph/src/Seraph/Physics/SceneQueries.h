@@ -18,6 +18,14 @@ struct RayCastInfo
     glm::vec3 Origin = { 0.0f, 0.0f, 0.0f };
     glm::vec3 Direction = { 0.0f, 0.0f, -1.0f };
     float MaxDistance = 1.0e6f;
+
+    // Bitmask of collision layers to test against: bit N set => layer N is hit.
+    // Default = every layer.
+    u32 LayerMask = 0xFFFFFFFFu;
+
+    // When false (default) the ray passes through trigger/sensor bodies and only
+    // reports solid geometry — a query shouldn't be blocked by a trigger volume.
+    bool HitTriggers = false;
 };
 
 // Closest-hit result. HitEntity is empty (operator bool == false) on a miss.
