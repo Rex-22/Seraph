@@ -572,7 +572,7 @@ void EntityInspectorPanel::DrawMeshComponent()
 // (edited in Settings > Physics Layers).
 static void DrawLayerMaskField(const char* label, u32& mask)
 {
-    constexpr u32 kCols = 8;
+    constexpr u32 kCols = 16; // 32 layers over 2 rows
     const float cell = ImGui::GetFrameHeight();
     const ImVec4 onColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
 
