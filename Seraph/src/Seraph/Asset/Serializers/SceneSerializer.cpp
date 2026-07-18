@@ -77,10 +77,6 @@ static_assert(AllCopyablesSerialized<CopyableComponents>::value,
     "block to SerializeEntity and its parse block to LoadData, then list it in "
     "SerializedComponents.");
 
-// (glm::vec3 emit + DecodeVec3 + ProjectionType<->string helpers removed —
-// vec3 flows through EmitAny/ParseAny, and Camera/Transform are now reflection-
-// driven; ProjectionType serializes via SceneCamera's string accessor. v3.2/v3.5.)
-
 // --- Reflection-driven component (de)serialization -----------------------
 // Generic emit/parse for the pure-data components (RigidBody, colliders,
 // Relationship, Script), driven by their reflected properties. Deliberately
@@ -167,8 +163,6 @@ void EmitProps(YAML::Emitter& e, const Type& type, void* obj)
                 EmitProps(e, *pt, p.GetAddress(obj)); // inline, no key/map
             } else {
                 // Non-flattened nested struct: emit as a nested map under its key
-                // (previously fell through to EmitAny, which has no Struct case and
-                // silently wrote Null — a data-loss round-trip).
                 e << YAML::Key << SerializeKey(p) << YAML::Value << YAML::BeginMap;
                 EmitProps(e, *pt, p.GetAddress(obj));
                 e << YAML::EndMap;
