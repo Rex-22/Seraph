@@ -530,3 +530,90 @@ Implemented as designed, with one architectural refinement to preserve the "no J
 - Physics 5 — Physics components & Scene runtime lifecycle
 
 ---
+
+### 10. Physics 10 — Character controller (JPH::CharacterVirtual)
+- **Status:** Review
+- **Completed:** false
+- **Priority:** High
+
+**Description:**
+DONE (building). Collide-and-slide character controller so kinematic-style players are blocked by geometry (Godot CharacterBody / Unreal CMC equivalent). Root cause of the reported bug: Jolt kinematic bodies are infinite-mass and never blocked; Player.cpp faked it with a hardcoded ground clamp.
+
+Implemented:
+- CharacterControllerComponent.h (SlopeLimitDeg, StepOffset, Mass, DisableGravity, ControlMovementInAir, LayerID default 1=Moving).
+- Abstract Physics/CharacterController.h (Move, GetVelocity, Jump, IsGrounded, GetGroundNormal, gravity toggle, translation).
+- JoltCharacterController.{h,cpp} wrapping JPH::CharacterVirtual (ExtendedUpdate: gravity + collide-and-slide + stair step-up + ground state).
+- PhysicsScene: m_Characters map, Create/DestroyCharacterController virtuals + GetCharacterController lookup; JoltScene impl, per-substep UpdateCharacters in Simulate, translation write-back (rotation game-authoritative). Character shape reuses JoltShapes::BuildEntityShape, centred on entity origin.
+- Scene.cpp OnRuntimeStart creates controllers; DrainDestroyQueue destroys them.
+- ScriptableEntity::GetCharacterController(). Component wired into Components.cpp, CopyableComponents, SceneSerializer (list+emit+parse), EntityInspectorPanel (draw + add menu).
+- Player.{h,cpp} rewritten to use the controller (Move from WASD, Jump when grounded); deleted m_GroundLevel/m_VerticalVelocity/manual clamp. example.sscene Player converted from kinematic RigidBody to CharacterController + Capsule.
+
+Builds clean: Seraph, Seraph-Editor, Game. TO VERIFY in editor: player blocked by walls, falls+lands on floor collider, climbs steps <= StepOffset, slides on steep slopes, pushes light dynamic bodies, jump only when grounded, serialization round-trips. Note: demo floor Plane uses a zero-thickness BoxCollider (HalfExtents.y=0) — confirm the capsule lands on it.
+
+---
+
+### 11. Physics 10b — Body wake + raycast filtering fixes
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+DONE (building). Two Jolt audit correctness fixes.
+
+1. Velocity/force setters now wake sleeping bodies: JoltBody::SetLinearVelocity/SetAngularVelocity and the AddForce VelocityChange branch call bi.ActivateBody after setting velocity (previously a script setting velocity on a slept body was silently ignored).
+
+2. CastRay now filters: RayCastInfo gained LayerMask (bitmask, default all) + HitTriggers (default false). JoltScene::CastRay uses an ObjectLayerFilter honoring the mask and a BodyFilter that skips sensors so trigger volumes don't block queries.
+
+TO VERIFY: slept dynamic body moves when a script sets velocity; a ray through a trigger volume passes to the solid body behind it.
+
+---
+
+### 12. Physics 11 — Fixed-step render interpolation
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+DONE (building). Dynamic bodies previously jittered at frame rates != 60Hz because WriteBackTransforms wrote the last substep's raw pose.
+
+Implemented standard fixed-step-with-interpolation in JoltScene: CapturePreviousTransforms snapshots each solver-owned body + character pose just before the final substep; after stepping, WriteBackTransforms(alpha) writes lerp(previous, current, alpha) with alpha = m_Accumulator / m_FixedTimeStep (vec3 via glm::mix, quat via glm::slerp). Previous-pose cache keyed by UUID, cleared on DestroyBody/DestroyCharacterController.
+
+TO VERIFY: at an uncapped/non-60 framerate a falling dynamic body renders smoothly.
+
+---
+
+### 13. Physics 12 — Compound / multi-collider shapes
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+DONE (building). CreateBody previously used only the first collider found; extra colliders were silently ignored.
+
+Refactored collider->shape selection into JoltShapes::BuildEntityShape(entity, worldScale) -> {Shape, Material, IsTrigger} that gathers ALL colliders; with >1 it builds a JPH::StaticCompoundShape (each sub-shape already offset via RotatedTranslatedShape). Both CreateBody and CreateCharacterController use this single path. Material from first collider; IsTrigger = any collider is a trigger.
+
+Also documented the un-coded audit items in docs/physics-system.md: broadphase optimized once, runtime rescale doesn't rebuild colliders, AddForce(Force/Acceleration) applied on only the first of N substeps. Added a Character controller section to the docs too.
+
+TO VERIFY: an entity with two colliders has both participate in collision.
+
+---
+
+### 14. Physics 13 — Godot-style collision layer + mask bitmasks
+- **Status:** Todo
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+DECISION (confirmed with user): Godot layer + mask model. Each body gets TWO 32-bit bitmasks — CollisionLayer (which layers it occupies) + CollisionMask (which layers it scans). Two bodies collide iff (A.layer & B.mask) || (B.layer & A.mask). This REPLACES the global PhysicsLayerManager CollidesWith matrix as the source of pair truth. Not started (user chose to leave in Todo).
+
+Current state: RigidBody/CharacterController carry a single u32 LayerID = index into a process-global PhysicsLayerManager with a pairwise CollidesWith matrix; JoltLayerInterface maps object layer 1:1 to broadphase. Static-vs-Static disabled, Moving collides with all.
+
+Planned work:
+- Component fields: CollisionLayer (u32 bitmask) + CollisionMask (u32 bitmask) on RigidBodyComponent and CharacterControllerComponent, replacing LayerID (with serialization migration from the old field).
+- Jolt encoding: adopt Jolt's mask scheme — ObjectLayerPairFilterMask + BroadPhaseLayerInterfaceMask + ObjectVsBroadPhaseLayerFilterMask (Jolt/Physics/Collision/ObjectLayerPairFilterMask.h etc.), which pack group(layer)+mask into the ObjectLayer. Check JPH_OBJECT_LAYER_BITS width (default 16) — may need to widen to 32 for a full 32-layer model, or cap layer count. Replace JoltLayerInterface accordingly and update BodyCreationSettings/CharacterVirtual object-layer construction.
+- Inspector: a bitmask/flags PropertyDrawer widget (checkbox grid, named layers from PhysicsLayerManager) for CollisionLayer + CollisionMask.
+- Serialization: two bitmask ints; migrate old LayerID.
+- Reconcile with the raycast RayCastInfo.LayerMask added in Physics 10b.
+- PhysicsLayerManager becomes a name registry (layer 0..N names) rather than the collision-matrix authority.
+
+---
