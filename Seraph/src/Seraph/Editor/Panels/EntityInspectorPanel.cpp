@@ -567,36 +567,37 @@ void EntityInspectorPanel::DrawMeshComponent()
         m_SelectedEntity.RemoveComponent<MeshComponent>();
 }
 
-// Godot-style collision-bitmask editor: a button summarizing the selected layers
-// that opens a popup with a checkbox per named layer (PhysicsLayerManager).
+// Godot-style collision-bitmask editor: a grid of numbered toggle buttons (one
+// per layer). A lit button means the bit is set; hovering shows the layer's name
+// (edited in Settings > Physics Layers).
 static void DrawLayerMaskField(const char* label, u32& mask)
 {
-    std::string preview;
-    for (u32 i = 0; i < PhysicsLayerManager::LayerCount; ++i)
-        if (mask & (1u << i))
-        {
-            if (!preview.empty())
-                preview += ", ";
-            preview += std::to_string(i);
-        }
-    if (preview.empty())
-        preview = "None";
+    constexpr u32 kCols = 8;
+    const float cell = ImGui::GetFrameHeight();
+    const ImVec4 onColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
 
     ImGui::PushID(label);
     ImGui::TextUnformatted(label);
-    ImGui::SameLine(120.0f);
-    if (ImGui::Button(preview.c_str(), ImVec2(-1.0f, 0.0f)))
-        ImGui::OpenPopup("layers");
-    if (ImGui::BeginPopup("layers"))
+
+    for (u32 i = 0; i < PhysicsLayerManager::LayerCount; ++i)
     {
-        for (u32 i = 0; i < PhysicsLayerManager::LayerCount; ++i)
+        if (i % kCols != 0)
+            ImGui::SameLine();
+
+        ImGui::PushID(static_cast<int>(i));
+        const bool set = (mask & (1u << i)) != 0;
+        if (set)
         {
-            bool set = (mask & (1u << i)) != 0;
-            const std::string item = std::to_string(i) + ": " + PhysicsLayerManager::GetLayerName(i);
-            if (ImGui::Checkbox(item.c_str(), &set))
-                mask = set ? (mask | (1u << i)) : (mask & ~(1u << i));
+            ImGui::PushStyleColor(ImGuiCol_Button, onColor);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, onColor);
         }
-        ImGui::EndPopup();
+        if (ImGui::Button(std::to_string(i).c_str(), ImVec2(cell, cell)))
+            mask ^= (1u << i);
+        if (set)
+            ImGui::PopStyleColor(2);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Layer %u: %s", i, PhysicsLayerManager::GetLayerName(i).c_str());
+        ImGui::PopID();
     }
     ImGui::PopID();
 }
