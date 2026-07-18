@@ -62,6 +62,10 @@ public:
     UUID GetUUID() { return GetComponent<IDComponent>().ID; }
     UUID GetSceneUUID() const;
 
+    // The scene this handle belongs to (null for a default/invalid Entity). Lets
+    // the editor hand a reference picker the scene to enumerate entities from.
+    [[nodiscard]] Scene* GetScene() const { return m_Scene; }
+
     TransformComponent& Transform() { return GetComponent<TransformComponent>(); }
     const TransformComponent& Transform() const { return GetComponent<TransformComponent>(); }
 

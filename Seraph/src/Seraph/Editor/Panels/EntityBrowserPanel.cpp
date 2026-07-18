@@ -4,6 +4,7 @@
 
 #include "EntityBrowserPanel.h"
 
+#include "Seraph/Editor/EntityPayload.h"
 #include "Seraph/Scene/Components/IDComponent.h"
 #include "Seraph/Scene/Components/RelationshipComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
@@ -14,8 +15,6 @@
 
 namespace Seraph
 {
-
-static constexpr const char* k_DragPayloadType = "SP_ENTITY";
 
 EntityBrowserPanel::EntityBrowserPanel(Ref<Scene> scene)
 {
@@ -75,7 +74,7 @@ void EntityBrowserPanel::OnImGuiRender()
     ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, availY > 0.0f ? availY : 20.0f));
     if (ImGui::BeginDragDropTarget())
     {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(k_DragPayloadType))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(k_EntityPayloadType))
         {
             u64 droppedUUID = *static_cast<const u64*>(payload->Data);
             Entity dropped = m_Scene->TryGetEntityWithUUID(UUID(droppedUUID));
@@ -187,7 +186,7 @@ void EntityBrowserPanel::DrawEntityNode(Entity entity)
     // Drag source — entity UUID is the payload
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
     {
-        ImGui::SetDragDropPayload(k_DragPayloadType, &entityUUID, sizeof(u64));
+        ImGui::SetDragDropPayload(k_EntityPayloadType, &entityUUID, sizeof(u64));
         ImGui::Text("Move: %s", displayName.c_str());
         ImGui::EndDragDropSource();
     }
@@ -195,7 +194,7 @@ void EntityBrowserPanel::DrawEntityNode(Entity entity)
     // Drop target — reparent dragged entity onto this one
     if (ImGui::BeginDragDropTarget())
     {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(k_DragPayloadType))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(k_EntityPayloadType))
         {
             u64 droppedUUID = *static_cast<const u64*>(payload->Data);
             if (droppedUUID != entityUUID) // can't drop onto self

@@ -9,11 +9,13 @@
 #include "Seraph/Asset/AssetRef.h"
 #include "Seraph/Asset/EditorAssetManager.h"
 #include "Seraph/Core/Base.h"
+#include "Seraph/Editor/EntityPayload.h"
 #include "Seraph/Editor/PropertyDrawer.h"
 #include "Seraph/Reflection/Reflection.h"
 #include "Seraph/Reflection/TypeId.h"
 #include "Seraph/Scene/Scene.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
+#include "Seraph/Scene/Components/IDComponent.h"
 #include "Seraph/Graphics/SceneCamera.h"
 #include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
@@ -147,6 +149,56 @@ bool AssetPickerCombo(const char* label, AssetType filter, AssetHandle& current)
     return changed;
 }
 
+// Combo over every entity in `scene` (by tag) plus a leading "(none)", with an
+// SP_ENTITY drag-drop target so a hierarchy drag drops onto the slot. Backs the
+// entity-reference drawer. Returns true if `current` changed.
+bool EntityPickerCombo(const char* label, Scene* scene, UUID& current)
+{
+    if (!scene) {
+        ImGui::TextDisabled("%s: <no scene>", label);
+        return false;
+    }
+
+    const auto nameOf = [&](UUID id) -> std::string {
+        Entity e = scene->TryGetEntityWithUUID(id);
+        if (!e)
+            return std::to_string(static_cast<u64>(id)); // dangling reference
+        auto* tag = e.TryGetComponent<TagComponent>();
+        return (tag && !tag->Tag.empty()) ? tag->Tag : "(unnamed)";
+    };
+    const std::string preview =
+        static_cast<u64>(current) == 0 ? "(none)" : nameOf(current);
+
+    bool changed = false;
+    if (ImGui::BeginCombo(label, preview.c_str())) {
+        if (ImGui::Selectable("(none)", static_cast<u64>(current) == 0)) {
+            current = UUID(0);
+            changed = true;
+        }
+        auto view = scene->GetAllEntitiesWith<IDComponent>();
+        for (auto [handle, id] : view.each()) {
+            ImGui::PushID(static_cast<int>(static_cast<u64>(id.ID)));
+            const bool selected = static_cast<u64>(id.ID) == static_cast<u64>(current);
+            if (ImGui::Selectable(nameOf(id.ID).c_str(), selected)) {
+                current = id.ID;
+                changed = true;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+
+    // Drop target on the combo control: accept an entity dragged from the browser.
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(k_EntityPayloadType)) {
+            current = UUID(*static_cast<const u64*>(p->Data));
+            changed = true;
+        }
+        ImGui::EndDragDropTarget();
+    }
+    return changed;
+}
+
 // Wire the editor-side PropertyDrawer customizations the reflection-driven
 // inspector depends on (Reflection v3.6). Called once, lazily, before the first
 // draw. Registration only stores closures — the asset manager is touched at draw
@@ -175,6 +227,42 @@ void RegisterInspectorCustomizations()
     PropertyDrawer::RegisterCustom(TypeIdOf<UUID>(), assetPicker);
     PropertyDrawer::RegisterVariant("assetPicker", assetPicker);
 
+    // Unified reference drawer (TypeKind::Reference) — draws EntityRef and every
+    // TAssetRef<T> alike. It reads the reference Type's own attributes to pick the
+    // widget: an entity dropdown (editor.reference == "entity", entities sourced
+    // from ContextScene) or an asset picker filtered by editor.assettype. This is
+    // where "the more specific the C++ type, the tighter the picker" lands.
+    PropertyDrawer::SetReferenceDrawer(
+        [](const char* label, Any& value, const Type* refType,
+           const AttributeSet&) -> bool {
+            const UUID* cur = value.Cast<UUID>();
+            if (!cur || !refType)
+                return false;
+
+            const std::string* kind =
+                refType->Attrs.Get<std::string>(Editor::Attr::Reference);
+            if (kind && *kind == "entity") {
+                UUID id = *cur;
+                if (EntityPickerCombo(label, PropertyDrawer::ContextScene(), id)) {
+                    value = Any(id);
+                    return true;
+                }
+                return false;
+            }
+
+            // Asset reference: filter by the type's editor.assettype (absent = all).
+            AssetType filter = AssetType::None;
+            if (const std::string* t =
+                    refType->Attrs.Get<std::string>(Editor::Attr::AssetTypeFilter))
+                filter = AssetTypeFromString(*t);
+            AssetHandle handle = *cur;
+            if (AssetPickerCombo(label, filter, handle)) {
+                value = Any(handle); // AssetHandle == UUID
+                return true;
+            }
+            return false;
+        });
+
     // Camera projection type is reflected as a string ("Perspective"/"Orthographic")
     // for the scene format — draw it as a two-entry dropdown instead of a text box.
     PropertyDrawer::RegisterVariant(
@@ -201,11 +289,12 @@ void RegisterInspectorCustomizations()
             auto* mc = static_cast<MeshComponent*>(obj);
             bool changed = false;
 
-            AssetHandle mesh = mc->GetMeshHandle();
-            if (AssetPickerCombo("Mesh", AssetType::Mesh, mesh)) {
-                mc->SetMeshHandle(mesh);
-                changed = true;
-            }
+            // Mesh slot: draw the reflected TAssetRef<Mesh> property. The reference
+            // drawer picks an asset picker filtered to meshes — the filter comes
+            // from the field's type, not a hard-coded AssetType passed here.
+            if (const Property* meshProp =
+                    Reflection::Get<MeshComponent>().FindProperty("Mesh"))
+                changed |= PropertyDrawer::DrawProperty(mc, *meshProp);
 
             if (mc->Mesh) {
                 ImGui::TextUnformatted(
@@ -214,7 +303,7 @@ void RegisterInspectorCustomizations()
 
                 // Per-slot material assignment. A null (default) selection resolves
                 // to the mesh's baked slot default, then the engine default.
-                if (Ref<Mesh> loaded = mc->Mesh.As<Mesh>()) {
+                if (Ref<Mesh> loaded = mc->Mesh.As()) {
                     const u32 slots = loaded->MaterialSlotCount();
                     ImGui::TextUnformatted("Materials");
                     for (u32 slot = 0; slot < slots; ++slot) {
@@ -340,6 +429,10 @@ void EntityInspectorPanel::OnImGuiRender()
         ImGui::End();
         return;
     }
+
+    // Hand the reference drawer the scene to enumerate for entity pickers. The
+    // selected entity belongs to whichever scene is active (edit or play).
+    PropertyDrawer::SetContextScene(m_SelectedEntity.GetScene());
 
     DrawTagComponent();
     ImGui::Spacing();
@@ -653,7 +746,7 @@ void EntityInspectorPanel::DrawAddComponentMenu()
                     AssetHandle handle = assets->SaveAssetAs(mesh, relativePath);
                     if (static_cast<u64>(handle) == c_NullAssetHandle)
                         return;
-                    m_SelectedEntity.AddComponent<MeshComponent>().Mesh = AssetRef{handle};
+                    m_SelectedEntity.AddComponent<MeshComponent>().Mesh = handle;
                     ImGui::CloseCurrentPopup();
                 };
 

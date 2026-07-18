@@ -36,6 +36,19 @@ std::unordered_map<TypeId, PropertyDrawer::ObjectDrawFn>& ObjectCustomByType()
     return s;
 }
 
+// The single handler for all reference types (set by the editor), plus the scene
+// it enumerates entities from. Function-local statics: init-order safe.
+PropertyDrawer::ReferenceDrawFn& ReferenceDrawer()
+{
+    static PropertyDrawer::ReferenceDrawFn s;
+    return s;
+}
+Scene*& ContextSceneSlot()
+{
+    static Scene* s = nullptr;
+    return s;
+}
+
 
 // Drag/slider for a scalar type T. Slider when both Min+Max present, else drag
 // (Step drives drag speed). Mutates `value` + returns true on change.
@@ -98,6 +111,21 @@ void PropertyDrawer::RegisterObjectCustom(TypeId type, ObjectDrawFn fn)
     ObjectCustomByType()[type] = std::move(fn);
 }
 
+void PropertyDrawer::SetReferenceDrawer(ReferenceDrawFn fn)
+{
+    ReferenceDrawer() = std::move(fn);
+}
+
+void PropertyDrawer::SetContextScene(Scene* scene)
+{
+    ContextSceneSlot() = scene;
+}
+
+Scene* PropertyDrawer::ContextScene()
+{
+    return ContextSceneSlot();
+}
+
 bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
                                const AttributeSet& attrs)
 {
@@ -119,6 +147,18 @@ bool PropertyDrawer::DrawValue(const char* label, Any& value, const Type* type,
         auto& byType = CustomByType();
         if (auto it = byType.find(type->Id); it != byType.end())
             return it->second(label, value, attrs);
+    }
+
+    // Reference dispatch (EntityRef / TAssetRef<T>): the value is the target's
+    // UUID; the single registered reference handler reads refType's attributes to
+    // pick an entity or asset picker. Placed after the custom-by-type check so a
+    // specific override still wins.
+    if (type->Kind == TypeKind::Reference)
+    {
+        if (const ReferenceDrawFn& refFn = ReferenceDrawer(); refFn)
+            return refFn(label, value, type, attrs);
+        ImGui::TextDisabled("%s: <reference>", label); // no handler registered
+        return false;
     }
 
     const TypeId id = type->Id;

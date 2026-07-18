@@ -18,6 +18,8 @@
 namespace Seraph
 {
 
+class Scene; // forward decl — the drawer only stores/returns the pointer
+
 // Editor-domain reflection attribute keys (read by PropertyDrawer). Distinct from
 // Settings/Serialize domains — each domain owns its own keys (reflection ships
 // none). See Todo/plans/reflection-plan.md example D.
@@ -42,6 +44,13 @@ inline constexpr u64 EditConditionHides = AttributeKey("editor.editconditionhide
 // Absent -> the picker lists every asset type. Read by the editor's "assetPicker"
 // widget; reflection itself stays free of any Asset dependency.
 inline constexpr u64 AssetTypeFilter = AttributeKey("editor.assettype");
+
+// Marks a reflected reference Type (TypeKind::Reference) as an ENTITY reference
+// (value "entity") rather than an asset reference. Set on the type by EntityRef's
+// registration; read by the editor's reference drawer to choose an entity picker
+// over an asset picker. Absent on a reference Type -> treated as an asset ref
+// (filtered by AssetTypeFilter). See Reflection/Reference.h.
+inline constexpr u64 Reference = AttributeKey("editor.reference");
 
 // Explicit human-readable label for a property, overriding the automatic
 // name humanizer (Unreal meta=(DisplayName=...)). Value is a std::string.
@@ -71,6 +80,23 @@ public:
     // MeshComponent's per-slot material combos read the loaded mesh's slot count).
     using ObjectDrawFn = std::function<bool(void* obj)>;
     static void RegisterObjectCustom(TypeId type, ObjectDrawFn fn);
+
+    // Reference dispatch (TypeKind::Reference — EntityRef / TAssetRef<T>). One
+    // handler draws every reference: `idValue` is the target's UUID (mutated in
+    // place), `refType` is the reflected reference Type whose attributes
+    // (editor.reference / editor.assettype) select entity-vs-asset and the filter.
+    // The handler reads the entity list from ContextScene(). Registered once by
+    // the editor; see EntityInspectorPanel::RegisterInspectorCustomizations.
+    using ReferenceDrawFn = std::function<bool(const char* label, Any& idValue,
+                                               const Type* refType,
+                                               const AttributeSet& attrs)>;
+    static void SetReferenceDrawer(ReferenceDrawFn fn);
+
+    // The scene whose entities an entity-reference picker enumerates. Set by the
+    // inspector each frame before drawing; read by the reference handler. Null
+    // when nothing is being inspected.
+    static void SetContextScene(Scene* scene);
+    [[nodiscard]] static Scene* ContextScene();
 
     // Draw one editable value. Dispatch order: named variant (Editor::Attr::Widget)
     // -> type customization (RegisterCustom) -> built-in switch. `value` is mutated
