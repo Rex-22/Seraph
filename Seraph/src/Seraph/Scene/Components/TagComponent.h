@@ -4,13 +4,16 @@
 
 #pragma once
 
+#include "Seraph/Reflection/Annotations.h"
+
 #include <string>
 
 namespace Seraph
 {
 
-struct TagComponent
+struct SCLASS() TagComponent
 {
+    SPROPERTY()
     std::string Tag;
 };
 
