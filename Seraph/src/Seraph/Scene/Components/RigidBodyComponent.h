@@ -23,8 +23,15 @@ struct SCLASS() RigidBodyComponent
     SPROPERTY(settings.display = "Body Type", serialize.key = "BodyType")
     BodyType Type = BodyType::Static;
 
-    SPROPERTY(settings.flags = 2u) // Hidden from inspector; still serialized
-    u32 LayerID = 0; // index into PhysicsLayerManager (0 = Static by default)
+    // Godot-style collision bitmasks. Drawn bespoke as a layer-bit grid in the
+    // inspector (settings.flags = 2u hides them from the generic drawer); still
+    // reflected + serialized. Two bodies collide iff
+    // (A.CollisionLayer & B.CollisionMask) && (B.CollisionLayer & A.CollisionMask).
+    SPROPERTY(settings.flags = 2u)
+    u32 CollisionLayer = 1; // bitmask of layers this body occupies
+
+    SPROPERTY(settings.flags = 2u)
+    u32 CollisionMask = 1; // bitmask of layers this body scans for collisions
 
     SPROPERTY(settings.min = 0.0f)
     float Mass = 1.0f;

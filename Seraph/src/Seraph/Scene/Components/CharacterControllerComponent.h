@@ -34,11 +34,14 @@ struct SCLASS() CharacterControllerComponent
     SPROPERTY(settings.display = "Air Control")
     bool ControlMovementInAir = true; // if false, horizontal velocity is locked while airborne
 
-    SPROPERTY(settings.flags = 2u) // Hidden from inspector; still serialized
-    // Collision layer (index into PhysicsLayerManager). Defaults to Moving (1),
-    // NOT Static (0): Static-vs-Static never collides, so a character on layer 0
-    // would fall through the static world.
-    u32 LayerID = 1;
+    // Godot-style collision bitmasks (drawn bespoke as a layer-bit grid; hidden
+    // from the generic drawer via settings.flags = 2u but still serialized). Two
+    // bodies collide iff (A.Layer & B.Mask) && (B.Layer & A.Mask).
+    SPROPERTY(settings.flags = 2u)
+    u32 CollisionLayer = 1; // bitmask of layers this character occupies
+
+    SPROPERTY(settings.flags = 2u)
+    u32 CollisionMask = 1; // bitmask of layers this character scans for collisions
 
     CharacterControllerComponent() = default;
     CharacterControllerComponent(const CharacterControllerComponent&) = default;
