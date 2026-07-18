@@ -3,7 +3,7 @@
     "kanban-md": {
       "command": "kanban-md-mcp",
       "env": {
-        "KANBAN_MD_BOARDS_FOLDER": "/Users/ruben/Workspace/Seraph/Todo"
+        "KANBAN_MD_BOARDS_FOLDER": "/home/ruben/Workspace/Seraph/Todo"
       }
     }
   }
