@@ -351,7 +351,10 @@ public:
         static_assert(std::is_base_of_v<TBase, T>,
                       "Base<TBase>(): T must derive from TBase");
         const Type* base = Reflection::Resolve(TypeIdOf<TBase>());
-        SP_CORE_ASSERT(base,
+        // VERIFY (not ASSERT): a missing base is spliced through in Commit()
+        // (m_Base->Properties), so it must trap even in release rather than let
+        // SP_CORE_ASSERT compile out into a null deref at commit time.
+        SP_CORE_VERIFY(base,
                        "Base '{}' must be registered before derived '{}'",
                        TypeName<TBase>(), TypeName<T>());
         m_Base = base;

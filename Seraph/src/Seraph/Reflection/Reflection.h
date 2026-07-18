@@ -46,12 +46,15 @@ public:
         return Resolve(TypeIdOf<T>());
     }
 
-    // By static type; asserts if T is not registered.
+    // By static type; verifies (loud even in release) if T is not registered —
+    // callers that can tolerate absence use TryGet(). Get() returns a reference,
+    // so an unregistered T has no valid result: SP_CORE_VERIFY traps deterministically
+    // rather than dereferencing null (SP_CORE_ASSERT compiles out in release).
     template<class T>
     static const Type& Get()
     {
         const Type* t = Resolve(TypeIdOf<T>());
-        SP_CORE_ASSERT(t, "Reflection::Get<T>(): '{}' is not registered",
+        SP_CORE_VERIFY(t, "Reflection::Get<T>(): '{}' is not registered",
                        TypeName<T>());
         return *t;
     }

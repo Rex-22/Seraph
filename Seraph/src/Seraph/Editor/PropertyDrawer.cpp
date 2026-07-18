@@ -56,7 +56,10 @@ template<class T>
 bool DrawScalar(const char* label, Any& value, const AttributeSet& attrs,
                 ImGuiDataType dt)
 {
-    T v = *value.Cast<T>();
+    const T* cur = value.Cast<T>();
+    if (!cur) // Any doesn't hold a T — draw nothing rather than deref null.
+        return false;
+    T v = *cur;
     const T* mn = attrs.Get<T>(Setting::Attr::Min);
     const T* mx = attrs.Get<T>(Setting::Attr::Max);
     bool changed;
@@ -81,7 +84,10 @@ template<class V>
 bool DrawVec(const char* label, Any& value, const AttributeSet& attrs, int n,
              bool colorCapable)
 {
-    V v = *value.Cast<V>();
+    const V* cur = value.Cast<V>();
+    if (!cur) // Any doesn't hold a V — draw nothing rather than deref null.
+        return false;
+    V v = *cur;
     bool color = colorCapable && attrs.Has(Setting::Attr::Color);
     bool changed;
     if (color)

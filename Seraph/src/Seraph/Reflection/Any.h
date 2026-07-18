@@ -138,13 +138,16 @@ public:
     [[nodiscard]] TypeId GetTypeId() const noexcept { return m_TypeId; }
 
     // The resolved reflected type. Resolves lazily against the registry on first
-    // call (cached). Asserts if the held type is not registered — the TypeId
-    // path (Cast/Is) works regardless.
+    // call (cached). Verifies (loud even in release) if the held type is not
+    // registered — GetType() returns a reference, so there is no valid result to
+    // fall back to; SP_CORE_VERIFY traps deterministically instead of dereferencing
+    // null (SP_CORE_ASSERT compiles out in release). The TypeId path (Cast/Is)
+    // works regardless and is the no-throw way to probe an unregistered value.
     [[nodiscard]] const Type& GetType() const
     {
         if (!m_Type && m_TypeId != 0)
             m_Type = Detail::ResolveTypeById(m_TypeId);
-        SP_CORE_ASSERT(m_Type != nullptr,
+        SP_CORE_VERIFY(m_Type != nullptr,
                        "Any::GetType(): held type is not registered");
         return *m_Type;
     }
