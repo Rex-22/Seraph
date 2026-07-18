@@ -24,6 +24,9 @@ Assets:
   - Handle: 9201136865809239182
     Type: Material
     FilePath: materials/Material_2.smaterial
+  - Handle: 13208420419412690307
+    Type: Shader
+    FilePath: shaders/Shader_1.sshader
   - Handle: 15603322866813599139
     Type: MaterialInstance
     FilePath: materials/MaterialInstance_0.smatinst
