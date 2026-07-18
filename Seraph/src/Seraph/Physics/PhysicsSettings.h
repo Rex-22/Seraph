@@ -29,6 +29,9 @@ public:
     // Reset the layer names to their defaults.
     static void InitDefaults();
 
+    // Canonical default name for a layer (stateless — usable before InitDefaults).
+    static std::string DefaultLayerName(u32 index);
+
     static const std::string& GetLayerName(u32 index);
     static void SetLayerName(u32 index, const std::string& name);
     static bool IsValidLayerIndex(u32 index) { return index < LayerCount; }

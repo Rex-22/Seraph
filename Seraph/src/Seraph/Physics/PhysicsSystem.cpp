@@ -127,6 +127,21 @@ void PhysicsSystem::RegisterSettings()
     Settings::Register("engine.physics.velocitySolverIterations")
         .Bind(&s.VelocitySolverIterations).Scope(SettingScope::Project)
         .Section("Physics").Display("Velocity Solver Iterations").Min(1u).Max(64u);
+
+    // Editable names for the 32 collision layers (Godot-style). Bound to the
+    // process-global name registry via get/set so edits + persistence flow through
+    // PhysicsLayerManager. Collision itself is per-body (CollisionLayer/Mask).
+    for (u32 i = 0; i < PhysicsLayerManager::LayerCount; ++i)
+    {
+        Settings::Register("engine.physics.layerName." + std::to_string(i))
+            .Bind<std::string>(
+                [i] { return PhysicsLayerManager::GetLayerName(i); },
+                [i](std::string v) { PhysicsLayerManager::SetLayerName(i, v); })
+            .Default(PhysicsLayerManager::DefaultLayerName(i))
+            .Scope(SettingScope::Project)
+            .Section("Physics Layers")
+            .Display("Layer " + std::to_string(i));
+    }
 }
 
 Ref<PhysicsScene> PhysicsSystem::CreateScene(Scene* scene)

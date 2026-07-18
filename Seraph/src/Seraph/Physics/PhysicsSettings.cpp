@@ -17,20 +17,21 @@ std::array<std::string, PhysicsLayerManager::LayerCount> PhysicsLayerManager::s_
 
 void PhysicsLayerManager::InitDefaults()
 {
+    for (u32 i = 0; i < LayerCount; ++i)
+        s_LayerNames[i] = DefaultLayerName(i);
+}
+
+std::string PhysicsLayerManager::DefaultLayerName(u32 index)
+{
     // A few useful named slots; the rest are "Layer N". Names are just editor
     // labels — collision is decided by each body's CollisionLayer/CollisionMask.
     static const char* const kDefaults[] = {
         "Default", "Static", "Player", "Enemy", "Environment", "Trigger",
         "Projectile", "Interactable",
     };
-
-    for (u32 i = 0; i < LayerCount; ++i)
-    {
-        if (i < std::size(kDefaults))
-            s_LayerNames[i] = kDefaults[i];
-        else
-            s_LayerNames[i] = "Layer " + std::to_string(i);
-    }
+    if (index < std::size(kDefaults))
+        return kDefaults[index];
+    return "Layer " + std::to_string(index);
 }
 
 const std::string& PhysicsLayerManager::GetLayerName(u32 index)
