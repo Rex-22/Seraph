@@ -11,8 +11,11 @@ file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
 # libGame: this project's native C++ gameplay scripts. Loaded at runtime by the
-# editor/runtime via SDL_LoadObject (NOT linked into them); its SP_REGISTER_SCRIPT
-# initializers register into libSeraph's ScriptRegistry on load.
+# editor/runtime via SDL_LoadObject (NOT linked into them). Its scripts and their
+# generated reflection registrations (see sht_reflect_glob below) self-register on
+# load — into libSeraph's reflection registry under the Game module scope — which is
+# what makes them known to the editor + scene serialization. (Historically this was
+# ScriptRegistry via SP_REGISTER_SCRIPT; that was replaced by reflection.)
 add_library(Game SHARED ${GAME_SOURCES})
 target_link_libraries(Game PRIVATE Seraph::Seraph)
 

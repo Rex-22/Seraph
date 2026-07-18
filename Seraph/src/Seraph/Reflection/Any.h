@@ -90,10 +90,14 @@ public:
 
     Any& operator=(const Any& other)
     {
+        // Copy-and-move for strong exception safety: build the copy FIRST (may
+        // throw — heap alloc / a throwing copy ctor of a heap-spilled value), and
+        // only then commit via the noexcept move-assign. The previous
+        // Reset()-then-CopyFrom order left *this empty if the copy threw.
         if (this != &other)
         {
-            Reset();
-            CopyFrom(other);
+            Any tmp(other);
+            *this = std::move(tmp);
         }
         return *this;
     }

@@ -30,6 +30,10 @@ if(NOT DEFINED SERAPH_LIBCLANG_LIBRARY OR SERAPH_LIBCLANG_LIBRARY STREQUAL "")
             /usr/local/opt/llvm/lib
             /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib
             /Library/Developer/CommandLineTools/usr/lib
+            /usr/lib/llvm-22/lib
+            /usr/lib/llvm-21/lib
+            /usr/lib/llvm-20/lib
+            /usr/lib/llvm-19/lib
             /usr/lib/llvm-18/lib
             /usr/lib/llvm-17/lib
             /usr/lib
