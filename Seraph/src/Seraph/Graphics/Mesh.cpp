@@ -4,12 +4,24 @@
 
 #include "Mesh.h"
 
+#include "Seraph/Asset/AssetRef.h"
 #include "Seraph/Core/Log.h"
 
 #include <cstring>
 
 namespace Seraph
 {
+
+namespace
+{
+// Register TAssetRef<Mesh> as a reference type filtered to AssetType::Mesh, so a
+// field declared TAssetRef<Mesh> draws a mesh-only asset picker. Done here where
+// Mesh is a complete type (RegisterAssetRefType<Mesh>() reads Mesh::GetStaticType()).
+const bool k_MeshAssetRefReflected = [] {
+    RegisterAssetRefType<Mesh>();
+    return true;
+}();
+} // namespace
 
 Mesh::~Mesh()
 {
