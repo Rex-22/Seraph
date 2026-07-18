@@ -141,11 +141,40 @@ std::vector<std::pair<std::string, std::string>> SplitAttrs(const std::string& p
         else
             out.push_back({Trim(part.substr(0, eq)), Trim(part.substr(eq + 1))});
     };
+    int braceDepth = 0; // commas inside {...} initializer lists are not separators
+    bool escaped = false;
     for (char c : p)
     {
+        if (inStr)
+        {
+            // Inside a string literal: a backslash escapes the next char, so an
+            // escaped quote (\") does not close the string.
+            if (escaped)
+                escaped = false;
+            else if (c == '\\')
+                escaped = true;
+            else if (c == '"')
+                inStr = false;
+            cur.push_back(c);
+            continue;
+        }
         if (c == '"')
-            inStr = !inStr;
-        if (c == ',' && !inStr)
+        {
+            inStr = true;
+            cur.push_back(c);
+        }
+        else if (c == '{' || c == '(' || c == '[')
+        {
+            ++braceDepth;
+            cur.push_back(c);
+        }
+        else if (c == '}' || c == ')' || c == ']')
+        {
+            if (braceDepth > 0)
+                --braceDepth;
+            cur.push_back(c);
+        }
+        else if (c == ',' && braceDepth == 0)
             flush();
         else
             cur.push_back(c);
@@ -267,6 +296,26 @@ CXChildVisitResult VisitRecordMember(CXCursor c, CXCursor, CXClientData data)
                 prop.Name.c_str());
             ++type->Errors;
             return CXChildVisit_Continue;
+        }
+
+        // A reference member cannot back a pointer-to-member (&T::ref is ill-formed),
+        // so emitting .Property<&T::ref> would fail to COMPILE in the .gen.cpp with a
+        // confusing error. Reject it here with a clean file:line instead. Accessor
+        // properties are exempt — they bind getter/setter functions, not a field.
+        if (!prop.IsAccessor())
+        {
+            CXType ft = clang_getCursorType(c);
+            if (ft.kind == CXType_LValueReference
+                || ft.kind == CXType_RValueReference)
+            {
+                std::fprintf(stderr,
+                    "%s:%u:%u: error: SPROPERTY on reference member '%s' is "
+                    "unsupported (use a getter/setter accessor instead)\n",
+                    prop.Loc.File.c_str(), prop.Loc.Line, prop.Loc.Col,
+                    prop.Name.c_str());
+                ++type->Errors;
+                return CXChildVisit_Continue;
+            }
         }
 
         type->Properties.push_back(prop);
