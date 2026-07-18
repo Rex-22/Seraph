@@ -138,20 +138,30 @@ endfunction()
 
 # sht_reflect_glob(<target> DIRS <dir> [<dir> ...])
 #
-# Auto-discover annotated headers instead of listing them by hand: recursively
-# glob *.h under each DIR, keep only headers that actually contain an SHT
-# annotation macro (a cheap configure-time content scan), and hand the survivors
-# to sht_reflect. This removes the "annotated a header but forgot to add it to
-# the HEADERS list -> silently not reflected" footgun.
+# Wire a reflection gen step for EVERY header under each DIR — not just the ones
+# that happen to be annotated at configure time. The tool itself decides per
+# header at BUILD time whether there is anything to reflect: a header with no
+# SCLASS/SPROPERTY/SENUM macro use is fast-skipped (a cheap text scan, no libclang)
+# and emits an empty .gen.cpp; only annotated headers pay the libclang parse cost.
 #
-# Reconfigure semantics: CONFIGURE_DEPENDS re-globs on build so a brand-new file
-# is noticed, but the content filter runs at CONFIGURE time — so ADDING an
-# annotation to an existing header needs a reconfigure to be picked up (same cost
-# as adding any new source). Annotations.h (which DEFINES the macros) is excluded.
+# Why this shape: CMake fixes a target's source list at CONFIGURE time. If the
+# header set were filtered by content at configure time (the old behavior), then
+# ADDING an annotation to an existing header would need a manual reconfigure to be
+# picked up. By giving every header a gen step, adding an annotation is picked up
+# by a plain BUILD (the header changed -> its gen command reruns -> the tool now
+# sees the annotation and emits registrations). No command, no reconfigure.
+#
+# Performance: the per-header text pre-scan is negligible; empty .gen.cpp stubs
+# compile in milliseconds; only genuinely annotated headers invoke libclang, and
+# the DEPFILE means a shared-header edit only reruns the gen steps that include it.
+#
+# CONFIGURE_DEPENDS still re-globs on build so a brand-NEW file (one that did not
+# exist at configure) triggers a reconfigure — unavoidable, since CMake cannot add
+# a source it has never seen. Annotations.h (which DEFINES the macros) is excluded.
 function(sht_reflect_glob target)
     cmake_parse_arguments(SHTG "" "" "DIRS" ${ARGN})
 
-    set(_annotated "")
+    set(_headers "")
     foreach(_dir ${SHTG_DIRS})
         file(GLOB_RECURSE _candidates CONFIGURE_DEPENDS "${_dir}/*.h")
         foreach(_h ${_candidates})
@@ -159,21 +169,13 @@ function(sht_reflect_glob target)
             if(_name STREQUAL "Annotations.h")
                 continue() # defines the macros; never a reflection subject
             endif()
-            # Match a macro USE: the macro name followed by '(' but NOT preceded
-            # by '#define '. file(STRINGS REGEX) is line-based; exclude #define
-            # lines by requiring no '#' before the macro on the line.
-            file(STRINGS "${_h}" _hit
-                REGEX "^[^#]*S(CLASS|PROPERTY|ENUM|FUNCTION)[ \t]*\\("
-                LIMIT_COUNT 1)
-            if(_hit)
-                list(APPEND _annotated "${_h}")
-            endif()
+            list(APPEND _headers "${_h}")
         endforeach()
     endforeach()
 
-    list(LENGTH _annotated _count)
-    message(STATUS "SHT: ${_count} annotated header(s) auto-discovered for ${target}")
-    if(_annotated)
-        sht_reflect(${target} HEADERS ${_annotated})
+    list(LENGTH _headers _count)
+    message(STATUS "SHT: ${_count} header(s) wired for reflection codegen for ${target}")
+    if(_headers)
+        sht_reflect(${target} HEADERS ${_headers})
     endif()
 endfunction()
