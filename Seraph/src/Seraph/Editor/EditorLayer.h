@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "Seraph/Console/ConsolePanel.h"
 #include "Seraph/Core/Layer.h"
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Editor/EditorCamera.h"
@@ -127,6 +128,7 @@ private:
     MaterialEditorPanel  m_MaterialEditor;
     AssetBrowserPanel    m_AssetBrowser;
     SettingsPanel        m_SettingsPanel;
+    ConsolePanel         m_ConsolePanel;
     EditorGizmo          m_Gizmo;
     RenderTarget         m_RenderTarget;
     EntityPicker         m_Picker;

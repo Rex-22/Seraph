@@ -160,8 +160,19 @@ void EditorLayer::OnEvent(Event& e)
             m_PendingRuntimeToggle = true;
             return true;
         }
+        if (!key.IsRepeat() && key.KeyCode() == Key::Grave) // backtick toggles console
+        {
+            m_ConsolePanel.Toggle();
+            return true;
+        }
         return false;
     });
+
+    // While the console is open it owns the keyboard: keep key events out of the
+    // camera and the running game (ImGui still feeds the console input box, since
+    // it processes SDL input directly, not through this event path).
+    if (m_ConsolePanel.IsOpen() && e.IsInCategory(EventCategoryKeyboard))
+        return;
 
     if (m_RuntimeMode)
         ActiveScene()->OnEvent(e);
@@ -233,6 +244,7 @@ void EditorLayer::DrawMenuBar()
         ImGui::MenuItem("Physics Colliders", nullptr,
             &m_SceneRenderer->GetSettings().ShowPhysicsColliders);
         ImGui::MenuItem("Settings", nullptr, m_SettingsPanel.OpenFlag());
+        ImGui::MenuItem("Console", "`", m_ConsolePanel.OpenFlag());
         ImGui::EndMenu();
     }
 
@@ -629,6 +641,14 @@ void EditorLayer::OnImGuiRender()
         }
         m_ViewportPanel.End();
 
+        // Pin the command console to the viewport rect (it is rendered below, so
+        // it works in both edit and play-in-editor modes).
+        {
+            const ImVec2 vpPos  = m_ViewportPanel.GetContentPos();
+            const ImVec2 vpSize = m_ViewportPanel.GetContentSize();
+            m_ConsolePanel.SetViewportRect(vpPos.x, vpPos.y, vpSize.x, vpSize.y);
+        }
+
         // An asset dropped onto the viewport spawns an entity in the scene.
         AssetHandle droppedAsset;
         if (m_ViewportPanel.ConsumeDroppedAsset(droppedAsset))
@@ -661,6 +681,16 @@ void EditorLayer::OnImGuiRender()
             m_EditorScene->SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
         }
     }
+    else
+    {
+        // Play-in-editor renders the scene fullscreen to the backbuffer (no
+        // viewport panel), so the console anchors to the whole viewport — a zero
+        // rect makes it fall back to the main viewport.
+        m_ConsolePanel.SetViewportRect(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    // The command console overlays the viewport in both edit and play modes.
+    m_ConsolePanel.OnImGuiRender();
 }
 
 void EditorLayer::EnterRuntime()

@@ -1,9 +1,12 @@
 #include "RuntimeLayer.h"
 
 #include "Platform/Window.h"
+#include "Seraph/Console/Console.h"
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Core.h"
+#include "Seraph/Core/KeyCodes.h"
 #include "Seraph/Core/Log.h"
+#include "Seraph/Events/KeyEvent.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Entity.h"
 
@@ -41,6 +44,10 @@ void RuntimeLayer::OnAttach()
     // Standalone play: the loaded scene IS the runtime scene (no editor copy),
     // so build the physics world and create bodies up front.
     m_Scene->OnRuntimeStart();
+
+    // A shipped runtime starts with cheats disabled (cheat CVars/commands locked
+    // until the player runs `cheats 1`), regardless of dev/dist build.
+    Console::SetCheatsEnabled(false);
 }
 
 void RuntimeLayer::OnDetach()
@@ -61,8 +68,28 @@ void RuntimeLayer::OnUpdate(f64 dt)
     m_Scene->OnRenderRuntime(m_SceneRenderer);
 }
 
+void RuntimeLayer::OnImGuiRender()
+{
+    m_ConsolePanel.OnImGuiRender();
+}
+
 void RuntimeLayer::OnEvent(Event& e)
 {
+    EventDispatcher dispatcher(e);
+    dispatcher.Dispatch<KeyPressedEvent>([this](KeyPressedEvent& key) -> bool
+    {
+        if (!key.IsRepeat() && key.KeyCode() == Key::Grave) // backtick toggles console
+        {
+            m_ConsolePanel.Toggle();
+            return true;
+        }
+        return false;
+    });
+
+    // The open console owns the keyboard (ImGui still feeds its input box).
+    if (m_ConsolePanel.IsOpen() && e.IsInCategory(EventCategoryKeyboard))
+        return;
+
     m_Scene->OnEvent(e);
 }
 

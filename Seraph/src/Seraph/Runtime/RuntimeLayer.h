@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "Seraph/Console/ConsolePanel.h"
 #include "Seraph/Core/Layer.h"
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Graphics/SceneRenderer.h"
@@ -23,6 +24,7 @@ public:
     void OnAttach() override;
     void OnDetach() override;
     void OnUpdate(f64 dt) override;
+    void OnImGuiRender() override;
     void OnEvent(Event& e) override;
 
 private:
@@ -32,6 +34,7 @@ private:
 
     Ref<Scene>         m_Scene;
     Ref<SceneRenderer> m_SceneRenderer;
+    ConsolePanel       m_ConsolePanel;
 };
 
 } // namespace Seraph

@@ -6,6 +6,7 @@
 
 #include "Base.h"
 #include "Application.h"
+#include "Seraph/Console/Console.h"
 #include "Seraph/Core/CommandLine.h"
 #include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
@@ -32,6 +33,9 @@ int main(int argc, char** argv)
     Seraph::Settings::Init();
     Seraph::PhysicsSystem::RegisterSettings();
     Seraph::Settings::LoadEngineUser();
+    // Flush pending AutoCVar registrations + enable the dev console. After
+    // LoadEngineUser so archived CVar values are already applied to their fields.
+    Seraph::Console::Init();
     // Process-global Jolt state; must outlive any scene that creates bodies.
     Seraph::PhysicsSystem::Init();
 
@@ -40,6 +44,7 @@ int main(int argc, char** argv)
 
     delete app;
 
+    Seraph::Console::Shutdown();
     // Save dirty scopes before the filesystem goes away.
     Seraph::Settings::Shutdown();
     Seraph::PhysicsSystem::Shutdown();
