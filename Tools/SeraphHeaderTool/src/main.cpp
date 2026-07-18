@@ -363,6 +363,22 @@ void EmitProperty(std::ofstream& os, const TypeInfo& t, const PropertyInfo& p)
 // Returns false on a loud failure (already reported).
 bool EmitType(std::ofstream& os, const TypeInfo& t)
 {
+    // Drift guard: any per-member error recorded during the walk (e.g. an
+    // SPROPERTY on a bitfield, which is skipped in VisitRecordMember) means the
+    // emitted registration would be INCOMPLETE — fewer properties than annotations.
+    // Fail here rather than emit a partial type + a misleading "success" line and
+    // rely on a late exit code. The specific errors were already reported at their
+    // file:line when recorded.
+    if (t.Errors > 0)
+    {
+        std::fprintf(stderr,
+                     "%s:%u:%u: error: '%s' has %d unsupported annotated "
+                     "member(s); refusing to emit an incomplete registration\n",
+                     t.Loc.File.c_str(), t.Loc.Line, t.Loc.Col,
+                     t.QualName.c_str(), t.Errors);
+        return false;
+    }
+
     if (t.Kind == "enum")
     {
         os << "SP_REFLECT_ENUM(" << t.EnumQual << ")\n";
@@ -699,6 +715,9 @@ int main(int argc, char** argv)
     }
     else if (!Emit(types, outPath, includePath))
     {
+        // Remove the partial/stale .gen.cpp so a failed generation never leaves a
+        // half-written artifact that a later build might treat as up-to-date.
+        std::remove(outPath.c_str());
         rc = 1;
     }
     else if (!depPath.empty())
