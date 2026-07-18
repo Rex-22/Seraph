@@ -43,6 +43,8 @@ public:
     [[nodiscard]] const Seraph::Window& Window() const;
     [[nodiscard]] const ApplicationSpecification& Specification() const { return m_Specification; }
     void Run();
+    // Request a graceful shutdown: the run loop exits after the current frame.
+    void Close() { m_Running = false; }
 
     void PushLayer(Ref<Layer> layer);
     void PushOverlay(Ref<Layer> overlay);
