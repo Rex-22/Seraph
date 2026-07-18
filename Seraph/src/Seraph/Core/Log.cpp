@@ -3,13 +3,13 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/sinks/basic_file_sink.h"
 
-// #ifndef SP_HEADLESS
-// #include "Seraph/Editor/EditorConsole/EditorConsoleSink.h"
-// #endif
-
 #include <filesystem>
 
 #define SP_HAS_CONSOLE !SP_DIST
+
+#if SP_HAS_CONSOLE
+#include "Seraph/Console/ConsoleSink.h"
+#endif
 
 namespace Seraph {
 
@@ -63,14 +63,16 @@ namespace Seraph {
 #endif
 		};
 
+		// The dev command console (SP_CONSOLE_LOG_*) feeds the ConsoleSink ring
+		// buffer the command-console overlay renders. The engine/app tag loggers do
+		// NOT — their output belongs to the separate output/log console — so the
+		// command console shows only command echoes, results, and errors.
 		std::vector<spdlog::sink_ptr> editorConsoleSinks =
 		{
 			std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/APP.log", true),
 #if SP_HAS_CONSOLE
-// #ifndef SP_HEADLESS
-// 			std::make_shared<EditorConsoleSink>(1),
-// #endif
-			std::make_shared<spdlog::sinks::stdout_color_sink_mt>()
+			std::make_shared<spdlog::sinks::stdout_color_sink_mt>(),
+			std::make_shared<ConsoleSink>()
 #endif
 		};
 
