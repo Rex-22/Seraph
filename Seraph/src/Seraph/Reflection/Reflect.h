@@ -230,11 +230,18 @@ public:
                 { return Any(static_cast<s64>(static_cast<const T*>(obj)->*Member)); };
                 p.Set = +[](void* obj, const Any& v)
                 {
-                    const s64* i = v.template Cast<s64>();
-                    SP_CORE_ASSERT(i != nullptr,
-                                   "Property::Set: enum expects an s64 Any");
-                    if (i)
+                    // Accept BOTH representations: the property convention (s64,
+                    // what Get emits and what serializer/inspector round-trip) and
+                    // the enum's own type (what a caller writing Any(SomeEnum::X)
+                    // naturally produces) — so Set is not a silent no-op for either.
+                    if (const s64* i = v.template Cast<s64>())
                         static_cast<T*>(obj)->*Member = static_cast<M>(*i);
+                    else if (const M* e = v.template Cast<M>())
+                        static_cast<T*>(obj)->*Member = *e;
+                    else
+                        SP_CORE_ASSERT(false,
+                            "Property::Set: enum expects an s64 or the enum's own "
+                            "type Any");
                 };
             }
             else
@@ -541,7 +548,10 @@ private:                                                                       \
 
 // ---------------------------------------------------------------------------
 // Enum reflection. Registers name<->value entries so EnumToString /
-// EnumFromString (Type.h) work, and Any round-trips the enum by its own type.
+// EnumFromString (Type.h) work. Enum PROPERTIES round-trip through Any as the
+// underlying value widened to s64 (with PropType pointing at the enum's Type) —
+// see the enum branch of TypeBuilder::Property. Property::Set also accepts an Any
+// holding the enum's own type for callers that construct one directly.
 //
 //   SP_REFLECT_ENUM(MaterialParameterType)
 //       .Value("Bool",  MaterialParameterType::Bool)
