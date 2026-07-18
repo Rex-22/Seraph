@@ -98,6 +98,12 @@ protected:
 
     [[nodiscard]] Ref<PhysicsBody> GetPhysicsBody() const
     { return m_Scene->GetPhysicsScene()->GetBody(m_Entity); }
+
+    // Collide-and-slide controller for entities with a CharacterControllerComponent
+    // (see CharacterController.h). Null for entities without one. This is what a
+    // player script drives: Move()/Jump()/IsGrounded().
+    [[nodiscard]] Ref<CharacterController> GetCharacterController() const
+    { return m_Scene->GetPhysicsScene()->GetCharacterController(m_Entity); }
 private:
     Entity m_Entity;
     Scene* m_Scene = nullptr;

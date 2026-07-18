@@ -7,6 +7,7 @@
 #include "Components/BoxColliderComponent.h"
 #include "Components/CameraComponent.h"
 #include "Components/CapsuleColliderComponent.h"
+#include "Components/CharacterControllerComponent.h"
 #include "Components/IDComponent.h"
 #include "Components/MeshComponent.h"
 #include "Components/RelationshipComponent.h"
@@ -96,6 +97,8 @@ void Scene::DrainDestroyQueue()
         // physics body map keys on the entity's UUID, still readable here.
         if (m_PhysicsScene && entity.HasComponent<RigidBodyComponent>())
             m_PhysicsScene->DestroyBody(entity);
+        if (m_PhysicsScene && entity.HasComponent<CharacterControllerComponent>())
+            m_PhysicsScene->DestroyCharacterController(entity);
         m_EntityIDMap.erase(m_Registry.get<IDComponent>(handle).ID);
         m_Registry.destroy(handle);
         m_DestroyQueue.pop();
@@ -134,6 +137,13 @@ void Scene::OnRuntimeStart()
     for (auto handle : m_Registry.view<RigidBodyComponent>()) {
         Entity entity{handle, this};
         m_PhysicsScene->CreateBody(entity);
+    }
+
+    // Character controllers are a separate movement model (collide-and-slide,
+    // not a rigid body) — created for every entity that carries the component.
+    for (auto handle : m_Registry.view<CharacterControllerComponent>()) {
+        Entity entity{handle, this};
+        m_PhysicsScene->CreateCharacterController(entity);
     }
 
     // Scripts start after bodies exist, so a script's OnCreate can already reach

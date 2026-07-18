@@ -14,6 +14,7 @@
 #include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
+#include "Seraph/Scene/Components/CharacterControllerComponent.h"
 #include "Seraph/Scene/Components/IDComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Components/RelationshipComponent.h"
@@ -61,7 +62,8 @@ struct SerializedComponentList
 using SerializedComponents = SerializedComponentList<
     TagComponent, TransformComponent, MeshComponent, CameraComponent,
     RigidBodyComponent, BoxColliderComponent, SphereColliderComponent,
-    CapsuleColliderComponent, RelationshipComponent, ScriptComponent>;
+    CapsuleColliderComponent, CharacterControllerComponent, RelationshipComponent,
+    ScriptComponent>;
 
 template<typename Registry>
 struct AllCopyablesSerialized;
@@ -390,6 +392,11 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
             Reflection::Get<CapsuleColliderComponent>(),
             &entity.GetComponent<CapsuleColliderComponent>());
 
+    if (entity.HasComponent<CharacterControllerComponent>())
+        SerializeComponent(emitter, "CharacterController",
+            Reflection::Get<CharacterControllerComponent>(),
+            &entity.GetComponent<CharacterControllerComponent>());
+
     if (entity.HasComponent<RelationshipComponent>())
         SerializeComponent(emitter, "Relationship",
             Reflection::Get<RelationshipComponent>(),
@@ -474,6 +481,10 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
             if (const YAML::Node n = node["CapsuleCollider"])
                 DeserializeComponent(n, Reflection::Get<CapsuleColliderComponent>(),
                     &entity.AddComponent<CapsuleColliderComponent>());
+
+            if (const YAML::Node n = node["CharacterController"])
+                DeserializeComponent(n, Reflection::Get<CharacterControllerComponent>(),
+                    &entity.AddComponent<CharacterControllerComponent>());
 
             if (const YAML::Node n = node["Script"])
                 DeserializeScript(n, entity.AddComponent<ScriptComponent>());

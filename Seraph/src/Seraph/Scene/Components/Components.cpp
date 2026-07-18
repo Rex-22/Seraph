@@ -5,6 +5,7 @@
 #include "BoxColliderComponent.h"
 #include "CameraComponent.h"
 #include "CapsuleColliderComponent.h"
+#include "CharacterControllerComponent.h"
 #include "IDComponent.h"
 #include "MeshComponent.h"
 #include "RelationshipComponent.h"

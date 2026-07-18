@@ -19,6 +19,7 @@
 #include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
+#include "Seraph/Scene/Components/CharacterControllerComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
@@ -39,6 +40,7 @@ using CopyableComponents = TypeRegistry<
     BoxColliderComponent,
     SphereColliderComponent,
     CapsuleColliderComponent,
+    CharacterControllerComponent,
     ScriptComponent>;
 
 } // namespace Seraph

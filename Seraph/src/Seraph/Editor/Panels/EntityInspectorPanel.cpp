@@ -19,6 +19,7 @@
 #include "Seraph/Graphics/SceneCamera.h"
 #include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
+#include "Seraph/Scene/Components/CharacterControllerComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Components/RigidBodyComponent.h"
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
@@ -467,6 +468,7 @@ void EntityInspectorPanel::OnImGuiRender()
     DrawPlainComponent<BoxColliderComponent>(m_SelectedEntity, "Box Collider");
     DrawPlainComponent<SphereColliderComponent>(m_SelectedEntity, "Sphere Collider");
     DrawPlainComponent<CapsuleColliderComponent>(m_SelectedEntity, "Capsule Collider");
+    DrawPlainComponent<CharacterControllerComponent>(m_SelectedEntity, "Character Controller");
     if (m_SelectedEntity.HasComponent<ScriptComponent>())          DrawScriptComponent();
     ImGui::Spacing();
     DrawAddComponentMenu();
@@ -762,6 +764,15 @@ void EntityInspectorPanel::DrawAddComponentMenu()
             if (ImGui::MenuItem("Capsule Collider"))
             {
                 m_SelectedEntity.AddComponent<CapsuleColliderComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
+        if (!m_SelectedEntity.HasComponent<CharacterControllerComponent>())
+        {
+            if (ImGui::MenuItem("Character Controller"))
+            {
+                m_SelectedEntity.AddComponent<CharacterControllerComponent>();
                 ImGui::CloseCurrentPopup();
             }
         }
