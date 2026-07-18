@@ -245,8 +245,8 @@ ABI is stable across versions, so the build never needs a matching system
 Homebrew/system LLVM (`LIBCLANG_PATH`, brew prefix, distro dirs) → **Apple
 toolchain fallback** (Xcode / CommandLineTools `libclang.dylib`). Verified: the
 macOS AppleClang 17 toolchain's `libclang.dylib` is found automatically and
-links against the pinned headers. The tool is opt-in
-(`-DSERAPH_BUILD_HEADER_TOOL=ON`) while it doesn't yet feed any target. Full
+links against the pinned headers. The tool is **required** (`SERAPH_BUILD_HEADER_TOOL`
+defaults ON; OFF is a hard CMake error) and feeds libSeraph's reflection. Full
 per-platform notes in `Tools/SeraphHeaderTool/README.md`.
 
 **Emitter (resolved in SHT 2).** The tool emits a `.gen.cpp` of exactly the
@@ -287,22 +287,24 @@ touching a transitive include both regenerate.
   engine builds under CLion's Ninja/Makefiles, so this is fine — but a raw Xcode/
   VS-generator build would need CMake ≥3.21.
 
-**Engine wiring (resolved in SHT 4).** `sht_reflect` is wired into libSeraph in
-`Seraph/CMakeLists.txt`, guarded by `SERAPH_BUILD_HEADER_TOOL` (default OFF). Root
-CMake adds the tool subdir *before* `Seraph` so the target exists for the
-`if(TARGET SeraphHeaderTool)` check. `PhysicsSettings` is the migrated type —
-chosen because nothing in the shipping engine read its reflection yet, so
-generation is purely additive (no dual-path, no breakage when OFF).
-`ScriptableEntity` and `MaterialParameterType` stay hand-registered — the
-demonstrated opt-out coexisting with generated types. Verified end-to-end in the
-real engine build (macOS): with the tool ON, libSeraph generates + self-registers
-PhysicsSettings (7 props, confirmed by a probe that does *not* register it);
-adding an annotated field and rebuilding auto-regenerates (7→8 props); with the
-tool OFF, PhysicsSettings is simply unregistered and the engine builds with no
-libclang dependency. Drift guard: the tool prints `N annotated -> N
+**Engine wiring (SHT 4, and now mandatory).** `sht_reflect`/`sht_reflect_glob` is
+wired into libSeraph in `Seraph/CMakeLists.txt`. `SERAPH_BUILD_HEADER_TOOL` defaults
+**ON and is required** — configuring with it OFF is a hard CMake error (see root
+`CMakeLists.txt`), because engine code now reads reflection for its component/enum
+types and an unwired build would leave them unregistered and crash at scene-load.
+libclang is therefore a required build dependency. Root CMake adds the tool subdir
+*before* `Seraph` so the target exists when `sht_reflect` runs. Most engine types
+are annotation-driven and auto-discovered by `sht_reflect_glob` (components,
+`PhysicsSettings`, `SceneCamera`, `ScriptComponent`, `ScriptableEntity` via
+`SCLASS(dynamic)`, …). **Remaining hand-registered opt-outs:** five enums
+(`AssetType`, `MaterialParameterType`, `BlendMode`, `CullMode`, `DepthTest`) and the
+`RegisterAssetRefType<Mesh>()` template registration — scheduled for migration to
+`SENUM()` (Tech-Debt board). Drift guard: the tool prints `N annotated -> N
 registrations` and fails the build on any unemittable annotation (SHT 2 negative
-test). **Caveats:** regen-on-edit verified on macOS only (Linux/Windows need
-their toolchains/CI); docs live in `docs/reflection-system.md`.
+test). **Platform note:** libclang needs its resource dir passed explicitly on
+non-Apple (`-resource-dir`, handled by `sht_reflect`); parse + discovery verified on
+Linux, full ON engine build on Linux/Windows CI still pending. Docs live in
+`docs/reflection-system.md`.
 
 ## Edits to existing engine files
 

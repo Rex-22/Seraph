@@ -21,10 +21,12 @@ See `Todo/plans/reflection-plan.md` (SHT section + examples A, E) for the design
 
 ## Building
 
-Opt-in from the root build:
+Built by default as part of the root build (`SERAPH_BUILD_HEADER_TOOL=ON`; it is
+**required** — configuring with it OFF is a hard CMake error, and libclang is a
+required build dependency). To build just the tool target:
 
 ```sh
-cmake -S . -B cmake-build-debug -DSERAPH_BUILD_HEADER_TOOL=ON
+cmake -S . -B cmake-build-debug
 cmake --build cmake-build-debug --target SeraphHeaderTool
 ```
 

@@ -52,7 +52,7 @@ A pointer to a *private* member can only be formed inside a member of the class,
 Registrations are tagged with a `ModuleTag` (`k_EngineModule` / `k_GameModule`). `ScriptLibrary::Load` brackets `SDL_LoadObject` in a `ReflectionModuleScope(k_GameModule)`; `ScriptLibrary::Unload` calls `Reflection::ClearModule(k_GameModule)` (next to `ScriptRegistry::Clear`) before `SDL_UnloadObject`, dropping Game types and freeing their storage so no `Property` thunk (a pointer into the dylib) dangles. Engine types survive. **After a reload, re-resolve by `TypeId`/name — never cache a `const Type*`/`const Property*` for a Game type across the boundary.**
 
 ### Code generation (SeraphHeaderTool)
-When `SERAPH_BUILD_HEADER_TOOL=ON`, `sht_reflect(<target> HEADERS …)` runs the tool per header: it parses with libclang (`-DSP_SHT_PARSE`, so `SPROPERTY(...)` becomes `[[clang::annotate("sp:…")]]`) using the target's include dirs/defs + `-isysroot`, and emits a `.gen.cpp` of the exact fluent calls a human would write, compiled into the target. A gcc-style DEPFILE (from `clang_getInclusions`) makes edits to any transitively-included header regenerate. Every annotated type must produce a registration or the build fails (drift guard). When OFF (default), the annotations are no-ops and the engine builds with no libclang dependency.
+SHT is **required** (`SERAPH_BUILD_HEADER_TOOL=ON`, the default; configuring with it OFF is a hard CMake error). `sht_reflect(<target> HEADERS …)` runs the tool per header: it parses with libclang (`-DSP_SHT_PARSE`, so `SPROPERTY(...)` becomes `[[clang::annotate("sp:…")]]`) using the target's include dirs/defs, plus the SDK sysroot on Apple (`-isysroot`) and the clang resource dir on other platforms (`-resource-dir`, so libclang finds its own builtin headers like `stddef.h`), and emits a `.gen.cpp` of the exact fluent calls a human would write, compiled into the target. A gcc-style DEPFILE (from `clang_getInclusions`) makes edits to any transitively-included header regenerate. Every annotated type must produce a registration or the build fails (drift guard). The engine can no longer build without the tool: libSeraph consumers call `Reflection::Get<T>()` for the generated component/enum types, so an unwired build would leave them unregistered and crash at scene-load.
 
 ## Public API / Usage
 
@@ -87,7 +87,7 @@ struct SCLASS() MyType { SPROPERTY(min = 0.0f) float Field = 1.0f; };
 ## Dependencies
 
 - **Internal:** `Core/Base.h` (aliases), `Core/Assert.h` (`SP_CORE_ASSERT`), `Core/Log.h` (`"Reflection"` tag), `glm` (primitive registration). `ScriptLibrary` drives the module-scope lifecycle; `ScriptableEntity` is the reflected root.
-- **External:** **libclang** — *only* for SeraphHeaderTool, and *only* when `SERAPH_BUILD_HEADER_TOOL=ON`. The runtime reflection library has no external dependency beyond glm. clang-c headers are vendored (pinned LLVM 17.0.6); the library is located per platform (see `Tools/SeraphHeaderTool/README.md`).
+- **External:** **libclang** — a **required** build dependency (used by SeraphHeaderTool, which is required; see above). The *runtime* reflection library still has no external dependency beyond glm — libclang is a build-time-only dependency of the code-gen step, not linked into libSeraph. clang-c headers are vendored (pinned LLVM 17.0.6); the library is located per platform (see `Tools/SeraphHeaderTool/README.md`).
 
 ## Extension Points
 
@@ -106,4 +106,4 @@ struct SCLASS() MyType { SPROPERTY(min = 0.0f) float Field = 1.0f; };
 - **`TypeId` name spelling is per-toolchain** — stable within one toolchain's engine+Game build, not across a Clang-built asset loaded by an MSVC build.
 - **SHT: libclang is a raw frontend** — needs `-isysroot` explicitly (the driver would add it) and the target's full include set; `sht_reflect` passes both. DEPFILE support requires Ninja/Makefiles (or CMake ≥3.21 elsewhere).
 - **SHT drift guard:** a private `SPROPERTY` without `SP_REFLECT`, or an `SPROPERTY` on a bitfield, is a hard tool error (exit 1 → build fails), never a silent skip.
-- **Regen-on-edit verified on macOS only;** Linux/Windows wiring is implemented but not yet exercised.
+- **Linux/Windows note:** libclang needs its builtin-header path passed explicitly (`-resource-dir`, added by `sht_reflect` on non-Apple) — without it, parsing any header that includes `<cstdint>` fails with "stddef.h not found". Parse + type discovery is verified on Linux (clang resource dir auto-located); a full ON engine build on Linux/Windows CI is still the remaining end-to-end check.
