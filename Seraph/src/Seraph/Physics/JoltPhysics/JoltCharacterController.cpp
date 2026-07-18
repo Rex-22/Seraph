@@ -74,24 +74,34 @@ void JoltCharacterController::Update(f32 dt)
     const bool onGround =
         m_Character->GetGroundState() == JPH::CharacterBase::EGroundState::OnGround;
 
-    // Vertical: rest on the floor while grounded and not rising (a fresh Jump
-    // leaves m_VerticalVelocity > 0, so we keep integrating and lift off);
-    // otherwise accumulate gravity.
-    if (onGround && m_VerticalVelocity <= 0.0f)
-        m_VerticalVelocity = 0.0f;
-    else
-        m_VerticalVelocity += gravity.GetY() * dt;
-
-    // Horizontal: use the game's desired velocity on the ground (and in the air
-    // when air control is on); otherwise hold the velocity we left the ground with.
-    glm::vec3 horizontal = { m_ControlVelocity.x, 0.0f, m_ControlVelocity.z };
+    // Horizontal wish velocity: the game's desired velocity on the ground (and in
+    // the air when air control is on); otherwise hold the velocity we left the
+    // ground with.
+    glm::vec3 horizontalWish = { m_ControlVelocity.x, 0.0f, m_ControlVelocity.z };
     if (onGround || m_ControlMovementInAir)
-        m_AirVelocity = horizontal;
+        m_AirVelocity = horizontalWish;
     else
-        horizontal = m_AirVelocity;
+        horizontalWish = m_AirVelocity;
 
-    const JPH::Vec3 velocity =
-        JoltUtils::ToJoltVector(horizontal) + JPH::Vec3(0.0f, m_VerticalVelocity, 0.0f);
+    const JPH::Vec3 horizontal = JoltUtils::ToJoltVector(horizontalWish);
+
+    // Velocity per the Jolt CharacterVirtual recipe. While grounded (and not
+    // mid-jump — a fresh Jump leaves m_VerticalVelocity > 0) we adopt the ground
+    // body's velocity and cancel our own vertical speed. Adopting the ground
+    // velocity is what lets the character *ride* a moving or sinking dynamic body
+    // instead of separating from it and re-landing every step (the jitter when
+    // standing on a light box). Otherwise we integrate gravity and fall/rise.
+    JPH::Vec3 velocity;
+    if (onGround && m_VerticalVelocity <= 0.0f)
+    {
+        m_VerticalVelocity = 0.0f;
+        velocity = m_Character->GetGroundVelocity() + horizontal;
+    }
+    else
+    {
+        m_VerticalVelocity += gravity.GetY() * dt;
+        velocity = horizontal + JPH::Vec3(0.0f, m_VerticalVelocity, 0.0f);
+    }
     m_Character->SetLinearVelocity(velocity);
 
     JPH::CharacterVirtual::ExtendedUpdateSettings settings;
