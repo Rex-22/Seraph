@@ -52,7 +52,11 @@ glm::vec3 JoltBody::GetLinearVelocity() const
 
 void JoltBody::SetLinearVelocity(const glm::vec3& velocity)
 {
-    m_Scene->GetBodyInterface().SetLinearVelocity(m_BodyID, JoltUtils::ToJoltVector(velocity));
+    JPH::BodyInterface& bi = m_Scene->GetBodyInterface();
+    // SetLinearVelocity does not wake a sleeping body, so a script setting a
+    // velocity on a slept body would otherwise be silently ignored.
+    bi.SetLinearVelocity(m_BodyID, JoltUtils::ToJoltVector(velocity));
+    bi.ActivateBody(m_BodyID);
 }
 
 glm::vec3 JoltBody::GetAngularVelocity() const
@@ -62,7 +66,9 @@ glm::vec3 JoltBody::GetAngularVelocity() const
 
 void JoltBody::SetAngularVelocity(const glm::vec3& velocity)
 {
-    m_Scene->GetBodyInterface().SetAngularVelocity(m_BodyID, JoltUtils::ToJoltVector(velocity));
+    JPH::BodyInterface& bi = m_Scene->GetBodyInterface();
+    bi.SetAngularVelocity(m_BodyID, JoltUtils::ToJoltVector(velocity));
+    bi.ActivateBody(m_BodyID);
 }
 
 void JoltBody::AddForce(const glm::vec3& force, ForceMode mode)
@@ -79,6 +85,7 @@ void JoltBody::AddForce(const glm::vec3& force, ForceMode mode)
         case ForceMode::VelocityChange:
             bi.SetLinearVelocity(
                 m_BodyID, bi.GetLinearVelocity(m_BodyID) + JoltUtils::ToJoltVector(force));
+            bi.ActivateBody(m_BodyID); // SetLinearVelocity alone won't wake a slept body
             break;
         case ForceMode::Acceleration:
             bi.AddForce(m_BodyID, JoltUtils::ToJoltVector(force * GetMass()));
