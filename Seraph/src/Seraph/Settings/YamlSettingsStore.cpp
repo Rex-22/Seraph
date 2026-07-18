@@ -191,6 +191,8 @@ bool YamlSettingsStore::Save(SettingScope scope)
     {
         if (d->Scope != scope || d->CliOverridden)
             continue;
+        if (d->HasFlag(SettingFlag_Transient))
+            continue; // runtime-only debug CVars are never persisted
         YAML::Node n = AnyToNode(d->Read(), d->ValueType);
         if (n.IsDefined())
         {

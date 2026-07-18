@@ -40,6 +40,8 @@ enum SettingFlags : u32
     SettingFlag_Hidden = BIT(1),
     SettingFlag_Advanced = BIT(2),
     SettingFlag_RequiresRestart = BIT(3),
+    SettingFlag_Cheat = BIT(4),
+    SettingFlag_Transient = BIT(5),
 };
 
 // Settings-domain attribute keys (stored in SettingDescriptor::Attrs, which is a
