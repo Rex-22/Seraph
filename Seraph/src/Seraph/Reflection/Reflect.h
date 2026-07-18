@@ -26,6 +26,7 @@
 #pragma once
 
 #include "Seraph/Core/Assert.h"
+#include "Seraph/Reflection/Reference.h"
 #include "Seraph/Reflection/Reflection.h"
 #include "Seraph/Reflection/Type.h"
 #include "Seraph/Reflection/TypeId.h"
@@ -195,39 +196,60 @@ public:
         p.PropTypeId = TypeIdOf<M>();
         p.PropType = Reflection::TryGet<M>(); // may be null now; back-patched later
 
-        // Address of the member for in-place access (containers, nested structs).
-        p.GetAddress = +[](void* obj) -> void*
-        { return &(static_cast<T*>(obj)->*Member); };
-
-        if constexpr (std::is_enum_v<M>)
+        if constexpr (IsReferenceV<M>)
         {
-            // Enum members are represented in the Any as their underlying value
-            // widened to s64, with PropType pointing at the reflected enum Type.
-            // This lets consumers map value <-> label via EnumInfo without any
-            // Any enum-extraction (the thunk does the conversion at the boundary).
+            // A reference member crosses the Any boundary as a UUID (like an enum
+            // crosses as s64), with PropType pointing at the reflected reference
+            // Type (TypeKind::Reference). No member address is exposed — consumers
+            // use the value round-trip, not in-place access, so the reference
+            // stays opaque behind ReferenceTraits<M>.
             p.Get = +[](const void* obj) -> Any
-            { return Any(static_cast<s64>(static_cast<const T*>(obj)->*Member)); };
+            { return Any(ReferenceTraits<M>::GetId(static_cast<const T*>(obj)->*Member)); };
             p.Set = +[](void* obj, const Any& v)
             {
-                const s64* i = v.template Cast<s64>();
-                SP_CORE_ASSERT(i != nullptr,
-                               "Property::Set: enum expects an s64 Any");
-                if (i)
-                    static_cast<T*>(obj)->*Member = static_cast<M>(*i);
+                const UUID* id = v.template Cast<UUID>();
+                SP_CORE_ASSERT(id != nullptr,
+                               "Property::Set: reference expects a UUID Any");
+                if (id)
+                    static_cast<T*>(obj)->*Member = ReferenceTraits<M>::FromId(*id);
             };
         }
         else
         {
-            p.Get = +[](const void* obj) -> Any
-            { return Any(static_cast<const T*>(obj)->*Member); };
-            p.Set = +[](void* obj, const Any& v)
+            // Address of the member for in-place access (containers, nested structs).
+            p.GetAddress = +[](void* obj) -> void*
+            { return &(static_cast<T*>(obj)->*Member); };
+
+            if constexpr (std::is_enum_v<M>)
             {
-                const M* m = v.template Cast<M>();
-                SP_CORE_ASSERT(m != nullptr,
-                               "Property::Set: Any type does not match the field");
-                if (m)
-                    static_cast<T*>(obj)->*Member = *m;
-            };
+                // Enum members are represented in the Any as their underlying value
+                // widened to s64, with PropType pointing at the reflected enum Type.
+                // This lets consumers map value <-> label via EnumInfo without any
+                // Any enum-extraction (the thunk does the conversion at the boundary).
+                p.Get = +[](const void* obj) -> Any
+                { return Any(static_cast<s64>(static_cast<const T*>(obj)->*Member)); };
+                p.Set = +[](void* obj, const Any& v)
+                {
+                    const s64* i = v.template Cast<s64>();
+                    SP_CORE_ASSERT(i != nullptr,
+                                   "Property::Set: enum expects an s64 Any");
+                    if (i)
+                        static_cast<T*>(obj)->*Member = static_cast<M>(*i);
+                };
+            }
+            else
+            {
+                p.Get = +[](const void* obj) -> Any
+                { return Any(static_cast<const T*>(obj)->*Member); };
+                p.Set = +[](void* obj, const Any& v)
+                {
+                    const M* m = v.template Cast<M>();
+                    SP_CORE_ASSERT(m != nullptr,
+                                   "Property::Set: Any type does not match the field");
+                    if (m)
+                        static_cast<T*>(obj)->*Member = *m;
+                };
+            }
         }
         AddProperty(std::move(p));
         return *this;
@@ -249,16 +271,35 @@ public:
         p.Name = name;
         p.PropTypeId = TypeIdOf<M>();
         p.PropType = Reflection::TryGet<M>(); // may be null now; back-patched later
-        p.Get = +[](const void* obj) -> Any
-        { return Any(std::invoke(Getter, *static_cast<const T*>(obj))); };
-        p.Set = +[](void* obj, const Any& v)
+        if constexpr (IsReferenceV<M>)
         {
-            const M* m = v.template Cast<M>();
-            SP_CORE_ASSERT(m != nullptr,
-                           "Property::Set: Any type does not match the field");
-            if (m)
-                std::invoke(Setter, *static_cast<T*>(obj), *m);
-        };
+            // Accessor-exposed reference: same UUID-at-the-boundary contract as a
+            // reference data member (see Property<&Member> above).
+            p.Get = +[](const void* obj) -> Any
+            { return Any(ReferenceTraits<M>::GetId(std::invoke(Getter, *static_cast<const T*>(obj)))); };
+            p.Set = +[](void* obj, const Any& v)
+            {
+                const UUID* id = v.template Cast<UUID>();
+                SP_CORE_ASSERT(id != nullptr,
+                               "Property::Set: reference expects a UUID Any");
+                if (id)
+                    std::invoke(Setter, *static_cast<T*>(obj),
+                                ReferenceTraits<M>::FromId(*id));
+            };
+        }
+        else
+        {
+            p.Get = +[](const void* obj) -> Any
+            { return Any(std::invoke(Getter, *static_cast<const T*>(obj))); };
+            p.Set = +[](void* obj, const Any& v)
+            {
+                const M* m = v.template Cast<M>();
+                SP_CORE_ASSERT(m != nullptr,
+                               "Property::Set: Any type does not match the field");
+                if (m)
+                    std::invoke(Setter, *static_cast<T*>(obj), *m);
+            };
+        }
         AddProperty(std::move(p));
         return *this;
     }

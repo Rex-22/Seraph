@@ -107,6 +107,10 @@ void EmitAny(YAML::Emitter& e, const Any& v, const Type* t)
         e << static_cast<int>(*v.Cast<s64>());
         return;
     }
+    if (t->Kind == TypeKind::Reference) { // reference -> its target's id (u64)
+        e << static_cast<u64>(*v.Cast<UUID>());
+        return;
+    }
     const TypeId id = t->Id;
     if (id == TypeIdOf<bool>())              e << *v.Cast<bool>();
     else if (id == TypeIdOf<s32>())          e << *v.Cast<s32>();
@@ -181,6 +185,8 @@ Any ParseAny(const YAML::Node& node, const Type* t)
     try {
         if (t->Kind == TypeKind::Enum)
             return Any(static_cast<s64>(node.as<int>()));
+        if (t->Kind == TypeKind::Reference)
+            return Any(UUID(node.as<u64>()));
         const TypeId id = t->Id;
         if (id == TypeIdOf<bool>())              return Any(node.as<bool>());
         if (id == TypeIdOf<s32>())               return Any(node.as<s32>());

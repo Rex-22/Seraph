@@ -28,6 +28,9 @@ enum class TypeKind : u8
     Struct,
     Enum,
     Container, // std::vector<E>-like; see ContainerInfo
+    Reference, // typed handle to another object (EntityRef / TAssetRef<T>); the
+               // value crosses the Any boundary as a UUID, exactly as an enum
+               // crosses as an s64. See Reflection/Reference.h.
 };
 
 // Open bag of hashed-key -> Any attributes. Keys are constexpr hashes of stable
