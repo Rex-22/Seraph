@@ -63,7 +63,10 @@ struct Reflection::Storage
             // Same id + same name => benign re-registration (e.g. a header's
             // registration TU pulled into two link units). Different name =>
             // FNV-1a collision: two distinct types cannot share an identity.
-            SP_CORE_ASSERT(existing->Name == type.Name,
+            // VERIFY (not ASSERT): a collision must trap even in release —
+            // SP_CORE_ASSERT compiles out there, silently aliasing the second
+            // type onto the first (wrong serialization key + wrong reflection).
+            SP_CORE_VERIFY(existing->Name == type.Name,
                            "Reflection: TypeId collision between '{}' and '{}' "
                            "(both hash to {})",
                            existing->Name, type.Name, type.Id);
