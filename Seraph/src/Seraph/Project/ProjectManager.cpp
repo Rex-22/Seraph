@@ -32,9 +32,15 @@ bool ProjectManager::Open(const std::filesystem::path& sprojPath, AssetMode mode
     if (!loaded)
         return false;
 
-    // Release the previously-open project's assets before switching roots.
+    // Fully tear down the previously-open project before switching roots — not
+    // just its assets. Close() persists its Project/game.* settings (SaveDirty)
+    // and unloads its Game module (purging game.* settings + reflected Game types)
+    // in the correct order; doing only AssetManager::Shutdown() here dropped
+    // unsaved settings and left the old module to be unloaded implicitly by the
+    // next ScriptLibrary::Load. Loaded above first, so a failed load keeps the
+    // current project intact.
     if (s_HasActive)
-        AssetManager::Shutdown();
+        Close();
 
     s_Project = std::move(*loaded);
     s_Sproj = sprojPath;
