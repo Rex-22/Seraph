@@ -4,9 +4,10 @@
 // the referenced meshes/textures load lazily through the AssetManager when the
 // scene is first rendered.
 //
-// Component (de)serialization is hand-written per type (entt has no reflection),
-// mirroring the editor's hand-written per-component UI. Lift to a registry when
-// the component set grows or scripting/gameplay components arrive.
+// Per-COMPONENT dispatch (which components an entity has) is still hand-written
+// here, but each component's FIELDS are (de)serialized by walking its reflected
+// properties (Reflection::Get<T>() + Property::Get/Set through Any). Migrating the
+// per-component dispatch onto a reflected component list is tracked separately.
 //
 
 #pragma once

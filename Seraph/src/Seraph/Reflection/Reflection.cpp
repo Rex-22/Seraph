@@ -1,8 +1,9 @@
 //
-// Reflection registry implementation. Owns Type storage in a std::deque (stable
-// element addresses across growth, so const Type* handed out by Register stay
-// valid), indexed by TypeId and by name, with an insertion-ordered list for
-// enumeration. Built-in primitives are registered on first access.
+// Reflection registry implementation. Owns Type storage in a
+// std::vector<unique_ptr<Type>> — the heap-allocated pointees keep stable
+// addresses across vector growth (only the owning pointers move), so const Type*
+// handed out by Register stay valid. Indexed by TypeId and by name, with an
+// insertion-ordered list for enumeration. Built-in primitives register on first access.
 //
 
 #include "Seraph/Reflection/Reflection.h"
