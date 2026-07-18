@@ -6,15 +6,13 @@ Entities:
       Translation: [0, -3.26791, 8.091692]
       Scale: [1, 1, 1]
       Rotation: [0, -0, 0]
-    RigidBody:
-      BodyType: 2
+    CharacterController:
+      SlopeLimitDeg: 45
+      StepOffset: 0.3
+      Mass: 70
+      DisableGravity: false
+      ControlMovementInAir: true
       LayerID: 1
-      Mass: 1
-      LinearDrag: 0.01
-      AngularDrag: 0.05
-      GravityFactor: 1
-      InitialLinearVelocity: [0, 0, 0]
-      InitialAngularVelocity: [0, 0, 0]
     CapsuleCollider:
       Radius: 0.5
       HalfHeight: 0.5
@@ -31,7 +29,6 @@ Entities:
       Fields:
         m_MoveSpeed: 5
         m_JumpSpeed: 6
-        m_GroundLevel: -3.26791
         m_LookSensitivity: 0.0025
         m_Camera: 12403566664747799388
   - Entity: 2561095505170714115
