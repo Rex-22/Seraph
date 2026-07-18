@@ -1,9 +1,11 @@
 #include "Player.h"
 
+#include <Seraph/Physics/PhysicsSettings.h>
+#include <Seraph/Physics/PhysicsSystem.h>
+#include <Seraph/Settings/Settings.h>
 #include <Seraph/Core/Input.h>
 #include <Seraph/Core/KeyCodes.h>
 #include <Seraph/Core/Log.h>
-#include <Seraph/Scene/Components/CameraComponent.h>
 #include <Seraph/Scene/Components/TransformComponent.h>
 
 #include <glm/glm.hpp>
@@ -16,20 +18,15 @@ namespace Mouse = Seraph::Mouse;
 
 void Player::OnCreate()
 {
-
-    // Find the child camera to drive with pitch. Kinematic body yaws, camera pitches.
-    for (Seraph::UUID childId : Self().Children())
-    {
-        Seraph::Entity child = FindEntity(childId);
-        if (child && child.TryGetComponent<Seraph::CameraComponent>())
-        {
-            m_CameraEntity = childId;
-            m_Pitch = child.Transform().GetRotationEuler().x;
-            break;
-        }
-    }
-    if (m_CameraEntity == 0)
-        SP_WARN_TAG("Scripting", "Player has no child Camera — mouse look will only yaw");
+    // The camera to pitch is assigned in the editor (the Camera slot on this
+    // script). Kinematic body yaws, camera pitches. Seed the pitch from the
+    // camera's current rotation so the first mouse move doesn't snap.
+    if (Seraph::Entity camera = TryFindEntity(m_Camera.Get()))
+        m_Pitch = camera.Transform().GetRotationEuler().x;
+    else
+        SP_WARN_TAG("Scripting",
+            "Player has no Camera assigned — mouse look will only yaw. Assign one "
+            "on the Player script in the inspector.");
 
     Input::SetCursorMode(CursorMode::Captured);
 
@@ -38,6 +35,9 @@ void Player::OnCreate()
 
 void Player::OnUpdate(f64 dt)
 {
+    const Seraph::PhysicsSettings& settings = Seraph::PhysicsSystem::GetSettings();
+    float gravity = settings.Gravity.y;
+
     const float ft = static_cast<float>(dt);
 
     // --- Cursor capture toggle ---
@@ -66,14 +66,10 @@ void Player::OnUpdate(f64 dt)
         m_Pitch = glm::clamp(m_Pitch, -kPitchLimit, kPitchLimit);
     }
 
-    // Yaw drives the body; pitch drives the child camera (world = body * camera).
+    // Yaw drives the body; pitch drives the assigned camera (world = body * camera).
     Transform().SetRotationEuler(glm::vec3(0.0f, m_Yaw, 0.0f));
-    if (m_CameraEntity != 0)
-    {
-        Seraph::Entity camera = FindEntity(m_CameraEntity);
-        if (camera)
-            camera.Transform().SetRotationEuler(glm::vec3(m_Pitch, 0.0f, 0.0f));
-    }
+    if (Seraph::Entity camera = TryFindEntity(m_Camera.Get()))
+        camera.Transform().SetRotationEuler(glm::vec3(m_Pitch, 0.0f, 0.0f));
 
     glm::vec3 position = Transform().Translation;
 
@@ -82,7 +78,7 @@ void Player::OnUpdate(f64 dt)
     // body's (yaw-only) orientation so WASD follows where you look. Because the
     // body carries no pitch, the result stays on the XZ plane.
     glm::vec3 wish(0.0f);
-    if (Input::IsKeyDown(Key::W)) wish.z -= 1.0f; // local forward is -Z
+    if (Input::IsKeyDown(Key::W)) wish.z -= 1.0f;
     if (Input::IsKeyDown(Key::S)) wish.z += 1.0f;
     if (Input::IsKeyDown(Key::D)) wish.x += 1.0f;
     if (Input::IsKeyDown(Key::A)) wish.x -= 1.0f;
@@ -104,7 +100,7 @@ void Player::OnUpdate(f64 dt)
         m_Grounded = false;
     }
 
-    m_VerticalVelocity += m_Gravity * ft;
+    m_VerticalVelocity += gravity * ft;
     position.y += m_VerticalVelocity * ft;
 
     // Kinematic bodies don't collide with the static floor, so clamp to the

@@ -91,6 +91,11 @@ protected:
 
     [[nodiscard]] Entity FindEntity(UUID id) const { return m_Scene->GetEntityWithUUID(id); }
 
+    // Resolve a reference (e.g. an editor-assigned EntityRef) to a live entity, or
+    // an invalid Entity if the id is unassigned (0) or no longer in the scene.
+    // Unlike FindEntity, never asserts — the safe way to dereference an EntityRef.
+    [[nodiscard]] Entity TryFindEntity(UUID id) const { return m_Scene->TryGetEntityWithUUID(id); }
+
     [[nodiscard]] Ref<PhysicsBody> GetPhysicsBody() const
     { return m_Scene->GetPhysicsScene()->GetBody(m_Entity); }
 private:
