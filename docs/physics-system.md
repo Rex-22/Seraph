@@ -126,4 +126,21 @@ PhysicsLayerManager::SetLayerCollision(water, PhysicsLayerManager::MovingLayer()
 - **Debug drawing requires `JPH_DEBUG_RENDERER`** to be defined consistently across the Jolt lib and every TU including `<Jolt/Renderer/DebugRenderer.h>` (vtable/ABI). Without it, `RenderDebugBodies` is a no-op and only the edit-mode component wireframes draw.
 - **Header discipline:** anything outside `JoltPhysics/*` must stay Jolt-free. `PhysicsScene.h`, `PhysicsBody.h`, `PhysicsTypes.h`, `SceneQueries.h`, `PhysicsSettings.h`, and `PhysicsSystem.h` are all includable from Jolt-free code (components, serializer, inspector, scripts).
 
+## Character controller
+
+For a player/NPC that must be *blocked* by geometry (a kinematic rigid body is infinite-mass and passes through everything), add a `CharacterControllerComponent` plus a collider (a Capsule is typical) and **no** `RigidBodyComponent`. It is backed by `JPH::CharacterVirtual` (collide-and-slide), the Godot `CharacterBody3D` / Unreal Character-Movement equivalent.
+
+- Backend-agnostic handle `CharacterController` (parallels `PhysicsBody`); Jolt impl `JoltCharacterController` wraps a `JPH::CharacterVirtual` and is driven by `JoltScene` each fixed step via `ExtendedUpdate` (gravity + collide-and-slide + stair step-up).
+- Scripts reach it with `ScriptableEntity::GetCharacterController()`: `Move(horizontalVelocity)` sets the desired XZ velocity, the controller owns vertical motion (gravity + `Jump(speed)`), and `IsGrounded()` gates jumping.
+- The shape is centred on the entity origin (shared `JoltShapes::BuildEntityShape` path), so the collider, mesh, and character stay aligned; only translation is written back (rotation stays game-authoritative).
+- **Layer defaults to Moving (1), not Static (0)** — Static-vs-Static never collides, so a character on layer 0 would fall through the world.
+
+## Audit notes / known limitations
+
+Surfaced by the physics audit; not yet addressed:
+
+- **Broadphase is optimized once.** `OptimizeBroadPhase` runs on the first `Simulate` only (`JoltScene.cpp`, `m_BroadPhaseOptimized`). Entities spawned mid-play are not re-optimized; the broadphase degrades until the next scene start.
+- **Runtime rescale doesn't update colliders.** Shapes bake `world.Scale` at creation; scaling an entity during play leaves its collider unchanged (see the scale gotcha above). A collider rebuild on scale-change is not implemented.
+- **`AddForce(Force/Acceleration)` under multiple substeps.** Jolt clears accumulated forces after each `Update`, so a force applied once from a script is integrated on only the *first* of a frame's N substeps. For frame-rate-independent continuous force, re-apply every frame (this is per-frame already) — but be aware the magnitude effectively scales with substep count. Prefer velocity/impulse for deterministic results.
+
 See also: [scene-and-ecs.md](scene-and-ecs.md), [scripting-system.md](scripting-system.md), [editor-and-runtime.md](editor-and-runtime.md).
