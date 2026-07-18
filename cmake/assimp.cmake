@@ -31,6 +31,8 @@ set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE INTERNAL "")
 # macOS <stdio.h> declaration (build error). macOS/Linux ship zlib.
 set(ASSIMP_BUILD_ZLIB OFF CACHE INTERNAL "")
 
+set(ASSIMP_BUILD_MINIZIP ON CACHE INTERNAL "")
+
 FetchContent_MakeAvailable(assimp)
 
 # Source headers + the generated config/revision headers in the binary dir.
