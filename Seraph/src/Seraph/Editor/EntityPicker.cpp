@@ -168,7 +168,7 @@ void EntityPicker::RenderPickPass(Scene& scene, const EditorCamera& camera)
         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_GREATER;
 
     for (auto [handle, mc] : scene.GetAllEntitiesWith<MeshComponent>().each()) {
-        Ref<Mesh> mesh = mc.Mesh.As<Mesh>();
+        Ref<Mesh> mesh = mc.Mesh.As();
         if (!mesh)
             continue;
 
