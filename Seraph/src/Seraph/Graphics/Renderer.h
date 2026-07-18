@@ -35,6 +35,12 @@ struct Renderer
     static void SetBackBufferSize(u32 width, u32 height);
 
     static void FlushFrame();
+
+    // bgfx frame counter (last value returned by bgfx::frame in FlushFrame).
+    // Used to poll async GPU->CPU readbacks: bgfx::readTexture reports the frame
+    // at which its copy is complete, so a caller waits until FrameNumber() has
+    // advanced to (or past) that value. 0 until the first frame is flushed.
+    static u32 FrameNumber();
 };
 
 } // namespace Graphics

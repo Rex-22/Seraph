@@ -154,6 +154,7 @@ struct RenderData
     u32 windowWidth;
     u32 windowHeight;
     u32 resetFlags = BGFX_RESET_VSYNC;
+    u32 frameNumber = 0; // last bgfx::frame() return; see Renderer::FrameNumber
 
     void EndFrame()
     {
@@ -304,7 +305,12 @@ void Renderer::FlushFrame()
 {
     // Ensure view 0 (backbuffer clear) fires even with no draw calls.
     bgfx::touch(0);
-    bgfx::frame(false);
+    s_RenderData.frameNumber = bgfx::frame(false);
+}
+
+u32 Renderer::FrameNumber()
+{
+    return s_RenderData.frameNumber;
 }
 
 } // namespace Graphics
