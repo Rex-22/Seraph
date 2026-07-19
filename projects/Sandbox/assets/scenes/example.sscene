@@ -1,144 +1,23 @@
-Scene: TestProject
+Scene: example
 Entities:
-  - Entity: 1309468107298538528
-    Tag: Player
-    Transform:
-      Translation: [0, -3.26791, 8.091692]
-      Scale: [1, 1, 1]
-      Rotation: [0, -0, 0]
-    CapsuleCollider:
-      Radius: 0.5
-      HalfHeight: 0.5
-      Offset: [0, 0, 0]
-      IsTrigger: false
-      Friction: 0.5
-      Restitution: 0.15
-    CharacterController:
-      SlopeLimitDeg: 45
-      StepOffset: 0.3
-      Mass: 70
-      DisableGravity: false
-      ControlMovementInAir: true
-      CollisionLayer: 1
-      CollisionMask: 1
-    Relationship:
-      Parent: 0
-      Children:
-        - 12403566664747799388
-    Script:
-      ScriptClass: Player
-      Fields:
-        m_MoveSpeed: 5
-        m_JumpSpeed: 6
-        m_LookSensitivity: 0.0025
-        m_Camera: 12403566664747799388
-  - Entity: 2561095505170714115
-    Tag: Cube 2
-    Transform:
-      Translation: [4.2221837, 0, -2.6506805]
-      Scale: [0.52, 0.52, 0.52]
-      Rotation: [0, -0, 0]
-    Mesh:
-      Mesh: 2588111291914606650
-      MaterialOverrides: [4431270448959175583]
-    Relationship:
-      Parent: 9784779853712716575
-      Children:
-        []
-  - Entity: 7933459923336589363
-    Tag: Plane
-    Transform:
-      Translation: [0.056358278, -4.990764, 0.020184278]
-      Scale: [17.13192, 17.13192, 17.13192]
-      Rotation: [0, -0, 0]
-    Mesh:
-      Mesh: 7500292515646999820
-      MaterialOverrides: [3884254406120167305]
-    RigidBody:
-      BodyType: 0
-      CollisionLayer: 1
-      CollisionMask: 1
-      Mass: 1
-      LinearDrag: 0.01
-      AngularDrag: 0.05
-      GravityFactor: 1
-      InitialLinearVelocity: [0, 0, 0]
-      InitialAngularVelocity: [0, 0, 0]
-    BoxCollider:
-      HalfExtents: [1, 0, 1]
-      Offset: [0, 0, 0]
-      IsTrigger: false
-      Friction: 0.5
-      Restitution: 0.15
-    Relationship:
-      Parent: 0
-      Children:
-        []
-  - Entity: 9784779853712716575
-    Tag: Cube
+  - Entity: 4046893500929970658
+    Tag: Ground
     Transform:
       Translation: [0, 0, 0]
       Scale: [1, 1, 1]
       Rotation: [0, 0, 0]
     Mesh:
-      Mesh: 2588111291914606650
-      MaterialOverrides: [9201136865809239182]
-    RigidBody:
-      BodyType: 1
-      CollisionLayer: 1
-      CollisionMask: 1
-      Mass: 40
-      LinearDrag: 0.01
-      AngularDrag: 0.05
-      GravityFactor: 1
-      InitialLinearVelocity: [0, 0, 0]
-      InitialAngularVelocity: [0, 0, 0]
-    BoxCollider:
-      HalfExtents: [1, 1, 1]
-      Offset: [0, 0, 0]
-      IsTrigger: false
-      Friction: 0.5
-      Restitution: 0.15
-    Relationship:
-      Parent: 0
-      Children:
-        - 2561095505170714115
-        - 17662605094292451532
-  - Entity: 10465575276937791739
-    Tag: Ball
-    Transform:
-      Translation: [-0.21553159, 7.5948563, -0.99050415]
-      Scale: [0.64, 0.64, 0.64]
-      Rotation: [0, -0, 0]
-    Mesh:
-      Mesh: 2588111291914606650
-      MaterialOverrides: [4431270448959175583]
-    RigidBody:
-      BodyType: 1
-      CollisionLayer: 1
-      CollisionMask: 1
-      Mass: 25.33
-      LinearDrag: 0.01
-      AngularDrag: 0.05
-      GravityFactor: 0.69
-      InitialLinearVelocity: [0, 0, 0]
-      InitialAngularVelocity: [0, 0, 0]
-    SphereCollider:
-      Radius: 1.51
-      Offset: [0, 0, 0]
-      IsTrigger: false
-      Friction: 0.74
-      Restitution: 0.15
+      Mesh: 8502840739591561280
     Relationship:
       Parent: 0
       Children:
         []
-  - Entity: 12403566664747799388
+  - Entity: 4317652991762431037
     Tag: Camera
     Transform:
-      Translation: [0, 0.49190497, -0.4632826]
+      Translation: [0, 2.5, 7]
       Scale: [1, 1, 1]
-      Rotation: [0, -0, 0]
+      Rotation: [-0.2617994, 0, 0]
     Camera:
       ProjectionType: Perspective
       PerspectiveFov: 45
@@ -149,19 +28,31 @@ Entities:
       OrthographicFar: 1
       IsPrimary: true
     Relationship:
-      Parent: 1309468107298538528
+      Parent: 0
       Children:
         []
-  - Entity: 17662605094292451532
-    Tag: Cube 3
+  - Entity: 7198138002995371791
+    Tag: Sun
     Transform:
-      Translation: [0, 3.0967004, 0]
-      Scale: [0.55, 0.55, 0.55]
-      Rotation: [0, -0, 0]
-    Mesh:
-      Mesh: 2588111291914606650
-      MaterialOverrides: [6600000042]
+      Translation: [0, 0, 0]
+      Scale: [1, 1, 1]
+      Rotation: [-0.61086524, 0.43633232, 0]
+    DirectionalLight:
+      Color: [1, 0.98, 0.95]
+      Intensity: 2.2
     Relationship:
-      Parent: 9784779853712716575
+      Parent: 0
+      Children:
+        []
+  - Entity: 9188634009832265809
+    Tag: Cube
+    Transform:
+      Translation: [0, 1, 0]
+      Scale: [1, 1, 1]
+      Rotation: [0, 0, 0]
+    Mesh:
+      Mesh: 17119984830734684576
+    Relationship:
+      Parent: 0
       Children:
         []

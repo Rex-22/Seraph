@@ -1,35 +1,11 @@
 Version: 1
 Assets:
-  - Handle: 6600000042
-    Type: Material
-    FilePath: materials/Fancy.smaterial
-  - Handle: 1295801298320
-    Type: Texture2D
-    FilePath: textures/test_texture.png
-  - Handle: 2588111291914606650
-    Type: Mesh
-    FilePath: meshes/primitives/Cube.smesh
-  - Handle: 3884254406120167305
-    Type: Material
-    FilePath: materials/Material_1.smaterial
-  - Handle: 4431270448959175583
-    Type: MaterialInstance
-    FilePath: materials/MaterialInstance_1.smatinst
-  - Handle: 5937752638421463395
-    Type: Shader
-    FilePath: shaders/Shader_1.sshader
-  - Handle: 7500292515646999820
+  - Handle: 8502840739591561280
     Type: Mesh
     FilePath: meshes/primitives/Plane.smesh
-  - Handle: 9201136865809239182
-    Type: Material
-    FilePath: materials/Material_2.smaterial
-  - Handle: 13208420419412690307
-    Type: Shader
-    FilePath: shaders/Shader_1.sshader
-  - Handle: 15603322866813599139
-    Type: MaterialInstance
-    FilePath: materials/MaterialInstance_0.smatinst
-  - Handle: 18170219796295201720
+  - Handle: 17071154304675183493
     Type: Scene
     FilePath: scenes/example.sscene
+  - Handle: 17119984830734684576
+    Type: Mesh
+    FilePath: meshes/primitives/Cube.smesh
