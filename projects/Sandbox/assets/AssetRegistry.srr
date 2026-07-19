@@ -3,6 +3,9 @@ Assets:
   - Handle: 1110263753092241549
     Type: Texture2D
     FilePath: textures/bolonga_irr.dds
+  - Handle: 7707472661298956301
+    Type: Texture2D
+    FilePath: textures/ibl_specular_cube.dds
   - Handle: 9765035156362023775
     Type: Texture2D
     FilePath: textures/bolonga_lod.dds
@@ -12,6 +15,9 @@ Assets:
   - Handle: 11923726420154086561
     Type: Mesh
     FilePath: meshes/primitives/Cube.smesh
+  - Handle: 12110036093484666702
+    Type: Texture2D
+    FilePath: textures/ibl_irradiance_cube.dds
   - Handle: 14494318257152640176
     Type: Scene
     FilePath: scenes/example.sscene
