@@ -42,6 +42,33 @@ std::string Lower(std::string_view s)
 
 } // namespace
 
+std::string Detail::UsageFromParamTypes(const std::vector<const Type*>& params)
+{
+    std::string usage;
+    for (const Type* pt : params)
+    {
+        if (!usage.empty())
+            usage += ' ';
+        usage += '<';
+        usage += AnyTextCodec::TypeLabel(pt);
+        usage += '>';
+    }
+    return usage;
+}
+
+ConsoleCommandBuilder ConsoleCommandRegistry::Register(std::string name,
+                                                       std::string description,
+                                                       ConsoleCommandFn fn)
+{
+    ConsoleCommand cmd;
+    cmd.Name = std::move(name);
+    cmd.Description = std::move(description);
+    cmd.Invoke = std::move(fn);
+    const ConsoleCommand* p = Register(std::move(cmd));
+    // The registry owns the command mutably; the const on Find/All is for readers.
+    return ConsoleCommandBuilder(const_cast<ConsoleCommand*>(p));
+}
+
 const ConsoleCommand* ConsoleCommandRegistry::Register(ConsoleCommand cmd)
 {
     Registry& r = Store();
@@ -128,16 +155,7 @@ const ConsoleCommand* ConsoleCommandRegistry::RegisterMethod(
         cmd.Flags |= ConsoleCommandFlag_Cheat;
 
     cmd.ParamTypes = method.ParamTypes; // for argument-value autocomplete
-
-    // Usage hint: "<type> <type> ...".
-    for (const Type* pt : method.ParamTypes)
-    {
-        if (!cmd.Usage.empty())
-            cmd.Usage += ' ';
-        cmd.Usage += '<';
-        cmd.Usage += AnyTextCodec::TypeLabel(pt);
-        cmd.Usage += '>';
-    }
+    cmd.Usage = Detail::UsageFromParamTypes(method.ParamTypes);
 
     // The MethodInfo (and its owning Type) is stable for the type's registered
     // lifetime, so capturing the pointer is safe for engine types. (Game-module
