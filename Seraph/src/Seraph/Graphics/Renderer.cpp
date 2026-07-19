@@ -171,6 +171,12 @@ static RenderData s_RenderData;
 static bgfx::UniformHandle s_TonemapSampler = BGFX_INVALID_HANDLE; // s_hdr
 static bgfx::UniformHandle s_TonemapParams  = BGFX_INVALID_HANDLE; // u_tonemapParams
 
+// Lazily-created skybox uniforms (destroyed in Cleanup before bgfx::shutdown).
+static bgfx::UniformHandle s_SkyCube        = BGFX_INVALID_HANDLE; // s_skyCube
+static bgfx::UniformHandle s_SkyInvViewProj = BGFX_INVALID_HANDLE; // u_skyInvViewProj
+static bgfx::UniformHandle s_SkyCameraPos   = BGFX_INVALID_HANDLE; // u_skyCameraPos
+static bgfx::UniformHandle s_SkyParams      = BGFX_INVALID_HANDLE; // u_skyParams
+
 void Renderer::Init()
 {
     s_RenderData = {};
@@ -239,6 +245,15 @@ void Renderer::Cleanup()
     {
         bgfx::destroy(s_TonemapParams);
         s_TonemapParams = BGFX_INVALID_HANDLE;
+    }
+    for (bgfx::UniformHandle* h :
+         { &s_SkyCube, &s_SkyInvViewProj, &s_SkyCameraPos, &s_SkyParams })
+    {
+        if (bgfx::isValid(*h))
+        {
+            bgfx::destroy(*h);
+            *h = BGFX_INVALID_HANDLE;
+        }
     }
 
     ShaderManager::Shutdown();
@@ -385,6 +400,39 @@ void Renderer::TonemapResolve(
 
     // No depth test/write: a fullscreen resolve overwrites the whole target.
     DrawFullscreen(viewId, program, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
+}
+
+void Renderer::DrawSkybox(
+    uint16_t viewId, bgfx::TextureHandle cube, const glm::mat4& invViewProj,
+    const glm::vec3& cameraPos, float intensity, float rotationYaw, float mipLod)
+{
+    const bgfx::ProgramHandle program = ShaderManager::GetProgram("skybox");
+    if (!bgfx::isValid(program) || !bgfx::isValid(cube))
+        return;
+
+    if (!bgfx::isValid(s_SkyCube))
+        s_SkyCube = bgfx::createUniform("s_skyCube", bgfx::UniformType::Sampler);
+    if (!bgfx::isValid(s_SkyInvViewProj))
+        s_SkyInvViewProj = bgfx::createUniform("u_skyInvViewProj", bgfx::UniformType::Mat4);
+    if (!bgfx::isValid(s_SkyCameraPos))
+        s_SkyCameraPos = bgfx::createUniform("u_skyCameraPos", bgfx::UniformType::Vec4);
+    if (!bgfx::isValid(s_SkyParams))
+        s_SkyParams = bgfx::createUniform("u_skyParams", bgfx::UniformType::Vec4);
+
+    const glm::vec4 camPos(cameraPos, 1.0f);
+    const float params[4] = { intensity, rotationYaw, mipLod, 0.0f };
+    bgfx::setUniform(s_SkyInvViewProj, glm::value_ptr(invViewProj));
+    bgfx::setUniform(s_SkyCameraPos, glm::value_ptr(camPos));
+    bgfx::setUniform(s_SkyParams, params);
+    bgfx::setTexture(0, s_SkyCube, cube);
+
+    // Write color only (keep the geometry depth buffer), and reject any pixel a
+    // mesh already wrote: the sky rasterizes at clip depth 0.0, which is the far
+    // plane under reversed-Z, so GEQUAL passes only where depth is still the
+    // cleared far value (no geometry) and fails where nearer geometry wrote > 0.
+    const uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+                           BGFX_STATE_DEPTH_TEST_GEQUAL;
+    DrawFullscreen(viewId, program, state);
 }
 
 void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)

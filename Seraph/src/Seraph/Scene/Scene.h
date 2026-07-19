@@ -6,6 +6,7 @@
 
 #include "Components/TransformComponent.h"
 #include "Entity.h"
+#include "SceneEnvironment.h"
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/Ref.h"
 #include "Seraph/Core/UUID.h"
@@ -107,6 +108,9 @@ public:
 
     const std::string& GetName() const { return m_Name; }
     void SetName(const std::string& name) { m_Name = name; }
+
+    SceneEnvironment& Environment() { return m_Environment; }
+    const SceneEnvironment& Environment() const { return m_Environment; }
 private:
     // Destroy every entity queued via DestroyEntity since the last drain,
     // releasing each one's physics body (if any) before it leaves the registry.
@@ -118,6 +122,8 @@ private:
     entt::registry m_Registry;
     std::queue<entt::entity> m_DestroyQueue;
     EntityMap m_EntityIDMap;
+
+    SceneEnvironment m_Environment;
 
     Ref<PhysicsScene> m_PhysicsScene;
     // Created in OnRuntimeStart, dropped in OnRuntimeStop. Incomplete type here

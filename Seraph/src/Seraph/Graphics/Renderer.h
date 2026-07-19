@@ -47,6 +47,19 @@ struct Renderer
     static void TonemapResolve(
         uint16_t viewId, bgfx::TextureHandle hdrColor, float exposure, int op);
 
+    // Draw the environment cube as the scene background on `viewId`, filling only
+    // pixels no geometry covered. A fullscreen pass reconstructs the per-pixel
+    // world ray from `invViewProj` + `cameraPos`; the sample direction is yaw-
+    // rotated by `rotationYaw` and scaled by `intensity`. Rasterized at the far
+    // plane with a GEQUAL depth test (reversed-Z far = 0.0). `mipLod` picks the
+    // radiance mip (0 = sharpest). Must run on the scene view after opaque
+    // geometry, while its depth buffer is still bound. No-op if the cube or the
+    // `skybox` program is invalid.
+    static void DrawSkybox(
+        uint16_t viewId, bgfx::TextureHandle cube, const glm::mat4& invViewProj,
+        const glm::vec3& cameraPos, float intensity, float rotationYaw,
+        float mipLod = 0.0f);
+
     static void Clear(glm::vec3 clearColor, uint16_t flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
     static void SetBackBufferSize(u32 width, u32 height);
 

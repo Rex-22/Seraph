@@ -7,6 +7,8 @@
 #include "Material/UniformCache.h"
 #include "Renderer.h"
 #include "SceneCamera.h"
+#include "Seraph/Asset/AssetManager.h"
+#include "Seraph/Graphics/EnvironmentMap.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Scene.h"
 
@@ -101,6 +103,32 @@ void SceneRenderer::SubmitMesh(
         m_LightsUploaded = true;
     }
     Renderer::SubmitMesh(mesh, transform, materialOverrides);
+}
+
+void SceneRenderer::DrawSkybox()
+{
+    if (!m_Scene)
+        return;
+
+    const SceneEnvironment& env = m_Scene->Environment();
+    if (env.Background != SceneBackgroundMode::Skybox)
+        return;
+
+    Ref<EnvironmentMap> map = AssetManager::GetAsset<EnvironmentMap>(env.Environment);
+    if (!map)
+        return;
+
+    const bgfx::TextureHandle cube = map->RadianceCube();
+    if (!bgfx::isValid(cube))
+        return;
+
+    const SceneRendererCamera& cam = m_SceneRenderData.SceneCamera;
+    const glm::mat4 viewProj = cam.Camera.GetProjectionMatrix() * cam.ViewMatrix;
+    const glm::mat4 invViewProj = glm::inverse(viewProj);
+    const glm::vec3 camPos = glm::vec3(glm::inverse(cam.ViewMatrix)[3]);
+
+    Renderer::DrawSkybox(cam.Camera.GetViewId(), cube, invViewProj, camPos,
+        env.Intensity, env.Rotation);
 }
 
 void SceneRenderer::Clear(u16 flags)

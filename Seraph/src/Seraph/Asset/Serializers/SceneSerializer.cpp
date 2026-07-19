@@ -447,6 +447,15 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
         data["Scene"] ? data["Scene"].as<std::string>() : "Untitled Scene";
     Ref<Scene> scene = Ref<Scene>::Create(sceneName);
 
+    if (const YAML::Node e = data["Environment"]; e && e.IsMap()) {
+        SceneEnvironment& env = scene->Environment();
+        env.Environment = AssetHandle(e["Map"].as<u64>(c_NullAssetHandle));
+        env.Background = static_cast<SceneBackgroundMode>(
+            e["Background"].as<int>(static_cast<int>(SceneBackgroundMode::SolidColor)));
+        env.Intensity = e["Intensity"].as<f32>(1.0f);
+        env.Rotation = e["Rotation"].as<f32>(0.0f);
+    }
+
     if (const YAML::Node entities = data["Entities"]; entities && entities.IsSequence()) {
         for (const auto& node : entities) {
             if (!node["Entity"])
@@ -553,6 +562,16 @@ bool SceneSerializer::Serialize(
     YAML::Emitter emitter;
     emitter << YAML::BeginMap;
     emitter << YAML::Key << "Scene" << YAML::Value << scene->GetName();
+
+    const SceneEnvironment& env = scene->Environment();
+    emitter << YAML::Key << "Environment" << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "Map" << YAML::Value << static_cast<u64>(env.Environment);
+    emitter << YAML::Key << "Background" << YAML::Value
+            << static_cast<int>(env.Background);
+    emitter << YAML::Key << "Intensity" << YAML::Value << env.Intensity;
+    emitter << YAML::Key << "Rotation" << YAML::Value << env.Rotation;
+    emitter << YAML::EndMap;
+
     emitter << YAML::Key << "Entities" << YAML::Value << YAML::BeginSeq;
     for (Entity entity : entities)
         SerializeEntity(emitter, entity);

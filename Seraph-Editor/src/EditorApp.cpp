@@ -12,6 +12,7 @@
 #include <Seraph/Asset/EditorAssetManager.h>
 #include <Seraph/Core/CommandLine.h>
 #include <Seraph/Core/EntryPoint.h>
+#include <Seraph/Graphics/EnvironmentMap.h>
 #include <Seraph/Graphics/MeshFactory.h>
 #include <Seraph/Project/GamePackager.h>
 #include <Seraph/Project/Project.h>
@@ -24,6 +25,7 @@
 #include <Seraph/Scene/Scene.h>
 #include <Seraph/Scene/SceneAsset.h>
 
+#include <config.h>
 #include <glm/glm.hpp>
 #include <glm/trigonometric.hpp>
 
@@ -91,7 +93,33 @@ static void SeedProject(const std::filesystem::path& dir)
         Seraph::MeshFactory::CreatePlane(Seraph::PlaneParams{ glm::vec2(10.0f) }),
         "meshes/primitives/Plane.smesh");
 
+    // Environment / IBL: copy the pre-baked cube maps (bgfx's 18-ibl "bolonga"
+    // radiance + irradiance DDS cubes) into the project, import them as texture
+    // assets, and bundle them as an EnvironmentMap that drives the skybox + IBL.
+    const fs::path texSrc =
+        fs::path(SERAPH_ENGINE_SOURCE_DIR) / "vendor/bgfx/bgfx/examples/runtime/textures";
+    const fs::path texDst = Seraph::ProjectManager::ActiveAssetRoot() / "textures";
+    fs::create_directories(texDst, ec);
+    Seraph::AssetHandle envHandle;
+    if (fs::copy_file(texSrc / "bolonga_lod.dds", texDst / "bolonga_lod.dds",
+            fs::copy_options::overwrite_existing, ec) &&
+        fs::copy_file(texSrc / "bolonga_irr.dds", texDst / "bolonga_irr.dds",
+            fs::copy_options::overwrite_existing, ec)) {
+        auto env = Seraph::Ref<Seraph::EnvironmentMap>::Create();
+        env->Radiance = assets->ImportAsset("textures/bolonga_lod.dds");
+        env->Irradiance = assets->ImportAsset("textures/bolonga_irr.dds");
+        envHandle = assets->SaveAssetAs(env, "textures/bolonga.senv");
+    } else {
+        SP_CORE_WARN_TAG("Seed", "Could not copy IBL cubes from '{}'", texSrc.string());
+    }
+
     auto scene = Seraph::Ref<Seraph::Scene>::Create("example");
+
+    if (envHandle != Seraph::c_NullAssetHandle) {
+        Seraph::SceneEnvironment& sceneEnv = scene->Environment();
+        sceneEnv.Environment = envHandle;
+        sceneEnv.Background = Seraph::SceneBackgroundMode::Skybox;
+    }
 
     Seraph::Entity camera = scene->CreateEntity("Camera");
     auto& camXform = camera.GetComponent<Seraph::TransformComponent>();

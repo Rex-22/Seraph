@@ -207,6 +207,7 @@ Ref<Scene> Scene::Copy(const Ref<Scene>& src)
     dst->m_ViewportTop = src->m_ViewportTop;
     dst->m_ViewportRight = src->m_ViewportRight;
     dst->m_ViewportBottom = src->m_ViewportBottom;
+    dst->m_Environment = src->m_Environment;
 
     // Pass 1: recreate every entity with its original UUID + tag. This rebuilds
     // dst's EntityIDMap with dst-owned handles (the map is never memcpy'd — its
@@ -324,6 +325,7 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
                 *mesh, GetWorldSpaceTransformMatrix(entity), mc.MaterialOverrides);
         }
     }
+    sceneRenderer->DrawSkybox();
     RenderDebug(sceneRenderer, camera.GetViewId(), /*runtime=*/true);
     sceneRenderer->EndScene();
 }
@@ -348,6 +350,7 @@ void Scene::OnRenderEditor(Ref<SceneRenderer> sceneRenderer, const EditorCamera&
                 *mesh, GetWorldSpaceTransformMatrix(entity), mc.MaterialOverrides);
         }
     }
+    sceneRenderer->DrawSkybox();
     RenderDebug(sceneRenderer, editorCamera.GetViewId(), /*runtime=*/false);
     sceneRenderer->EndScene();
 }

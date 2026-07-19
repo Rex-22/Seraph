@@ -73,6 +73,12 @@ public:
         const Mesh& mesh, const glm::mat4& transform = glm::mat4(1.0f),
         const std::vector<AssetHandle>& materialOverrides = {});
 
+    // Draw the active scene's environment cube as the background on the current
+    // scene view. No-op unless the scene's SceneEnvironment selects a Skybox
+    // background with a resolved EnvironmentMap. Call after the mesh loop (while
+    // the scene view + its depth buffer are still bound), before EndScene.
+    void DrawSkybox();
+
     void Clear(u16 flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
 
     const SceneRendererSettings& GetSettings() const { return m_Settings; }
