@@ -90,18 +90,24 @@ void Input::Update()
 
 bool Input::IsKeyPressed(KeyCode key)
 {
+    if (s_KeyboardCaptured)
+        return false;
     auto it = s_KeyData.find(key);
     return it != s_KeyData.end() && it->second.State == KeyState::Pressed;
 }
 
 bool Input::IsKeyHeld(KeyCode key)
 {
+    if (s_KeyboardCaptured)
+        return false;
     auto it = s_KeyData.find(key);
     return it != s_KeyData.end() && it->second.State == KeyState::Held;
 }
 
 bool Input::IsKeyReleased(KeyCode key)
 {
+    if (s_KeyboardCaptured)
+        return false;
     auto it = s_KeyData.find(key);
     return it != s_KeyData.end() && it->second.State == KeyState::Released;
 }
@@ -110,6 +116,9 @@ bool Input::IsKeyReleased(KeyCode key)
 
 bool Input::IsKeyDown(KeyCode key)
 {
+    if (s_KeyboardCaptured)
+        return false;
+
     SDL_Scancode sc = SDL_GetScancodeFromKey(static_cast<SDL_Keycode>(key), nullptr);
     if (sc == SDL_SCANCODE_UNKNOWN)
         return false;
@@ -121,6 +130,8 @@ bool Input::IsKeyDown(KeyCode key)
 
 bool Input::IsKeyToggledOn(KeyCode key)
 {
+    if (s_KeyboardCaptured)
+        return false;
     const SDL_Keymod mods = SDL_GetModState();
     if (key == Key::CapsLock)  return (mods & SDL_KMOD_CAPS) != 0;
     if (key == Key::NumLockClear) return (mods & SDL_KMOD_NUM) != 0;
