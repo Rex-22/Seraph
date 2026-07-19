@@ -513,7 +513,7 @@ Optional dynamic sky: the Perez all-weather model with a time-of-day sun, as an 
 ---
 
 ### 17. Render 17 — Directional shadow map (un-reversed projection)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -539,7 +539,7 @@ Add a single directional-light shadow map: a depth-only pass from the light's or
 ---
 
 ### 18. Render 18 — Shadow bias + normal-offset + depth-convention plumbing
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -562,7 +562,7 @@ Formalize the shadow depth-convention handling (`homogeneousDepth`/`originBottom
 ---
 
 ### 19. Render 19 — PCF shadow filtering
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
