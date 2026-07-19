@@ -86,8 +86,8 @@ void RuntimeLayer::OnEvent(Event& e)
         return false;
     });
 
-    // The open console owns the keyboard (ImGui still feeds its input box).
-    if (m_ConsolePanel.IsOpen() && e.IsInCategory(EventCategoryKeyboard))
+    // The open console owns keyboard + mouse input (ImGui still feeds its box).
+    if (m_ConsolePanel.IsOpen() && e.IsInCategory(EventCategoryInput))
         return;
 
     m_Scene->OnEvent(e);

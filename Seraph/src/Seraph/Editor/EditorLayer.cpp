@@ -168,10 +168,10 @@ void EditorLayer::OnEvent(Event& e)
         return false;
     });
 
-    // While the console is open it owns the keyboard: keep key events out of the
-    // camera and the running game (ImGui still feeds the console input box, since
+    // While the console is open it owns keyboard + mouse input: keep those events
+    // out of the camera and the running game (ImGui still feeds the console, since
     // it processes SDL input directly, not through this event path).
-    if (m_ConsolePanel.IsOpen() && e.IsInCategory(EventCategoryKeyboard))
+    if (m_ConsolePanel.IsOpen() && e.IsInCategory(EventCategoryInput))
         return;
 
     if (m_RuntimeMode)
