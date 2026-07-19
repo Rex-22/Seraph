@@ -93,8 +93,10 @@ void ConsolePanel::Submit()
         m_Input[0] = '\0';
     }
     m_HistoryPos = -1;
-    m_TabIndex = -1;
-    m_TabMatches.clear();
+    m_SuggestSelected = -1;
+    m_SuggestItems.clear();
+    m_ShowSuggest = false;
+    m_LastFilled.clear();
     m_ScrollToBottom = true;
     m_ReclaimFocus = true;
 }
@@ -111,7 +113,7 @@ void ConsolePanel::DrawInput()
         | ImGuiInputTextFlags_CallbackHistory;
 
     if (ImGui::InputTextWithHint("##console-input",
-                                 "command or variable  (Tab cycles completions)",
+                                 "command or variable  (Up/Down or Tab to complete)",
                                  m_Input, sizeof(m_Input), flags,
                                  &ConsolePanel::InputTextCallback, this))
         Submit();
@@ -126,16 +128,24 @@ void ConsolePanel::DrawInput()
 
     // Compute live suggestions for the current token; they are drawn as a separate
     // dropdown window (below the input) in OnImGuiRender so the overlay's bottom
-    // edge doesn't clip them.
+    // edge doesn't clip them. Up/Down (or Tab) move the highlight and fill.
     m_ShowSuggest = false;
     if (m_Input[0] != '\0' && ImGui::IsItemActive())
     {
         ConsoleEvaluator::Completion comp = ConsoleEvaluator::Complete(m_Input, 10);
         if (!comp.Matches.empty())
         {
+            // If the buffer changed from our last auto-fill, the user typed — drop
+            // the highlight so navigation restarts from the top of the new list.
+            if (m_Input != m_LastFilled)
+                m_SuggestSelected = -1;
+            if (m_SuggestSelected >= static_cast<int>(comp.Matches.size()))
+                m_SuggestSelected = -1;
+
             const ImVec2 mn = ImGui::GetItemRectMin();
             const ImVec2 mx = ImGui::GetItemRectMax();
             m_SuggestItems = std::move(comp.Matches);
+            m_SuggestReplaceFrom = comp.ReplaceFrom;
             m_SuggestX = mn.x;
             m_SuggestY = mx.y;
             m_SuggestW = mx.x - mn.x;
@@ -146,9 +156,11 @@ void ConsolePanel::DrawInput()
 
 void ConsolePanel::OnImGuiRender()
 {
-    // The open console owns the keyboard so polling gameplay/camera code (e.g.
-    // Player.cpp's Input::IsKeyDown(W)) stops responding while you type commands.
+    // The open console owns keyboard + mouse so polling gameplay/camera code (e.g.
+    // Player.cpp's Input::IsKeyDown(W) / IsMouseButtonPressed) stops responding —
+    // typing goes to the console and clicking the viewport won't grab the cursor.
     Input::SetKeyboardCaptured(m_Open);
+    Input::SetMouseCaptured(m_Open);
 
     if (!m_Open)
         return;
@@ -201,7 +213,8 @@ void ConsolePanel::OnImGuiRender()
 
     // Autocomplete dropdown: a separate borderless window pinned just under the
     // input field, so it floats over the viewport instead of being clipped by the
-    // overlay's bottom edge. Non-interactive (Tab drives selection).
+    // overlay's bottom edge. Up/Down highlight a row (m_SuggestSelected) and fill
+    // it into the input; the highlight is shown here.
     if (m_ShowSuggest)
     {
         ImGui::SetNextWindowPos(ImVec2(m_SuggestX, m_SuggestY));
@@ -211,61 +224,65 @@ void ConsolePanel::OnImGuiRender()
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize
             | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings
             | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav
-            | ImGuiWindowFlags_NoInputs;
+            | ImGuiWindowFlags_NoInputs; // keyboard-driven; keep input focus
         if (ImGui::Begin("##console-suggest", nullptr, sf))
         {
-            for (const std::string& item : m_SuggestItems)
-                ImGui::TextUnformatted(item.c_str());
+            for (int i = 0; i < static_cast<int>(m_SuggestItems.size()); ++i)
+                ImGui::Selectable(m_SuggestItems[i].c_str(), i == m_SuggestSelected);
         }
         ImGui::End();
     }
 }
 
+// Replace the current token (from replaceFrom to the end) with `pick`, and record
+// what we wrote so the next-frame recompute keeps the highlight instead of
+// treating it as fresh typing.
+void ConsolePanel::FillSuggestion(ImGuiInputTextCallbackData* data,
+                                  ConsolePanel* self, std::size_t replaceFrom,
+                                  const std::string& pick)
+{
+    int from = static_cast<int>(replaceFrom);
+    if (from > data->BufTextLen)
+        from = data->BufTextLen;
+    data->DeleteChars(from, data->BufTextLen - from);
+    data->InsertChars(from, pick.c_str());
+    self->m_LastFilled = std::string(data->Buf, data->BufTextLen);
+}
+
 int ConsolePanel::InputTextCallback(ImGuiInputTextCallbackData* data)
 {
     auto* self = static_cast<ConsolePanel*>(data->UserData);
+    const int count = static_cast<int>(self->m_SuggestItems.size());
+    const bool haveSuggest = self->m_ShowSuggest && count > 0;
 
     switch (data->EventFlag)
     {
-        case ImGuiInputTextFlags_CallbackCompletion:
+        case ImGuiInputTextFlags_CallbackCompletion: // Tab
         {
-            const std::string cur(data->Buf, data->BufTextLen);
-            const bool cycling = self->m_TabIndex >= 0
-                                 && !self->m_TabMatches.empty()
-                                 && cur == self->m_TabLastWrite;
-            if (cycling)
-            {
-                // Advance to the next match (wraps).
-                self->m_TabIndex = (self->m_TabIndex + 1)
-                                   % static_cast<int>(self->m_TabMatches.size());
-            }
-            else
-            {
-                // Fresh completion: context-aware matches for the current token
-                // (command/CVar name, or an argument value).
-                ConsoleEvaluator::Completion comp =
-                    ConsoleEvaluator::Complete(cur, 64);
-                self->m_TabMatches = std::move(comp.Matches);
-                self->m_TabReplaceFrom = comp.ReplaceFrom;
-                if (self->m_TabMatches.empty())
-                {
-                    self->m_TabIndex = -1;
-                    break;
-                }
-                self->m_TabIndex = 0;
-            }
-
-            // Replace only the token being completed (keep the command prefix).
-            const std::string& pick = self->m_TabMatches[self->m_TabIndex];
-            const int from = static_cast<int>(self->m_TabReplaceFrom);
-            data->DeleteChars(from, data->BufTextLen - from);
-            data->InsertChars(from, pick.c_str());
-            self->m_TabLastWrite = std::string(data->Buf, data->BufTextLen);
+            if (!haveSuggest)
+                break;
+            self->m_SuggestSelected = (self->m_SuggestSelected + 1) % count;
+            FillSuggestion(data, self, self->m_SuggestReplaceFrom,
+                           self->m_SuggestItems[self->m_SuggestSelected]);
             break;
         }
-        case ImGuiInputTextFlags_CallbackHistory:
+        case ImGuiInputTextFlags_CallbackHistory: // Up / Down
         {
-            self->m_TabIndex = -1; // navigating history breaks any tab cycle
+            // While the suggestion dropdown is up, arrows move the highlight and
+            // fill it; otherwise they walk the command history.
+            if (haveSuggest)
+            {
+                if (data->EventKey == ImGuiKey_UpArrow)
+                    self->m_SuggestSelected =
+                        (self->m_SuggestSelected <= 0) ? count - 1
+                                                       : self->m_SuggestSelected - 1;
+                else if (data->EventKey == ImGuiKey_DownArrow)
+                    self->m_SuggestSelected = (self->m_SuggestSelected + 1) % count;
+                FillSuggestion(data, self, self->m_SuggestReplaceFrom,
+                               self->m_SuggestItems[self->m_SuggestSelected]);
+                break;
+            }
+
             const std::vector<std::string>& hist = Console::History();
             if (hist.empty())
                 break;
