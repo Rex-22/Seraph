@@ -1,18 +1,11 @@
 Scene: example
+Environment:
+  Map: 17532436650243522400
+  Background: 1
+  Intensity: 1
+  Rotation: 0
 Entities:
-  - Entity: 4046893500929970658
-    Tag: Ground
-    Transform:
-      Translation: [0, 0, 0]
-      Scale: [1, 1, 1]
-      Rotation: [0, 0, 0]
-    Mesh:
-      Mesh: 8502840739591561280
-    Relationship:
-      Parent: 0
-      Children:
-        []
-  - Entity: 4317652991762431037
+  - Entity: 7591458282107206773
     Tag: Camera
     Transform:
       Translation: [0, 2.5, 7]
@@ -31,7 +24,19 @@ Entities:
       Parent: 0
       Children:
         []
-  - Entity: 7198138002995371791
+  - Entity: 13928263622182744084
+    Tag: Ground
+    Transform:
+      Translation: [0, 0, 0]
+      Scale: [1, 1, 1]
+      Rotation: [0, 0, 0]
+    Mesh:
+      Mesh: 10109429031854467779
+    Relationship:
+      Parent: 0
+      Children:
+        []
+  - Entity: 17799622693417037655
     Tag: Sun
     Transform:
       Translation: [0, 0, 0]
@@ -44,14 +49,14 @@ Entities:
       Parent: 0
       Children:
         []
-  - Entity: 9188634009832265809
+  - Entity: 18245962469737159896
     Tag: Cube
     Transform:
       Translation: [0, 1, 0]
       Scale: [1, 1, 1]
       Rotation: [0, 0, 0]
     Mesh:
-      Mesh: 17119984830734684576
+      Mesh: 11923726420154086561
     Relationship:
       Parent: 0
       Children:

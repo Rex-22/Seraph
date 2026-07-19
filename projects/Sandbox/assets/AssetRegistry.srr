@@ -1,11 +1,20 @@
 Version: 1
 Assets:
-  - Handle: 8502840739591561280
+  - Handle: 1110263753092241549
+    Type: Texture2D
+    FilePath: textures/bolonga_irr.dds
+  - Handle: 9765035156362023775
+    Type: Texture2D
+    FilePath: textures/bolonga_lod.dds
+  - Handle: 10109429031854467779
     Type: Mesh
     FilePath: meshes/primitives/Plane.smesh
-  - Handle: 17071154304675183493
-    Type: Scene
-    FilePath: scenes/example.sscene
-  - Handle: 17119984830734684576
+  - Handle: 11923726420154086561
     Type: Mesh
     FilePath: meshes/primitives/Cube.smesh
+  - Handle: 14494318257152640176
+    Type: Scene
+    FilePath: scenes/example.sscene
+  - Handle: 17532436650243522400
+    Type: Environment
+    FilePath: textures/bolonga.senv
