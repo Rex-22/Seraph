@@ -60,6 +60,15 @@ struct Renderer
         const glm::vec3& cameraPos, float intensity, float rotationYaw,
         float mipLod = 0.0f);
 
+    // The split-sum BRDF integration LUT (RG16F, x=NdotV, y=roughness ->
+    // F0 scale + bias). Baked once on first request into a persistent texture via
+    // a fullscreen GGX-integration pass on ViewId::EnvBake; subsequent calls
+    // return the cached handle. The bake is submitted in the calling frame, so
+    // the LUT is only sampleable from the NEXT frame on (bgfx runs views in id
+    // order — EnvBake is after the scene view). Returns BGFX_INVALID_HANDLE if the
+    // `brdf_lut` program is unavailable. Bind it per-view for IBL specular.
+    static bgfx::TextureHandle BrdfLut();
+
     static void Clear(glm::vec3 clearColor, uint16_t flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
     static void SetBackBufferSize(u32 width, u32 height);
 

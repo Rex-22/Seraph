@@ -14,8 +14,10 @@
 #include "Seraph/Graphics/Material/Material.h"
 #include "Seraph/Graphics/Material/UniformCache.h"
 #include "Seraph/Graphics/Mesh.h"
+#include "Seraph/Graphics/RenderPass.h"
 #include "Seraph/Graphics/ShaderAsset.h"
 #include "Seraph/Graphics/ShaderManager.h"
+#include "Seraph/Graphics/ViewId.h"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <SDL3/SDL.h>
@@ -177,6 +179,12 @@ static bgfx::UniformHandle s_SkyInvViewProj = BGFX_INVALID_HANDLE; // u_skyInvVi
 static bgfx::UniformHandle s_SkyCameraPos   = BGFX_INVALID_HANDLE; // u_skyCameraPos
 static bgfx::UniformHandle s_SkyParams      = BGFX_INVALID_HANDLE; // u_skyParams
 
+// Split-sum BRDF LUT, baked once (Renderer::BrdfLut). We own both the texture
+// and its framebuffer (createFrameBuffer with destroyTextures=false), so both
+// are destroyed in Cleanup.
+static bgfx::TextureHandle     s_BrdfLut   = BGFX_INVALID_HANDLE;
+static bgfx::FrameBufferHandle s_BrdfLutFb = BGFX_INVALID_HANDLE;
+
 void Renderer::Init()
 {
     s_RenderData = {};
@@ -254,6 +262,16 @@ void Renderer::Cleanup()
             bgfx::destroy(*h);
             *h = BGFX_INVALID_HANDLE;
         }
+    }
+    if (bgfx::isValid(s_BrdfLutFb))
+    {
+        bgfx::destroy(s_BrdfLutFb);
+        s_BrdfLutFb = BGFX_INVALID_HANDLE;
+    }
+    if (bgfx::isValid(s_BrdfLut))
+    {
+        bgfx::destroy(s_BrdfLut);
+        s_BrdfLut = BGFX_INVALID_HANDLE;
     }
 
     ShaderManager::Shutdown();
@@ -433,6 +451,35 @@ void Renderer::DrawSkybox(
     const uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
                            BGFX_STATE_DEPTH_TEST_GEQUAL;
     DrawFullscreen(viewId, program, state);
+}
+
+bgfx::TextureHandle Renderer::BrdfLut()
+{
+    if (bgfx::isValid(s_BrdfLut))
+        return s_BrdfLut;
+
+    const bgfx::ProgramHandle program = ShaderManager::GetProgram("brdf_lut");
+    if (!bgfx::isValid(program))
+        return BGFX_INVALID_HANDLE;
+
+    // 256x256 RG16F is ample for the smooth split-sum response; clamp + bilinear
+    // so the PBR shader can sample it by (NdotV, roughness). No depth attachment
+    // is needed — the fullscreen triangle writes every texel with no depth test.
+    constexpr uint16_t kSize = 256;
+    s_BrdfLut = bgfx::createTexture2D(
+        kSize, kSize, false, 1, bgfx::TextureFormat::RG16F,
+        BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+    if (!bgfx::isValid(s_BrdfLut))
+        return BGFX_INVALID_HANDLE;
+
+    // destroyTextures=false: we own s_BrdfLut (both freed in Cleanup).
+    s_BrdfLutFb = bgfx::createFrameBuffer(1, &s_BrdfLut, false);
+
+    RenderPass::ToTarget(ViewId::EnvBake, s_BrdfLutFb, kSize, kSize).Bind();
+    DrawFullscreen(ViewId::EnvBake, program,
+        BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
+
+    return s_BrdfLut;
 }
 
 void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)

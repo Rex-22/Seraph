@@ -17,6 +17,7 @@ constexpr u16 Scene      = 1;   // scene geometry (the HDR target in the HDR pip
 constexpr u16 Pick       = 2;   // editor entity color-id render (EntityPicker)
 constexpr u16 PickBlit   = 3;   // editor entity color-id readback blit
 constexpr u16 Tonemap    = 4;   // fullscreen HDR -> LDR resolve
+constexpr u16 EnvBake    = 8;   // one-time environment/IBL bakes (BRDF LUT, ...)
 constexpr u16 ImGui      = 255; // Dear ImGui overlay
 
 } // namespace Seraph::ViewId
