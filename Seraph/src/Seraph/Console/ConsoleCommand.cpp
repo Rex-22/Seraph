@@ -127,6 +127,8 @@ const ConsoleCommand* ConsoleCommandRegistry::RegisterMethod(
     if (const bool* c = method.Attrs.Get<bool>(CommandAttr::Cheat); c && *c)
         cmd.Flags |= ConsoleCommandFlag_Cheat;
 
+    cmd.ParamTypes = method.ParamTypes; // for argument-value autocomplete
+
     // Usage hint: "<type> <type> ...".
     for (const Type* pt : method.ParamTypes)
     {

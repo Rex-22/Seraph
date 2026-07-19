@@ -35,4 +35,18 @@ struct Suggestion
 [[nodiscard]] std::vector<Suggestion> Autocomplete(std::string_view prefix,
                                                    std::size_t maxResults = 24);
 
+// Context-aware completion for the whole input line. Completes the LAST token:
+//   * the first token -> command/CVar names (like Autocomplete);
+//   * a later token   -> argument VALUES for the resolved command/CVar
+//     (enum labels, true/false, or command/CVar names for help/cvarlist/...).
+// ReplaceFrom is the index in `line` where the completed token begins, so a caller
+// replaces line[ReplaceFrom..end] with a chosen match. Matches are ranked.
+struct Completion
+{
+    std::size_t ReplaceFrom = 0;
+    std::vector<std::string> Matches;
+};
+
+[[nodiscard]] Completion Complete(std::string_view line, std::size_t maxResults = 24);
+
 } // namespace Seraph::ConsoleEvaluator

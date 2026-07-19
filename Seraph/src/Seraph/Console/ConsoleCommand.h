@@ -60,6 +60,10 @@ struct ConsoleCommand
     std::string Usage; // optional argument hint for help, e.g. "<amount>"
     u32 Flags = ConsoleCommandFlag_None;
     ConsoleCommandFn Invoke;
+    // Parameter types for a reflected-method command (drives argument-value
+    // autocomplete); empty for a free command. Default member initializer so the
+    // SP_CONSOLE_COMMAND aggregate need not list it (no missing-initializer warning).
+    std::vector<const Type*> ParamTypes = {};
 
     [[nodiscard]] bool HasFlag(ConsoleCommandFlags f) const
     {
