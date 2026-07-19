@@ -605,7 +605,7 @@ Per-spot perspective shadow map (single map per spot light), reusing the PCF sam
 ---
 
 ### 21. Render 21 — Cascaded shadow maps (sun)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
