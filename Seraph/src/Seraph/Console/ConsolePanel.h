@@ -61,6 +61,13 @@ private:
     void Submit();
     void RefreshCache();
 
+    // Fill the input with a suggestion the user clicked (mouse path; the keyboard
+    // path fills through the InputText callback instead).
+    void FillFromMouse(int suggestionIndex);
+    // Output line selection (click / shift-click / drag) + clipboard copy.
+    [[nodiscard]] bool InSelection(int lineIndex) const;
+    void CopySelection() const;
+
     // ImGui InputText callback (history + completion). UserData is `this`.
     static int InputTextCallback(ImGuiInputTextCallbackData* data);
     // Replace the current token with `pick` and record it as auto-filled.
@@ -93,6 +100,10 @@ private:
     int m_SuggestSelected = -1;
     std::size_t m_SuggestReplaceFrom = 0;
     std::string m_LastFilled;
+
+    // Output selection: a line range [min(anchor,end), max(...)]; -1 = nothing.
+    int m_SelAnchor = -1;
+    int m_SelEnd = -1;
 };
 
 } // namespace Seraph

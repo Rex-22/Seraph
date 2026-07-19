@@ -10,6 +10,9 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <string>
 
 namespace Seraph
 {
@@ -55,6 +58,7 @@ void ConsolePanel::RefreshCache()
     ConsoleOutput::Read(m_Cached);
     m_CachedVersion = v;
     m_ScrollToBottom = true; // new output arrived — follow the tail
+    m_SelAnchor = m_SelEnd = -1; // line indices shifted; drop any stale selection
 }
 
 void ConsolePanel::DrawOutput()
@@ -68,14 +72,37 @@ void ConsolePanel::DrawOutput()
         return;
     }
 
+    // Each line is a Selectable so it can be clicked/dragged to select and copied
+    // (Ctrl+C or the toolbar Copy button); the level color is kept on the label.
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
-    for (const ConsoleLine& line : m_Cached)
+    for (int i = 0; i < static_cast<int>(m_Cached.size()); ++i)
     {
+        const ConsoleLine& line = m_Cached[i];
         ImGui::PushStyleColor(ImGuiCol_Text, LevelColor(line.Level));
-        ImGui::TextUnformatted(line.Text.c_str());
+        ImGui::PushID(i);
+        ImGui::Selectable(line.Text.c_str(), InSelection(i));
+        if (ImGui::IsItemHovered())
+        {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            {
+                if (ImGui::GetIO().KeyShift && m_SelAnchor >= 0)
+                    m_SelEnd = i; // shift-click extends the range
+                else
+                    m_SelAnchor = m_SelEnd = i;
+            }
+            else if (m_SelAnchor >= 0
+                     && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+                m_SelEnd = i; // drag extends the range
+        }
+        ImGui::PopID();
         ImGui::PopStyleColor();
     }
     ImGui::PopStyleVar();
+
+    // Ctrl+C copies the selection (or everything if nothing is selected).
+    if (ImGui::IsWindowFocused() && ImGui::GetIO().KeyCtrl
+        && ImGui::IsKeyPressed(ImGuiKey_C, false))
+        CopySelection();
 
     if (m_ScrollToBottom
         || (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f))
@@ -83,6 +110,32 @@ void ConsolePanel::DrawOutput()
     m_ScrollToBottom = false;
 
     ImGui::EndChild();
+}
+
+bool ConsolePanel::InSelection(int lineIndex) const
+{
+    if (m_SelAnchor < 0 || m_SelEnd < 0)
+        return false;
+    const int lo = std::min(m_SelAnchor, m_SelEnd);
+    const int hi = std::max(m_SelAnchor, m_SelEnd);
+    return lineIndex >= lo && lineIndex <= hi;
+}
+
+void ConsolePanel::CopySelection() const
+{
+    std::string out;
+    const bool hasSel = m_SelAnchor >= 0 && m_SelEnd >= 0;
+    const int lo = hasSel ? std::min(m_SelAnchor, m_SelEnd) : 0;
+    const int hi = hasSel ? std::max(m_SelAnchor, m_SelEnd)
+                          : static_cast<int>(m_Cached.size()) - 1;
+    for (int i = lo; i <= hi && i < static_cast<int>(m_Cached.size()); ++i)
+    {
+        if (!out.empty())
+            out += '\n';
+        out += m_Cached[i].Text;
+    }
+    if (!out.empty())
+        ImGui::SetClipboardText(out.c_str());
 }
 
 void ConsolePanel::Submit()
@@ -126,26 +179,29 @@ void ConsolePanel::DrawInput()
         m_ReclaimFocus = false;
     }
 
-    // Compute live suggestions for the current token; they are drawn as a separate
-    // dropdown window (below the input) in OnImGuiRender so the overlay's bottom
-    // edge doesn't clip them. Up/Down (or Tab) move the highlight and fill.
+    // Live suggestions for the current token, drawn as a separate dropdown window
+    // (below the input) in OnImGuiRender so the overlay's bottom edge doesn't clip
+    // them. Up/Down (or Tab) move the highlight and fill it.
     m_ShowSuggest = false;
     if (m_Input[0] != '\0' && ImGui::IsItemActive())
     {
-        ConsoleEvaluator::Completion comp = ConsoleEvaluator::Complete(m_Input, 10);
-        if (!comp.Matches.empty())
+        // Recompute the list ONLY when the user actually typed. While navigating,
+        // each pick fills the token so the buffer equals our last fill — recomputing
+        // then would collapse the list to just that match, so keep the original.
+        const bool navigating = (m_LastFilled == m_Input) && !m_SuggestItems.empty();
+        if (!navigating)
         {
-            // If the buffer changed from our last auto-fill, the user typed — drop
-            // the highlight so navigation restarts from the top of the new list.
-            if (m_Input != m_LastFilled)
-                m_SuggestSelected = -1;
-            if (m_SuggestSelected >= static_cast<int>(comp.Matches.size()))
-                m_SuggestSelected = -1;
-
-            const ImVec2 mn = ImGui::GetItemRectMin();
-            const ImVec2 mx = ImGui::GetItemRectMax();
+            ConsoleEvaluator::Completion comp =
+                ConsoleEvaluator::Complete(m_Input, 10);
             m_SuggestItems = std::move(comp.Matches);
             m_SuggestReplaceFrom = comp.ReplaceFrom;
+            m_SuggestSelected = -1; // fresh input -> no highlight yet
+        }
+
+        if (!m_SuggestItems.empty())
+        {
+            const ImVec2 mn = ImGui::GetItemRectMin();
+            const ImVec2 mx = ImGui::GetItemRectMax();
             m_SuggestX = mn.x;
             m_SuggestY = mx.y;
             m_SuggestW = mx.x - mn.x;
@@ -204,6 +260,14 @@ void ConsolePanel::OnImGuiRender()
             && ImGui::IsKeyPressed(ImGuiKey_Escape))
             m_Open = false;
 
+        // Toolbar: copy the selection (or all), clear the buffer.
+        if (ImGui::SmallButton("Copy"))
+            CopySelection();
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Clear"))
+            Console::ClearOutput();
+        ImGui::Separator();
+
         DrawOutput();
         ImGui::Separator();
         DrawInput();
@@ -223,15 +287,38 @@ void ConsolePanel::OnImGuiRender()
         const ImGuiWindowFlags sf =
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize
             | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings
-            | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav
-            | ImGuiWindowFlags_NoInputs; // keyboard-driven; keep input focus
+            | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
         if (ImGui::Begin("##console-suggest", nullptr, sf))
         {
             for (int i = 0; i < static_cast<int>(m_SuggestItems.size()); ++i)
-                ImGui::Selectable(m_SuggestItems[i].c_str(), i == m_SuggestSelected);
+            {
+                ImGui::PushID(i);
+                // Click a row to pick it (fills the token + refocuses the input).
+                if (ImGui::Selectable(m_SuggestItems[i].c_str(),
+                                      i == m_SuggestSelected))
+                    FillFromMouse(i);
+                ImGui::PopID();
+            }
         }
         ImGui::End();
     }
+}
+
+// Mouse path for picking a suggestion: fill the current token directly in the
+// buffer (we're outside the InputText callback here) and refocus the input.
+void ConsolePanel::FillFromMouse(int suggestionIndex)
+{
+    if (suggestionIndex < 0
+        || suggestionIndex >= static_cast<int>(m_SuggestItems.size()))
+        return;
+    m_SuggestSelected = suggestionIndex;
+    const std::string& pick = m_SuggestItems[suggestionIndex];
+    const std::size_t from = std::min(m_SuggestReplaceFrom, std::strlen(m_Input));
+    std::string next(m_Input, from); // keep the command prefix before the token
+    next += pick;
+    std::snprintf(m_Input, sizeof(m_Input), "%s", next.c_str());
+    m_LastFilled = m_Input;  // keep the list on the next-frame recompute
+    m_ReclaimFocus = true;   // put the caret back in the input
 }
 
 // Replace the current token (from replaceFrom to the end) with `pick`, and record
