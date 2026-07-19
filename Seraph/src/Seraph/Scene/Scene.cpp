@@ -317,6 +317,7 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
             camera.GetRadPerspectiveVerticalFOV()});
     sceneRenderer->Clear();
     SubmitLights(sceneRenderer);
+    sceneRenderer->RenderSunShadow();
 
     for (auto [e, mc] : m_Registry.view<MeshComponent>().each()) {
         if (Ref<Mesh> mesh = mc.Mesh.As()) {
@@ -342,6 +343,7 @@ void Scene::OnRenderEditor(Ref<SceneRenderer> sceneRenderer, const EditorCamera&
     });
     sceneRenderer->Clear();
     SubmitLights(sceneRenderer);
+    sceneRenderer->RenderSunShadow();
 
     for (auto [e, mc] : m_Registry.view<MeshComponent>().each()) {
         if (Ref<Mesh> mesh = mc.Mesh.As()) {

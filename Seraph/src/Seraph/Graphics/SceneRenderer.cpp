@@ -9,12 +9,17 @@
 #include "SceneCamera.h"
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Graphics/EnvironmentMap.h"
+#include "Seraph/Scene/Components/DirectionalLightComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
+#include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/Scene.h"
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <bgfx/bgfx.h>
 #include <glm/gtc/matrix_inverse.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.inl>
 
 namespace Seraph
@@ -129,6 +134,63 @@ void SceneRenderer::SubmitMesh(
         m_LightsUploaded = true;
     }
     Renderer::SubmitMesh(mesh, transform, materialOverrides);
+}
+
+void SceneRenderer::RenderSunShadow()
+{
+    if (!m_Scene) {
+        Renderer::ClearShadow();
+        return;
+    }
+
+    // The sun is the first directional light. Direction of travel = world -Z.
+    glm::vec3 lightDir(0.0f);
+    bool haveSun = false;
+    for (auto [e, dl] : m_Scene->GetAllEntitiesWith<DirectionalLightComponent>().each()) {
+        (void)dl;
+        const glm::mat4 world = m_Scene->GetWorldSpaceTransformMatrix({e, m_Scene.Raw()});
+        lightDir = glm::normalize(glm::mat3(world) * glm::vec3(0.0f, 0.0f, -1.0f));
+        haveSun = true;
+        break;
+    }
+    if (!haveSun) {
+        Renderer::ClearShadow();
+        return;
+    }
+
+    // Orthographic light frame fitted to a fixed area around the origin (covers
+    // the test scene; a camera-frustum fit / cascades come with Render 21).
+    const float area = 15.0f;
+    const glm::vec3 center(0.0f);
+    const glm::vec3 up =
+        (std::abs(lightDir.y) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+    const glm::vec3 eye = center - lightDir * 50.0f;
+    const glm::mat4 lightView = glm::lookAt(eye, center, up);
+    // Un-reversed ortho ([0,1] depth via GLM_FORCE_DEPTH_ZERO_TO_ONE): LESS test,
+    // clear 1.0 — isolated from the main camera's reversed-Z convention.
+    const glm::mat4 lightProj = glm::ortho(-area, area, -area, area, 0.1f, 100.0f);
+
+    // Crop/bias: NDC -> [0,1] UV + depth, per backend (V-flip + depth range).
+    const bgfx::Caps* caps = bgfx::getCaps();
+    const float sy = caps->originBottomLeft ? 0.5f : -0.5f;
+    const float sz = caps->homogeneousDepth ? 0.5f : 1.0f;
+    const float tz = caps->homogeneousDepth ? 0.5f : 0.0f;
+    glm::mat4 crop(1.0f);
+    crop[0][0] = 0.5f;
+    crop[1][1] = sy;
+    crop[2][2] = sz;
+    crop[3][0] = 0.5f; // column 3 = translation (glm is column-major: m[col][row])
+    crop[3][1] = 0.5f;
+    crop[3][2] = tz;
+    const glm::mat4 shadowMtx = crop * lightProj * lightView;
+
+    Renderer::BeginShadowPass(lightView, lightProj);
+    for (auto [e, mc] : m_Scene->GetAllEntitiesWith<MeshComponent>().each()) {
+        if (Ref<Mesh> mesh = mc.Mesh.As())
+            Renderer::SubmitShadowCaster(
+                *mesh, m_Scene->GetWorldSpaceTransformMatrix({e, m_Scene.Raw()}));
+    }
+    Renderer::EndShadowPass(shadowMtx, /*bias=*/0.0025f, /*normalOffset=*/0.0f);
 }
 
 void SceneRenderer::DrawSkybox()

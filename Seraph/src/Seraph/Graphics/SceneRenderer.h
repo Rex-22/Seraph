@@ -73,6 +73,12 @@ public:
         const Mesh& mesh, const glm::mat4& transform = glm::mat4(1.0f),
         const std::vector<AssetHandle>& materialOverrides = {});
 
+    // Render the sun's directional shadow map (depth-only, from the first
+    // DirectionalLight) and publish it for the scene pass. No-op (shadows off)
+    // if the scene has no directional light. Call before the mesh loop; the
+    // shadow view id is lower than the scene view, so bgfx orders it first.
+    void RenderSunShadow();
+
     // Draw the active scene's environment cube as the background on the current
     // scene view. No-op unless the scene's SceneEnvironment selects a Skybox
     // background with a resolved EnvironmentMap. Call after the mesh loop (while

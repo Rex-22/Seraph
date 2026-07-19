@@ -14,6 +14,9 @@ SAMPLERCUBE(s_texCubeIrr, 5); // irradiance (diffuse ambient)
 SAMPLERCUBE(s_texCube,    6); // prefiltered radiance (specular ambient), mipped
 SAMPLER2D(s_brdfLUT,      7); // split-sum BRDF integration LUT (RG)
 
+// Directional (sun) shadow map, bound per-submesh by the renderer.
+SAMPLER2DSHADOW(s_shadowMap, 8);
+
 uniform vec4 u_baseColorFactor;   // rgb base color, a alpha
 uniform vec4 u_metallicFactor;    // x
 uniform vec4 u_roughnessFactor;   // x
@@ -21,6 +24,8 @@ uniform vec4 u_emissiveFactor;    // rgb
 uniform vec4 u_normalScale;       // x
 uniform vec4 u_occlusionStrength; // x
 uniform vec4 u_iblParams;         // x intensity, y rotationYaw, z radianceMips, w active
+uniform mat4 u_shadowMtx;         // biased light view-proj (world -> shadow UV+depth)
+uniform vec4 u_shadowParams;      // x texelSize, y bias, z active, w normalOffset
 
 #define PBR_PI 3.1415926535897932
 
@@ -45,6 +50,26 @@ vec3 F_Schlick(float VoH, vec3 f0)
 {
 	float f = pow(1.0 - VoH, 5.0);
 	return f0 + (vec3_splat(1.0) - f0) * f;
+}
+
+// Sun shadow visibility [0,1] for a world-space fragment. 1.0 (fully lit) when
+// shadows are inactive or the fragment falls outside the shadow map. Normal-
+// offset (u_shadowParams.w) pushes the sampled point along the surface normal to
+// fight acne without peter-panning; u_shadowParams.y is a constant depth bias.
+float SampleSunShadow(vec3 wpos, vec3 N)
+{
+	if (u_shadowParams.z < 0.5)
+		return 1.0;
+
+	vec3 p = wpos + N * u_shadowParams.w;
+	vec4 sc = mul(u_shadowMtx, vec4(p, 1.0));
+	vec3 tc = sc.xyz / sc.w;
+
+	if (any(greaterThan(tc.xy, vec2_splat(1.0))) ||
+	    any(lessThan(tc.xy, vec2_splat(0.0))))
+		return 1.0;
+
+	return shadow2D(s_shadowMap, vec3(tc.xy, tc.z - u_shadowParams.y));
 }
 
 void main()
@@ -165,7 +190,9 @@ void main()
 		vec3 diffuse = (vec3_splat(1.0) - F) * diffuseColor / PBR_PI;
 
 		vec3 radiance = colInt.rgb * colInt.w * atten;
-		color += (diffuse + specular) * radiance * NoL;
+		// Directional lights (the sun) are shadowed by the sun shadow map.
+		float shadow = (type == 0) ? SampleSunShadow(v_wpos, N) : 1.0;
+		color += (diffuse + specular) * radiance * NoL * shadow;
 	}
 
 	// --- Emissive ------------------------------------------------------------

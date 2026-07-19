@@ -198,6 +198,59 @@ static bgfx::UniformHandle s_IblRadSampler = BGFX_INVALID_HANDLE; // s_texCube
 static bgfx::UniformHandle s_IblLutSampler = BGFX_INVALID_HANDLE; // s_brdfLUT
 static bgfx::UniformHandle s_IblParams     = BGFX_INVALID_HANDLE; // u_iblParams
 
+// Directional shadow map (Render 17): a depth texture rendered from the sun's
+// ortho view, sampled with hardware compare in the scene pass. s_ShadowActive
+// gates the shader term; s_ShadowMtx is the biased light view-proj (NDC->UV+depth).
+constexpr uint16_t         kShadowSize        = 2048;
+static bgfx::TextureHandle s_ShadowMap        = BGFX_INVALID_HANDLE;
+static bgfx::FrameBufferHandle s_ShadowFb     = BGFX_INVALID_HANDLE;
+static bool                s_ShadowActive     = false;
+static glm::mat4           s_ShadowMtx        = glm::mat4(1.0f);
+static float               s_ShadowBias       = 0.0025f;
+static float               s_ShadowNormalOffset = 0.0f;
+static bgfx::UniformHandle s_ShadowSampler    = BGFX_INVALID_HANDLE; // s_shadowMap
+static bgfx::UniformHandle s_ShadowMtxUniform = BGFX_INVALID_HANDLE; // u_shadowMtx
+static bgfx::UniformHandle s_ShadowParams     = BGFX_INVALID_HANDLE; // u_shadowParams
+
+// Lazily create the shared shadow map + its depth-only framebuffer (we own the
+// texture; createFrameBuffer destroyTextures=false, so both are freed in Cleanup).
+static bgfx::TextureHandle EnsureShadowMap()
+{
+    if (bgfx::isValid(s_ShadowMap))
+        return s_ShadowMap;
+    s_ShadowMap = bgfx::createTexture2D(
+        kShadowSize, kShadowSize, false, 1, bgfx::TextureFormat::D16,
+        BGFX_TEXTURE_RT | BGFX_SAMPLER_COMPARE_LEQUAL |
+        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+    s_ShadowFb = bgfx::createFrameBuffer(1, &s_ShadowMap, false);
+    return s_ShadowMap;
+}
+
+static void EnsureShadowUniforms()
+{
+    if (!bgfx::isValid(s_ShadowSampler))
+        s_ShadowSampler = bgfx::createUniform("s_shadowMap", bgfx::UniformType::Sampler);
+    if (!bgfx::isValid(s_ShadowMtxUniform))
+        s_ShadowMtxUniform = bgfx::createUniform("u_shadowMtx", bgfx::UniformType::Mat4);
+    if (!bgfx::isValid(s_ShadowParams))
+        s_ShadowParams = bgfx::createUniform("u_shadowParams", bgfx::UniformType::Vec4);
+}
+
+// Bind the shadow map + matrix + params for the current submesh (per submesh
+// because DISCARD_ALL clears bindings). The map is always bound (created lazily)
+// so stage 8 is valid even when inactive; u_shadowParams.z = 0 disables the term.
+static void BindShadow()
+{
+    EnsureShadowUniforms();
+    bgfx::setTexture(8, s_ShadowSampler, EnsureShadowMap());
+    bgfx::setUniform(s_ShadowMtxUniform, glm::value_ptr(s_ShadowMtx));
+    const float params[4] = {
+        1.0f / static_cast<float>(kShadowSize), s_ShadowBias,
+        s_ShadowActive ? 1.0f : 0.0f, s_ShadowNormalOffset
+    };
+    bgfx::setUniform(s_ShadowParams, params);
+}
+
 // Shared 1x1 white cube fallback (all six faces white), created on first use.
 static bgfx::TextureHandle WhiteCube()
 {
@@ -353,6 +406,25 @@ void Renderer::Cleanup()
         bgfx::destroy(s_WhiteCube);
         s_WhiteCube = BGFX_INVALID_HANDLE;
     }
+    for (bgfx::UniformHandle* h :
+         { &s_ShadowSampler, &s_ShadowMtxUniform, &s_ShadowParams })
+    {
+        if (bgfx::isValid(*h))
+        {
+            bgfx::destroy(*h);
+            *h = BGFX_INVALID_HANDLE;
+        }
+    }
+    if (bgfx::isValid(s_ShadowFb))
+    {
+        bgfx::destroy(s_ShadowFb);
+        s_ShadowFb = BGFX_INVALID_HANDLE;
+    }
+    if (bgfx::isValid(s_ShadowMap))
+    {
+        bgfx::destroy(s_ShadowMap);
+        s_ShadowMap = BGFX_INVALID_HANDLE;
+    }
 
     ShaderManager::Shutdown();
     UniformCache::Shutdown();
@@ -391,9 +463,11 @@ void Renderer::SubmitMesh(
         bgfx::setTransform(glm::value_ptr(transform));
         bgfx::setVertexBuffer(0, vb);
         bgfx::setIndexBuffer(ib, firstIndex, indexCount);
-        // Bind IBL before the material: per-submesh because DISCARD_ALL clears
-        // bindings, and before Bind() so a material never overwrites stages 5-7.
+        // Bind IBL + shadow before the material: per-submesh because DISCARD_ALL
+        // clears bindings, and before Bind() so a material never overwrites the
+        // engine sampler stages (IBL 5-7, shadow 8).
         BindEnvironment();
+        BindShadow();
         material->Bind();
         bgfx::submit(viewId, material->Program(), 0, BGFX_DISCARD_ALL);
     };
@@ -430,6 +504,50 @@ void Renderer::ClearEnvironment()
 {
     s_Env = {};
     s_EnvActive = false;
+}
+
+void Renderer::BeginShadowPass(const glm::mat4& lightView, const glm::mat4& lightProj)
+{
+    EnsureShadowMap();
+    // Un-reversed convention: clear depth to 1.0 (far), DEPTH_TEST_LESS on submit.
+    RenderPass::ToTarget(ViewId::Shadow, s_ShadowFb, kShadowSize, kShadowSize)
+        .Clear(BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f)
+        .Bind();
+    bgfx::setViewTransform(
+        ViewId::Shadow, glm::value_ptr(lightView), glm::value_ptr(lightProj));
+}
+
+void Renderer::SubmitShadowCaster(const Mesh& mesh, const glm::mat4& transform)
+{
+    const bgfx::ProgramHandle program = ShaderManager::GetProgram("shadow");
+    const bgfx::VertexBufferHandle vb = mesh.VertexBuffer();
+    const bgfx::IndexBufferHandle ib = mesh.IndexBuffer();
+    if (!bgfx::isValid(program) || !bgfx::isValid(vb) || !bgfx::isValid(ib))
+        return;
+
+    bgfx::setTransform(glm::value_ptr(transform));
+    bgfx::setVertexBuffer(0, vb);
+    bgfx::setIndexBuffer(ib);
+    bgfx::setState(BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS);
+    bgfx::submit(ViewId::Shadow, program);
+}
+
+void Renderer::EndShadowPass(const glm::mat4& shadowMtx, float bias, float normalOffset)
+{
+    s_ShadowMtx = shadowMtx;
+    s_ShadowBias = bias;
+    s_ShadowNormalOffset = normalOffset;
+    s_ShadowActive = true;
+}
+
+void Renderer::ClearShadow()
+{
+    s_ShadowActive = false;
+}
+
+u16 Renderer::ShadowMapSize()
+{
+    return kShadowSize;
 }
 
 namespace

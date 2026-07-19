@@ -54,6 +54,26 @@ struct Renderer
     static void SetEnvironment(const EnvironmentBinding& env);
     static void ClearEnvironment();
 
+    // --- Directional shadow map (Render 17) --------------------------------
+    // A depth-only pass from the sun's orthographic view, rendered into a shared
+    // depth shadow map on ViewId::Shadow (before the scene view). The scene pass
+    // then samples it (hardware compare) to darken shadowed fragments.
+    //
+    // Frame sequence, driven by SceneRenderer:
+    //   BeginShadowPass(lightView, lightProj)   // bind the shadow view + target
+    //   SubmitShadowCaster(mesh, transform) ... // one per caster
+    //   EndShadowPass(shadowMtx, bias, normalOffset)  // publish for the scene pass
+    // SubmitMesh then binds the shadow map + shadowMtx per submesh. ClearShadow()
+    // (or simply not calling BeginShadowPass) disables shadowing for the frame.
+    static void BeginShadowPass(const glm::mat4& lightView, const glm::mat4& lightProj);
+    static void SubmitShadowCaster(const Mesh& mesh, const glm::mat4& transform);
+    static void EndShadowPass(const glm::mat4& shadowMtx, float bias, float normalOffset);
+    static void ClearShadow();
+
+    // Shadow map edge length in texels (square). Exposed so callers can compute
+    // the light-space texel size for filtering/stabilization.
+    static u16 ShadowMapSize();
+
     // Submit a single fullscreen triangle on `viewId` with `program`. The caller
     // binds any source textures/uniforms first (like a material). Geometry is a
     // transient oversized clip-space triangle; texture V is flipped for
