@@ -159,6 +159,18 @@ void ConsolePanel::DrawInput()
     ImGui::TextUnformatted("]");
     ImGui::SameLine();
 
+    // (Re)claim the caret BEFORE submitting the input, so the InputText is active
+    // this same frame: on open, after submit, or after a mouse-picked suggestion.
+    // Focusing here (offset 0 -> the next item) means its CallbackAlways fires this
+    // frame and applies a pending click-fill immediately, instead of the click just
+    // deactivating the field and closing the dropdown.
+    if (m_JustOpened || m_ReclaimFocus || m_PendingClickFill)
+    {
+        ImGui::SetKeyboardFocusHere();
+        m_JustOpened = false;
+        m_ReclaimFocus = false;
+    }
+
     ImGui::SetNextItemWidth(-FLT_MIN);
     const ImGuiInputTextFlags flags =
         ImGuiInputTextFlags_EnterReturnsTrue
@@ -171,14 +183,6 @@ void ConsolePanel::DrawInput()
                                  m_Input, sizeof(m_Input), flags,
                                  &ConsolePanel::InputTextCallback, this))
         Submit();
-
-    // Keep the caret in the input: on open and after every submit.
-    if (m_JustOpened || m_ReclaimFocus)
-    {
-        ImGui::SetKeyboardFocusHere(-1);
-        m_JustOpened = false;
-        m_ReclaimFocus = false;
-    }
 
     // Live suggestions for the current token, drawn as a separate dropdown window
     // (below the input) in OnImGuiRender so the overlay's bottom edge doesn't clip
