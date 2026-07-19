@@ -198,28 +198,42 @@ static bgfx::UniformHandle s_IblRadSampler = BGFX_INVALID_HANDLE; // s_texCube
 static bgfx::UniformHandle s_IblLutSampler = BGFX_INVALID_HANDLE; // s_brdfLUT
 static bgfx::UniformHandle s_IblParams     = BGFX_INVALID_HANDLE; // u_iblParams
 
-// Directional shadow map (Render 17): a depth texture rendered from the sun's
-// ortho view, sampled with hardware compare in the scene pass. s_ShadowActive
-// gates the shader term; s_ShadowMtx is the biased light view-proj (NDC->UV+depth).
-constexpr uint16_t         kShadowSize        = 2048;
-static bgfx::TextureHandle s_ShadowMap        = BGFX_INVALID_HANDLE;
+// Cascaded shadow maps (Render 21): the four cascades share one depth texture as
+// a 2x2 atlas (cascade i -> quadrant), rendered from the sun's per-cascade ortho
+// and sampled with hardware compare in the scene pass. s_ShadowActive gates the
+// shader term; s_ShadowMtx[i] maps world -> that cascade's [0,1] UV + depth.
+constexpr uint16_t kShadowAtlasSize = 4096;               // full atlas
+constexpr uint16_t kShadowTileSize  = kShadowAtlasSize / 2; // per-cascade quadrant
+constexpr int      kMaxCascades     = 4;
+
+static bgfx::TextureHandle     s_ShadowMap    = BGFX_INVALID_HANDLE;
 static bgfx::FrameBufferHandle s_ShadowFb     = BGFX_INVALID_HANDLE;
 static bool                s_ShadowActive     = false;
-static glm::mat4           s_ShadowMtx        = glm::mat4(1.0f);
-static float               s_ShadowBias       = 0.0025f;
+static glm::mat4           s_ShadowMtx[kMaxCascades] = { glm::mat4(1.0f) };
+static glm::vec4           s_CsmBias(0.0f);       // per-cascade normalized depth bias
+static int                 s_ShadowCascadeCount = 0;
 static float               s_ShadowNormalOffset = 0.0f;
 static bgfx::UniformHandle s_ShadowSampler    = BGFX_INVALID_HANDLE; // s_shadowMap
-static bgfx::UniformHandle s_ShadowMtxUniform = BGFX_INVALID_HANDLE; // u_shadowMtx
+static bgfx::UniformHandle s_ShadowMtxUniform = BGFX_INVALID_HANDLE; // u_shadowMtx[4]
+static bgfx::UniformHandle s_CsmBiasUniform   = BGFX_INVALID_HANDLE; // u_csmBias
 static bgfx::UniformHandle s_ShadowParams     = BGFX_INVALID_HANDLE; // u_shadowParams
 
-// Lazily create the shared shadow map + its depth-only framebuffer (we own the
+// Atlas pixel origin of cascade i's quadrant (2x2 layout, matches the shader's
+// CascadeTileOffset UV mapping).
+static void CascadeTilePixel(int cascade, uint16_t& x, uint16_t& y)
+{
+    x = (cascade == 1 || cascade == 3) ? kShadowTileSize : 0;
+    y = (cascade >= 2) ? kShadowTileSize : 0;
+}
+
+// Lazily create the shared shadow atlas + its depth-only framebuffer (we own the
 // texture; createFrameBuffer destroyTextures=false, so both are freed in Cleanup).
 static bgfx::TextureHandle EnsureShadowMap()
 {
     if (bgfx::isValid(s_ShadowMap))
         return s_ShadowMap;
     s_ShadowMap = bgfx::createTexture2D(
-        kShadowSize, kShadowSize, false, 1, bgfx::TextureFormat::D16,
+        kShadowAtlasSize, kShadowAtlasSize, false, 1, bgfx::TextureFormat::D16,
         BGFX_TEXTURE_RT | BGFX_SAMPLER_COMPARE_LEQUAL |
         BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
     s_ShadowFb = bgfx::createFrameBuffer(1, &s_ShadowMap, false);
@@ -231,21 +245,26 @@ static void EnsureShadowUniforms()
     if (!bgfx::isValid(s_ShadowSampler))
         s_ShadowSampler = bgfx::createUniform("s_shadowMap", bgfx::UniformType::Sampler);
     if (!bgfx::isValid(s_ShadowMtxUniform))
-        s_ShadowMtxUniform = bgfx::createUniform("u_shadowMtx", bgfx::UniformType::Mat4);
+        s_ShadowMtxUniform = bgfx::createUniform("u_shadowMtx", bgfx::UniformType::Mat4, kMaxCascades);
+    if (!bgfx::isValid(s_CsmBiasUniform))
+        s_CsmBiasUniform = bgfx::createUniform("u_csmBias", bgfx::UniformType::Vec4);
     if (!bgfx::isValid(s_ShadowParams))
         s_ShadowParams = bgfx::createUniform("u_shadowParams", bgfx::UniformType::Vec4);
 }
 
-// Bind the shadow map + matrix + params for the current submesh (per submesh
-// because DISCARD_ALL clears bindings). The map is always bound (created lazily)
-// so stage 8 is valid even when inactive; u_shadowParams.z = 0 disables the term.
+// Bind the shadow atlas + per-cascade matrices + params for the current submesh
+// (per submesh because DISCARD_ALL clears bindings). The atlas is always bound
+// (created lazily) so stage 8 is valid even when inactive; u_shadowParams.z = 0
+// disables the term.
 static void BindShadow()
 {
     EnsureShadowUniforms();
     bgfx::setTexture(8, s_ShadowSampler, EnsureShadowMap());
-    bgfx::setUniform(s_ShadowMtxUniform, glm::value_ptr(s_ShadowMtx));
+    bgfx::setUniform(s_ShadowMtxUniform, glm::value_ptr(s_ShadowMtx[0]), kMaxCascades);
+    bgfx::setUniform(s_CsmBiasUniform, glm::value_ptr(s_CsmBias));
     const float params[4] = {
-        1.0f / static_cast<float>(kShadowSize), s_ShadowBias,
+        1.0f / static_cast<float>(kShadowAtlasSize),
+        static_cast<float>(s_ShadowCascadeCount),
         s_ShadowActive ? 1.0f : 0.0f, s_ShadowNormalOffset
     };
     bgfx::setUniform(s_ShadowParams, params);
@@ -506,18 +525,26 @@ void Renderer::ClearEnvironment()
     s_EnvActive = false;
 }
 
-void Renderer::BeginShadowPass(const glm::mat4& lightView, const glm::mat4& lightProj)
+void Renderer::BeginShadowCascade(
+    int cascade, const glm::mat4& lightView, const glm::mat4& lightProj)
 {
     EnsureShadowMap();
-    // Un-reversed convention: clear depth to 1.0 (far), DEPTH_TEST_LESS on submit.
-    RenderPass::ToTarget(ViewId::Shadow, s_ShadowFb, kShadowSize, kShadowSize)
-        .Clear(BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f)
-        .Bind();
-    bgfx::setViewTransform(
-        ViewId::Shadow, glm::value_ptr(lightView), glm::value_ptr(lightProj));
+    uint16_t tx, ty;
+    CascadeTilePixel(cascade, tx, ty);
+    // Each cascade is its own view (ViewId::Shadow + cascade) targeting the shared
+    // atlas framebuffer at this cascade's quadrant rect, so its clear touches only
+    // that quadrant. Un-reversed convention: clear depth to 1.0, LESS on submit.
+    RenderPass pass = RenderPass::ToTarget(
+        static_cast<u16>(ViewId::Shadow + cascade), s_ShadowFb,
+        kShadowTileSize, kShadowTileSize);
+    pass.x = tx;
+    pass.y = ty;
+    pass.Clear(BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f).Bind();
+    bgfx::setViewTransform(static_cast<u16>(ViewId::Shadow + cascade),
+        glm::value_ptr(lightView), glm::value_ptr(lightProj));
 }
 
-void Renderer::SubmitShadowCaster(const Mesh& mesh, const glm::mat4& transform)
+void Renderer::SubmitShadowCaster(int cascade, const Mesh& mesh, const glm::mat4& transform)
 {
     const bgfx::ProgramHandle program = ShaderManager::GetProgram("shadow");
     const bgfx::VertexBufferHandle vb = mesh.VertexBuffer();
@@ -533,25 +560,32 @@ void Renderer::SubmitShadowCaster(const Mesh& mesh, const glm::mat4& transform)
     // attached (no peter-panning). Self-shadow acne is handled by the slope-scaled
     // depth bias in the sampler, not by shifting the occluder depth.
     bgfx::setState(BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS);
-    bgfx::submit(ViewId::Shadow, program);
+    bgfx::submit(static_cast<u16>(ViewId::Shadow + cascade), program);
 }
 
-void Renderer::EndShadowPass(const glm::mat4& shadowMtx, float bias, float normalOffset)
+void Renderer::EndShadowCascades(
+    const glm::mat4* shadowMtx, const float* normalizedBias, int count,
+    float normalOffset)
 {
-    s_ShadowMtx = shadowMtx;
-    s_ShadowBias = bias;
+    s_ShadowCascadeCount = count < kMaxCascades ? count : kMaxCascades;
+    for (int i = 0; i < s_ShadowCascadeCount; ++i)
+    {
+        s_ShadowMtx[i] = shadowMtx[i];
+        s_CsmBias[i] = normalizedBias[i];
+    }
     s_ShadowNormalOffset = normalOffset;
-    s_ShadowActive = true;
+    s_ShadowActive = s_ShadowCascadeCount > 0;
 }
 
 void Renderer::ClearShadow()
 {
     s_ShadowActive = false;
+    s_ShadowCascadeCount = 0;
 }
 
 u16 Renderer::ShadowMapSize()
 {
-    return kShadowSize;
+    return kShadowTileSize;
 }
 
 namespace

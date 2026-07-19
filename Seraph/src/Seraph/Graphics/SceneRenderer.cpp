@@ -159,22 +159,50 @@ void SceneRenderer::RenderSunShadow()
         return;
     }
 
-    // Orthographic light frame fitted to a fixed area around the origin (covers
-    // the test scene; a camera-frustum fit / cascades come with Render 21). The
-    // depth range is kept explicit so the bias can be expressed in world units.
-    const float area = 15.0f;
-    const float depthRange = 80.0f;           // ortho near..far span (world units)
-    const float eyeDist = depthRange * 0.5f;  // eye centered in the depth slab
-    const glm::vec3 center(0.0f);
+    constexpr int   kNumCascades   = 4;     // must be <= Renderer's kMaxCascades
+    constexpr float kShadowDistance = 60.0f; // max view distance the CSM covers
+    constexpr float kCasterPull    = 30.0f;  // near-plane pull-back for tall casters
+
+    // Gather shadow casters once (reused across all cascade passes).
+    struct Caster { const Mesh* mesh; glm::mat4 transform; };
+    std::vector<Caster> casters;
+    for (auto [e, mc] : m_Scene->GetAllEntitiesWith<MeshComponent>().each()) {
+        if (Ref<Mesh> mesh = mc.Mesh.As())
+            casters.push_back({ mesh.Raw(),
+                m_Scene->GetWorldSpaceTransformMatrix({e, m_Scene.Raw()}) });
+    }
+
+    // --- Camera basis + frustum params (for fitting cascades to the view) ----
+    const SceneRendererCamera& cam = m_SceneRenderData.SceneCamera;
+    const glm::mat4 invView = glm::inverse(cam.ViewMatrix);
+    const glm::vec3 camPos = glm::vec3(invView[3]);
+    const glm::vec3 camRight = glm::normalize(glm::vec3(invView[0]));
+    const glm::vec3 camUp = glm::normalize(glm::vec3(invView[1]));
+    const glm::vec3 camFwd = glm::normalize(-glm::vec3(invView[2])); // looks down -Z
+    // tan(halfFov) from the (un-reversed) projection: proj[0][0]=1/tanH, [1][1]=1/tanV.
+    const glm::mat4& proj = cam.Camera.GetUnReversedProjectionMatrix();
+    const float tanH = 1.0f / proj[0][0];
+    const float tanV = 1.0f / proj[1][1];
+
+    const float nearClip = cam.Near;
+    const float farClip = std::min(cam.Far, kShadowDistance); // clamp shadow range
+    const float clipRange = farClip - nearClip;
+
+    // Practical split scheme (GPU Gems 3): blend logarithmic + uniform splits.
+    constexpr float kSplitLambda = 0.85f;
+    float splitFrac[kNumCascades];
+    for (int i = 0; i < kNumCascades; ++i) {
+        const float p = static_cast<float>(i + 1) / kNumCascades;
+        const float logSplit = nearClip * std::pow(farClip / nearClip, p);
+        const float uniSplit = nearClip + clipRange * p;
+        const float d = kSplitLambda * (logSplit - uniSplit) + uniSplit;
+        splitFrac[i] = (d - nearClip) / clipRange;
+    }
+
     const glm::vec3 up =
         (std::abs(lightDir.y) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
-    const glm::vec3 eye = center - lightDir * eyeDist;
-    const glm::mat4 lightView = glm::lookAt(eye, center, up);
-    // Un-reversed ortho ([0,1] depth via GLM_FORCE_DEPTH_ZERO_TO_ONE): LESS test,
-    // clear 1.0 — isolated from the main camera's reversed-Z convention.
-    const glm::mat4 lightProj = glm::ortho(-area, area, -area, area, 0.0f, depthRange);
 
-    // Crop/bias: NDC -> [0,1] UV + depth, per backend (V-flip + depth range).
+    // Crop: light-clip NDC -> [0,1] UV + depth, per backend (V-flip + depth range).
     const bgfx::Caps* caps = bgfx::getCaps();
     const float sy = caps->originBottomLeft ? 0.5f : -0.5f;
     const float sz = caps->homogeneousDepth ? 0.5f : 1.0f;
@@ -186,22 +214,70 @@ void SceneRenderer::RenderSunShadow()
     crop[3][0] = 0.5f; // column 3 = translation (glm is column-major: m[col][row])
     crop[3][1] = 0.5f;
     crop[3][2] = tz;
-    const glm::mat4 shadowMtx = crop * lightProj * lightView;
 
-    Renderer::BeginShadowPass(lightView, lightProj);
-    for (auto [e, mc] : m_Scene->GetAllEntitiesWith<MeshComponent>().each()) {
-        if (Ref<Mesh> mesh = mc.Mesh.As())
-            Renderer::SubmitShadowCaster(
-                *mesh, m_Scene->GetWorldSpaceTransformMatrix({e, m_Scene.Raw()}));
-    }
-    // Convert the world-space bias/offset knobs into this projection's units so
-    // the contact gap is a fixed small distance regardless of the ortho depth
-    // range (a normalized-depth bias would scale with the range and re-open the
-    // gap). Depth bias -> normalized by dividing by the range; normal offset is
-    // already in world units.
     const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
-    const float normalizedBias = gs.ShadowBias / depthRange;
-    Renderer::EndShadowPass(shadowMtx, normalizedBias, gs.ShadowNormalOffset);
+    const float mapSize = static_cast<float>(Renderer::ShadowMapSize());
+
+    glm::mat4 shadowMtx[kNumCascades];
+    float normalizedBias[kNumCascades];
+    float prevFrac = 0.0f;
+    for (int c = 0; c < kNumCascades; ++c) {
+        const float zNear = nearClip + clipRange * prevFrac;
+        const float zFar = nearClip + clipRange * splitFrac[c];
+        prevFrac = splitFrac[c];
+
+        // Sub-frustum corners in world space, then their bounding sphere. A sphere
+        // (rotation-invariant) keeps the cascade extent constant as the camera
+        // turns, which is what makes texel-snap stabilization work.
+        glm::vec3 corners[8];
+        int n = 0;
+        for (int f = 0; f < 2; ++f) {
+            const float z = (f == 0) ? zNear : zFar;
+            const glm::vec3 fc = camPos + camFwd * z;
+            const float hh = z * tanV;
+            const float hw = z * tanH;
+            corners[n++] = fc + camUp * hh + camRight * hw;
+            corners[n++] = fc + camUp * hh - camRight * hw;
+            corners[n++] = fc - camUp * hh + camRight * hw;
+            corners[n++] = fc - camUp * hh - camRight * hw;
+        }
+        glm::vec3 sphereCenter(0.0f);
+        for (const glm::vec3& p : corners)
+            sphereCenter += p;
+        sphereCenter /= 8.0f;
+        float radius = 0.0f;
+        for (const glm::vec3& p : corners)
+            radius = std::max(radius, glm::length(p - sphereCenter));
+        radius = std::ceil(radius * 16.0f) / 16.0f; // quantize -> stable
+
+        const glm::vec3 eye = sphereCenter - lightDir * radius;
+        glm::mat4 lightView = glm::lookAt(eye, sphereCenter, up);
+        // Depth slab: near pulled back by kCasterPull to catch tall casters between
+        // the sun and the cascade; far reaches the sphere's back.
+        const float depthRange = 2.0f * radius + kCasterPull;
+        glm::mat4 lightProj =
+            glm::ortho(-radius, radius, -radius, radius, -kCasterPull, 2.0f * radius);
+
+        // Texel-snap stabilization: shift the projection so the cascade origin lands
+        // on a shadow-texel boundary, eliminating edge crawl as the camera moves.
+        const glm::mat4 vp = lightProj * lightView;
+        glm::vec4 originH = vp * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        const glm::vec2 origin = glm::vec2(originH) * (mapSize * 0.5f);
+        const glm::vec2 rounded = glm::round(origin);
+        const glm::vec2 offset = (rounded - origin) * (2.0f / mapSize);
+        lightProj[3][0] += offset.x;
+        lightProj[3][1] += offset.y;
+
+        shadowMtx[c] = crop * lightProj * lightView;
+        normalizedBias[c] = gs.ShadowBias / depthRange;
+
+        Renderer::BeginShadowCascade(c, lightView, lightProj);
+        for (const Caster& caster : casters)
+            Renderer::SubmitShadowCaster(c, *caster.mesh, caster.transform);
+    }
+
+    Renderer::EndShadowCascades(
+        shadowMtx, normalizedBias, kNumCascades, gs.ShadowNormalOffset);
 }
 
 void SceneRenderer::DrawSkybox()

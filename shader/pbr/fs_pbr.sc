@@ -24,8 +24,9 @@ uniform vec4 u_emissiveFactor;    // rgb
 uniform vec4 u_normalScale;       // x
 uniform vec4 u_occlusionStrength; // x
 uniform vec4 u_iblParams;         // x intensity, y rotationYaw, z radianceMips, w active
-uniform mat4 u_shadowMtx;         // biased light view-proj (world -> shadow UV+depth)
-uniform vec4 u_shadowParams;      // x texelSize, y bias, z active, w normalOffset
+uniform mat4 u_shadowMtx[4];      // per-cascade: world -> [0,1] shadow UV + depth
+uniform vec4 u_csmBias;           // per-cascade normalized depth bias (xyzw = cascade 0..3)
+uniform vec4 u_shadowParams;      // x atlasTexelSize, y cascadeCount, z active, w normalOffset
 
 #define PBR_PI 3.1415926535897932
 
@@ -71,14 +72,19 @@ float ShadowNoise(vec2 xy)
 	return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
 }
 
-// Sun shadow visibility [0,1] for a world-space fragment. 1.0 (fully lit) when
-// shadows are inactive or the fragment falls outside the shadow map.
-//
-// Anti-acne is slope-scaled: the depth bias (and optional normal offset) scale
-// with tan(angle between N and the light), so a surface facing the sun gets ~0
-// bias — keeping the contact shadow attached (no peter-panning where geometry
-// sits flush) — while grazing surfaces, where acne appears, get more. Filtered
-// with a rotated Vogel disk over the hardware compare sampler.
+// Per-cascade UV offset within the 2x2 shadow atlas (each cascade fills a quadrant).
+vec2 CascadeTileOffset(int cascade)
+{
+	return vec2((cascade == 1 || cascade == 3) ? 0.5 : 0.0,
+	            (cascade >= 2) ? 0.5 : 0.0);
+}
+
+// Sun shadow visibility [0,1] for a world-space fragment (cascaded shadow maps).
+// 1.0 (fully lit) when shadows are inactive or the fragment is beyond the last
+// cascade. Picks the tightest cascade that contains the fragment, then filters a
+// per-pixel-rotated Vogel disk over that cascade's atlas quadrant. Bias is per-
+// cascade (world bias / cascade depth range, precomputed) and slope-scaled so a
+// surface facing the sun keeps a tight contact while grazing angles avoid acne.
 float SampleSunShadow(vec3 wpos, vec3 N, float NoL)
 {
 	if (u_shadowParams.z < 0.5)
@@ -86,26 +92,46 @@ float SampleSunShadow(vec3 wpos, vec3 N, float NoL)
 
 	float NoLc = clamp(NoL, 0.0, 1.0);
 	float slope = clamp(sqrt(1.0 - NoLc * NoLc) / max(NoLc, 0.1), 0.0, 4.0);
-
 	vec3 p = wpos + N * (u_shadowParams.w * slope);
-	vec4 sc = mul(u_shadowMtx, vec4(p, 1.0));
-	vec3 tc = sc.xyz / sc.w;
 
-	if (any(greaterThan(tc.xy, vec2_splat(1.0))) ||
-	    any(lessThan(tc.xy, vec2_splat(0.0))))
+	int count = int(u_shadowParams.y);
+	int cascade = -1;
+	vec3 tc = vec3_splat(0.0);
+	float bias = 0.0;
+	for (int i = 0; i < 4; ++i)
+	{
+		if (i >= count)
+			break;
+		vec4 sc = mul(u_shadowMtx[i], vec4(p, 1.0));
+		vec3 c = sc.xyz / sc.w;
+		// A small margin keeps PCF taps from crossing into the neighbour quadrant.
+		if (all(greaterThan(c.xy, vec2_splat(0.02))) &&
+		    all(lessThan(c.xy, vec2_splat(0.98))) &&
+		    c.z >= 0.0 && c.z <= 1.0)
+		{
+			cascade = i;
+			tc = c;
+			// u_csmBias is indexed component-wise (portable vs. dynamic .[]).
+			bias = (i == 0) ? u_csmBias.x : (i == 1) ? u_csmBias.y
+			     : (i == 2) ? u_csmBias.z : u_csmBias.w;
+			break;
+		}
+	}
+	if (cascade < 0)
 		return 1.0;
 
-	// Rotate per shadow-map texel (portable; avoids gl_FragCoord, which bgfx's
-	// cross-compiler does not expose). noiseCoord = tc.xy / texelSize.
-	float phi = ShadowNoise(tc.xy / u_shadowParams.x) * 6.2831853;
-	float offsetScale = u_shadowParams.x * SHADOW_PCF_RADIUS;
-	float depth = tc.z - u_shadowParams.y * (1.0 + slope);
+	vec2 tileOffset = CascadeTileOffset(cascade);
+	float texel = u_shadowParams.x;
+	float phi = ShadowNoise(tc.xy / texel) * 6.2831853;
+	float offsetScale = texel * SHADOW_PCF_RADIUS;
+	float depth = tc.z - bias * (1.0 + slope);
 
 	float sum = 0.0;
 	for (int i = 0; i < SHADOW_PCF_SAMPLES; ++i)
 	{
 		vec2 off = VogelDiskSample(i, SHADOW_PCF_SAMPLES, phi) * offsetScale;
-		sum += shadow2D(s_shadowMap, vec3(tc.xy + off, depth));
+		vec2 uv = tc.xy * 0.5 + tileOffset + off;
+		sum += shadow2D(s_shadowMap, vec3(uv, depth));
 	}
 	return sum / float(SHADOW_PCF_SAMPLES);
 }

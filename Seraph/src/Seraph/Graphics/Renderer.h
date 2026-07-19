@@ -54,24 +54,31 @@ struct Renderer
     static void SetEnvironment(const EnvironmentBinding& env);
     static void ClearEnvironment();
 
-    // --- Directional shadow map (Render 17) --------------------------------
-    // A depth-only pass from the sun's orthographic view, rendered into a shared
-    // depth shadow map on ViewId::Shadow (before the scene view). The scene pass
-    // then samples it (hardware compare) to darken shadowed fragments.
+    // --- Cascaded shadow maps (Render 17 + 21) -----------------------------
+    // Depth-only passes from the sun's per-cascade orthographic views, rendered
+    // into a shared 2x2 shadow atlas (cascade i -> quadrant) on ViewId::Shadow+i
+    // (before the scene view). The scene pass samples it (hardware compare),
+    // selecting the tightest cascade that contains each fragment.
     //
-    // Frame sequence, driven by SceneRenderer:
-    //   BeginShadowPass(lightView, lightProj)   // bind the shadow view + target
-    //   SubmitShadowCaster(mesh, transform) ... // one per caster
-    //   EndShadowPass(shadowMtx, bias, normalOffset)  // publish for the scene pass
-    // SubmitMesh then binds the shadow map + shadowMtx per submesh. ClearShadow()
-    // (or simply not calling BeginShadowPass) disables shadowing for the frame.
-    static void BeginShadowPass(const glm::mat4& lightView, const glm::mat4& lightProj);
-    static void SubmitShadowCaster(const Mesh& mesh, const glm::mat4& transform);
-    static void EndShadowPass(const glm::mat4& shadowMtx, float bias, float normalOffset);
+    // Frame sequence, driven by SceneRenderer, per cascade i in [0, count):
+    //   BeginShadowCascade(i, lightView_i, lightProj_i)   // bind that quadrant
+    //   SubmitShadowCaster(i, mesh, transform) ...         // one per caster
+    // then once:
+    //   EndShadowCascades(shadowMtx[count], normalizedBias[count], count, normalOffset)
+    // SubmitMesh binds the atlas + matrices per submesh. ClearShadow() (or simply
+    // not calling the sequence) disables shadowing for the frame. shadowMtx[i]
+    // maps world space to cascade i's [0,1] shadow UV + depth; normalizedBias[i]
+    // is the depth bias already scaled into that cascade's normalized-depth units.
+    static void BeginShadowCascade(
+        int cascade, const glm::mat4& lightView, const glm::mat4& lightProj);
+    static void SubmitShadowCaster(int cascade, const Mesh& mesh, const glm::mat4& transform);
+    static void EndShadowCascades(
+        const glm::mat4* shadowMtx, const float* normalizedBias, int count,
+        float normalOffset);
     static void ClearShadow();
 
-    // Shadow map edge length in texels (square). Exposed so callers can compute
-    // the light-space texel size for filtering/stabilization.
+    // Per-cascade shadow tile edge length in texels (square). Exposed so callers
+    // can compute the light-space texel size for filtering/stabilization.
     static u16 ShadowMapSize();
 
     // Submit a single fullscreen triangle on `viewId` with `program`. The caller
