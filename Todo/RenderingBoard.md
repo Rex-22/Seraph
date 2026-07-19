@@ -273,8 +273,6 @@ Add ECS light components (directional / point / spot with color, intensity, dire
 - **Completed:** false
 - **Priority:** High
 
-> **Superseded by Render 9.** The unshadowed N-light forward loop (dir/point/spot with attenuation + cone falloff, ambient, HDR out) is implemented directly in `shader/pbr/fs_pbr.sc` rather than as a separate bring-up shader. No standalone deliverable remains.
-
 **Description:**
 Shade meshes with up to N lights in a single forward pass (no shadows yet). Validates the lighting math and light plumbing before PBR and shadows land. Practical to ~8–16 lights.
 
@@ -371,7 +369,7 @@ Largely satisfied by the existing generic material system (name→uniform `Mater
 ---
 
 ### 11. Render 11 — Cubemap / environment asset + loader
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -394,7 +392,7 @@ Add an environment/cubemap asset type and loader (HDR equirect or `.dds`/`.ktx` 
 ---
 
 ### 12. Render 12 — Skybox pass
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -419,7 +417,7 @@ Render the environment cubemap as the scene background via a fullscreen pass, dr
 ---
 
 ### 13. Render 13 — IBL prefilter ingestion (irradiance + radiance mips)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -443,7 +441,7 @@ Load offline-baked IBL cubemaps: a cosine-convolved irradiance cube (diffuse amb
 ---
 
 ### 14. Render 14 — BRDF integration LUT bake
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** Medium
 
@@ -466,7 +464,7 @@ Generate the split-sum BRDF LUT (a 2D RG16F texture, x=NdotV, y=roughness → F0
 ---
 
 ### 15. Render 15 — IBL ambient + specular term + env binding hook
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -1262,5 +1260,24 @@ Spatial upscaling (AMD FidelityFX Super-Resolution 1.0): render at reduced `Rend
 ## Dependencies
 - Render 1 — HDR target
 - Render 38 — project settings (render scale)
+
+---
+
+### 50. Render 35 — Editor UX for scene environment / EnvironmentMap authoring
+- **Status:** Todo
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+No way to create/edit/assign an environment in the editor yet — it's only settable via `--seed` or by hand-editing `.senv` / scene YAML. Add:
+- A scene-environment panel/section: pick the EnvironmentMap asset, Background mode (SolidColor/Skybox), Intensity, Rotation — writing to `Scene::Environment()`.
+- Creating an `EnvironmentMap` (.senv) asset in the AssetBrowser: assign radiance (_lod) + irradiance (_irr) cube textures.
+- Surface the Environment asset type in the AssetBrowser (icon + create menu).
+
+**Phase:** 2 — Environment & IBL (polish). Ties into Render 34 (SceneEnvironmentSettings). Deferred: Phase 2 core (Render 11–15) is code/seed-driven for now.
+
+## Dependencies
+- Render 11 — EnvironmentMap asset
+- Render 34 — SceneEnvironmentSettings
 
 ---
