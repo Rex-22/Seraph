@@ -68,6 +68,9 @@ static init. Under the hood it is a `Settings::Subscribe`.
 
 ### Free commands (any TU, registered at static init)
 
+`SP_CONSOLE_COMMAND(name, description, handler)` returns a fluent builder you can
+chain for optional configuration (the trailing `;` ends it):
+
 ```cpp
 #include "Seraph/Console/ConsoleCommand.h"
 
@@ -76,9 +79,19 @@ SP_CONSOLE_COMMAND("noclip", "Toggle noclip",
         // args[i], args.Count()
     });
 
-SP_CONSOLE_COMMAND_CHEAT("give", "Give an item: give <id>",
-    [](const Seraph::ConsoleCommandArgs& args) { /* cheat-gated */ });
+SP_CONSOLE_COMMAND("give", "Give an item", handler)
+    .Params<int>()   // typed args -> argument autocomplete + a "<int>" usage hint
+    .Cheat();        // gate behind cheats
+
+SP_CONSOLE_COMMAND("warp", "Warp the player", handler)
+    .Usage("<destination>");   // explicit usage hint (else derived from .Params<>)
 ```
+
+Builder methods: `.Description(str)`, `.Usage(str)`, `.Cheat()`, `.Flags(u32)`,
+`.Params<Ts...>()`. `.Params<...>()` declares the parameter types — this drives
+argument-value autocomplete (enum labels, `true`/`false`) and auto-fills the usage
+hint; the handler still receives string args (parse them yourself, e.g. via
+`AnyTextCodec`). Usage hints show up in `help <name>`.
 
 ### Reflected-method commands (SFUNCTION)
 
