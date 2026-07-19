@@ -100,6 +100,9 @@ private:
     int m_SuggestSelected = -1;
     std::size_t m_SuggestReplaceFrom = 0;
     std::string m_LastFilled;
+    // A mouse-clicked suggestion is applied on the next frame through the InputText
+    // callback (writing m_Input directly gets clobbered by ImGui's write-back).
+    bool m_PendingClickFill = false;
 
     // Output selection: a line range [min(anchor,end), max(...)]; -1 = nothing.
     int m_SelAnchor = -1;

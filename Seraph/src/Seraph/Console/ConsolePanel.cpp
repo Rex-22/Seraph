@@ -163,7 +163,8 @@ void ConsolePanel::DrawInput()
     const ImGuiInputTextFlags flags =
         ImGuiInputTextFlags_EnterReturnsTrue
         | ImGuiInputTextFlags_CallbackCompletion
-        | ImGuiInputTextFlags_CallbackHistory;
+        | ImGuiInputTextFlags_CallbackHistory
+        | ImGuiInputTextFlags_CallbackAlways; // applies a mouse-clicked suggestion
 
     if (ImGui::InputTextWithHint("##console-input",
                                  "command or variable  (Up/Down or Tab to complete)",
@@ -304,21 +305,17 @@ void ConsolePanel::OnImGuiRender()
     }
 }
 
-// Mouse path for picking a suggestion: fill the current token directly in the
-// buffer (we're outside the InputText callback here) and refocus the input.
+// Mouse path for picking a suggestion. We can't safely write m_Input here (ImGui
+// would clobber it when the input regains focus), so remember the choice, refocus
+// the input, and apply the fill through the InputText CallbackAlways next frame.
 void ConsolePanel::FillFromMouse(int suggestionIndex)
 {
     if (suggestionIndex < 0
         || suggestionIndex >= static_cast<int>(m_SuggestItems.size()))
         return;
     m_SuggestSelected = suggestionIndex;
-    const std::string& pick = m_SuggestItems[suggestionIndex];
-    const std::size_t from = std::min(m_SuggestReplaceFrom, std::strlen(m_Input));
-    std::string next(m_Input, from); // keep the command prefix before the token
-    next += pick;
-    std::snprintf(m_Input, sizeof(m_Input), "%s", next.c_str());
-    m_LastFilled = m_Input;  // keep the list on the next-frame recompute
-    m_ReclaimFocus = true;   // put the caret back in the input
+    m_PendingClickFill = true;
+    m_ReclaimFocus = true;
 }
 
 // Replace the current token (from replaceFrom to the end) with `pick`, and record
@@ -344,6 +341,21 @@ int ConsolePanel::InputTextCallback(ImGuiInputTextCallbackData* data)
 
     switch (data->EventFlag)
     {
+        case ImGuiInputTextFlags_CallbackAlways: // every frame while active
+        {
+            // Apply a suggestion the user clicked with the mouse (deferred here so
+            // the fill goes through the data API and isn't clobbered by ImGui).
+            // Gated on the selection/list directly — m_ShowSuggest is stale this
+            // frame because the input wasn't active while the dropdown was clicked.
+            if (self->m_PendingClickFill && self->m_SuggestSelected >= 0
+                && self->m_SuggestSelected < count)
+            {
+                FillSuggestion(data, self, self->m_SuggestReplaceFrom,
+                               self->m_SuggestItems[self->m_SuggestSelected]);
+            }
+            self->m_PendingClickFill = false;
+            break;
+        }
         case ImGuiInputTextFlags_CallbackCompletion: // Tab
         {
             if (!haveSuggest)
