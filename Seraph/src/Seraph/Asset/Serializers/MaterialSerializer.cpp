@@ -35,7 +35,7 @@ Ref<Asset> MaterialSerializer::LoadData(const AssetMetadata&, const Buffer& byte
         return nullptr;
     }
 
-    auto material = Ref<Material>::Create(root["Shader"].as<std::string>(std::string("simple")));
+    auto material = Ref<Material>::Create(root["Shader"].as<std::string>(std::string("pbr")));
 
     if (const YAML::Node state = root["RenderState"])
         material->RenderState() = MaterialYaml::ParseRenderState(state);

@@ -59,20 +59,45 @@ const ResolvedMaterial& Material::Resolve()
 
 Ref<Material> Material::CreateDefault()
 {
-    auto material = Ref<Material>::Create("simple");
+    auto material = Ref<Material>::Create("pbr");
 
-    MaterialParameter color;
-    color.Name = "s_color";
-    color.Type = MaterialParameterType::Color;
-    color.Vector = glm::vec4(1.0f);
-    material->SetParameter(color);
+    const auto scalar = [&](const char* name, float value, glm::vec2 range) {
+        MaterialParameter p;
+        p.Name = name;
+        p.Type = MaterialParameterType::Float;
+        p.Vector = glm::vec4(value, 0.0f, 0.0f, 0.0f);
+        p.Range = range;
+        material->SetParameter(p);
+    };
+    const auto color = [&](const char* name, glm::vec4 value) {
+        MaterialParameter p;
+        p.Name = name;
+        p.Type = MaterialParameterType::Color;
+        p.Vector = value;
+        material->SetParameter(p);
+    };
+    const auto sampler = [&](const char* name, AssetHandle tex, u8 stage) {
+        MaterialParameter p;
+        p.Name = name;
+        p.Type = MaterialParameterType::Texture;
+        p.Texture.Texture = tex;
+        p.Texture.Stage = stage;
+        material->SetParameter(p);
+    };
 
-    MaterialParameter albedo;
-    albedo.Name = "s_texColor";
-    albedo.Type = MaterialParameterType::Texture;
-    albedo.Texture.Texture = Texture2D::DefaultWhiteHandle();
-    albedo.Texture.Stage = 0;
-    material->SetParameter(albedo);
+    color("u_baseColorFactor", glm::vec4(0.8f, 0.8f, 0.8f, 1.0f));
+    scalar("u_metallicFactor", 0.0f, {0.0f, 1.0f});
+    scalar("u_roughnessFactor", 0.5f, {0.0f, 1.0f});
+    color("u_emissiveFactor", glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+    scalar("u_normalScale", 1.0f, {0.0f, 2.0f});
+    scalar("u_occlusionStrength", 1.0f, {0.0f, 1.0f});
+
+    const AssetHandle white = Texture2D::DefaultWhiteHandle();
+    sampler("s_albedo", white, 0);
+    sampler("s_normal", Texture2D::DefaultFlatNormalHandle(), 1);
+    sampler("s_metalRough", white, 2);
+    sampler("s_ao", white, 3);
+    sampler("s_emissive", white, 4);
 
     return material;
 }
@@ -92,9 +117,10 @@ Ref<Material> Material::GetDefault()
     if (Ref<Material> existing = AssetManager::GetAsset<Material>(handle))
         return existing;
 
-    // Ensure the fallback white texture is registered so the default material's
-    // texture parameter resolves.
+    // Ensure the fallback textures are registered so the default material's
+    // texture parameters resolve (white for color/metal-rough/ao, flat normal).
     Texture2D::GetDefaultWhite();
+    Texture2D::GetDefaultFlatNormal();
 
     Ref<Material> material = CreateDefault();
     material->Handle = handle;

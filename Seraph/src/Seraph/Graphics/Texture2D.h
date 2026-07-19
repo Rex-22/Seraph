@@ -225,6 +225,12 @@ public:
     // unassigned or unresolved. Main thread only (creates a GPU resource).
     static Ref<Texture2D> GetDefaultWhite();
 
+    // Deterministic handle + shared 1x1 flat-normal texture (RGBA 128,128,255).
+    // The neutral tangent-space normal (0,0,1) — the default for a PBR material's
+    // s_normal slot so unmapped surfaces keep their geometric normal.
+    static AssetHandle DefaultFlatNormalHandle();
+    static Ref<Texture2D> GetDefaultFlatNormal();
+
 private:
     const char* m_DebugName{};
     std::string m_NameStorage;

@@ -213,4 +213,27 @@ Ref<Texture2D> Texture2D::GetDefaultWhite()
     AssetManager::AddMemoryAsset(texture);
     return texture;
 }
+
+AssetHandle Texture2D::DefaultFlatNormalHandle()
+{
+    static const AssetHandle handle = [] {
+        const u64 hash = std::hash<std::string_view>{}("Seraph::DefaultFlatNormalTexture");
+        return AssetHandle(hash != c_NullAssetHandle ? hash : 2);
+    }();
+    return handle;
+}
+
+Ref<Texture2D> Texture2D::GetDefaultFlatNormal()
+{
+    const AssetHandle handle = DefaultFlatNormalHandle();
+    if (Ref<Texture2D> existing = AssetManager::GetAsset<Texture2D>(handle))
+        return existing;
+
+    // ABGR 0xffff8080 = R128 G128 B255 A255 -> tangent-space normal (0,0,1).
+    const u32 flat = 0xffff8080;
+    Ref<Texture2D> texture = Create("DefaultFlatNormal", &flat, 1, 1);
+    texture->Asset::Handle = handle;
+    AssetManager::AddMemoryAsset(texture);
+    return texture;
+}
 } // namespace Seraph
