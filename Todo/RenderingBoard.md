@@ -87,7 +87,7 @@ Implemented as a renderer helper (no separate `vs_fullscreen` program — the fu
 ---
 
 ### 3. Render 3 — Multi-pass / RenderPass abstraction
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -105,6 +105,19 @@ Introduce an owned "pass" concept (view id + target framebuffer + clear + view t
 - Today `SceneRenderer::BeginScene` uses a single `camera.GetViewId()` (`SceneRenderer.cpp:23-27`); `Renderer::Begin(viewId)` just stores + touches (`Renderer.cpp:276-281`).
 - `EntityPicker` (`EntityPicker.cpp:150-190`) is the existing template for a self-contained extra pass with its own RT + view transform + readback — mirror its structure.
 - Keep it minimal: an explicit ordered list of passes, not a full auto-scheduling render graph (that can come later).
+
+## Changes
+
+Implemented as a thin descriptor + centralized view-id constants (kept deliberately minimal — not an auto-scheduling render graph).
+
+* **`ViewId.h`** — canonical bgfx view ids in `namespace Seraph::ViewId`: `Backbuffer=0`, `Scene=1`, `Pick=2`, `PickBlit=3`, `Tonemap=4`, `ImGui=255`. Single source of truth; replaces the per-layer `k_SceneViewId`/`k_TonemapViewId`/`k_PickViewId` constants that were duplicated (and had to agree by hand) across `EditorLayer`, `RuntimeLayer`, and `EntityPicker`.
+* **`RenderPass.{h,cpp}`** — a POD descriptor (`id`, `target` framebuffer, `x/y/width/height`, clear flags/color/depth/stencil) with `ToTarget(...)` / `ToBackbuffer(...)` factories, a fluent `Clear(...)`, and `Bind()` which applies `setViewFrameBuffer` + `setViewRect` (+ `setViewClear` when clearFlags set). Defaults encode the engine's reversed-Z convention (clearDepth `0.0`). This replaces the ad-hoc `setViewFrameBuffer`/`setViewRect`/`setViewClear` triples that were copy-pasted in both layers.
+* **Refactored both layers to use it.** `EditorLayer` (edit + play-in-editor branches) and `RuntimeLayer` now bind their scene + tonemap passes via `RenderPass::ToTarget/ToBackbuffer(...).Bind()` and reference `ViewId::Scene`/`ViewId::Tonemap`. Local view-id constants removed from both headers. `EntityPicker` keeps its public `k_PickViewId`/`k_PickBlitViewId` (used at its call sites) but they now alias `ViewId::Pick`/`ViewId::PickBlit` so there's still one source of truth.
+* **Scope note:** `Renderer.{h,cpp}` was intentionally NOT touched (a concurrent change was in flight there); the abstraction lives in its own files + the layer wiring, so the two efforts don't collide. A future step could push `RenderPass` ownership into `SceneRenderer`/`Renderer`, but the seam + de-duplication that this ticket asked for is done.
+
+**Verification performed:** `Seraph-Editor` + `Seraph-Runtime` build/link clean (new files auto-picked-up by the source glob; SHT ran over the new headers). Ran the editor: RGBA16F scene target + tonemap resolve still work, viewport renders correctly, entity picking (views 2/3) still functions, no errors/asserts. Behavior is identical to pre-refactor — this is a structural change only.
+
+**Files:** new `Seraph/src/Seraph/Graphics/ViewId.h`, `RenderPass.{h,cpp}`; modified `Editor/EditorLayer.{h,cpp}`, `Editor/EntityPicker.h`, `Runtime/RuntimeLayer.{h,cpp}`.
 
 ## Dependencies
 - none
@@ -153,7 +166,7 @@ Implemented the full HDR resolve seam across all three present paths (editor vie
 ## Dependencies
 - Render 1 — HDR float scene render target
 - Render 2 — Fullscreen-pass helper
-- Render 3 — Multi-pass abstraction (deferred: passes are still hand-wired per layer; the abstraction itself is not yet built — see note)
+- Render 3 — Multi-pass abstraction (now landed: the tonemap view wiring was migrated to `RenderPass` + `ViewId` in a follow-up)
 
 ---
 
