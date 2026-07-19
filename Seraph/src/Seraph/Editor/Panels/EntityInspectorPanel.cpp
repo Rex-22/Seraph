@@ -20,8 +20,11 @@
 #include "Seraph/Scene/Components/BoxColliderComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
 #include "Seraph/Scene/Components/CharacterControllerComponent.h"
+#include "Seraph/Scene/Components/DirectionalLightComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
+#include "Seraph/Scene/Components/PointLightComponent.h"
 #include "Seraph/Scene/Components/RigidBodyComponent.h"
+#include "Seraph/Scene/Components/SpotLightComponent.h"
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
@@ -465,6 +468,9 @@ void EntityInspectorPanel::OnImGuiRender()
     if (m_SelectedEntity.HasComponent<RigidBodyComponent>())       DrawRigidBodyComponent();
     // Plain (pure-data) components: no bespoke widget, drawn generically. Add a new
     // one here with a single line — no DrawXComponent method needed.
+    DrawPlainComponent<DirectionalLightComponent>(m_SelectedEntity, "Directional Light");
+    DrawPlainComponent<PointLightComponent>(m_SelectedEntity, "Point Light");
+    DrawPlainComponent<SpotLightComponent>(m_SelectedEntity, "Spot Light");
     DrawPlainComponent<BoxColliderComponent>(m_SelectedEntity, "Box Collider");
     DrawPlainComponent<SphereColliderComponent>(m_SelectedEntity, "Sphere Collider");
     DrawPlainComponent<CapsuleColliderComponent>(m_SelectedEntity, "Capsule Collider");
@@ -774,6 +780,29 @@ void EntityInspectorPanel::DrawAddComponentMenu()
 
                 ImGui::EndMenu();
             }
+        }
+
+        if (ImGui::BeginMenu("Light"))
+        {
+            if (!m_SelectedEntity.HasComponent<DirectionalLightComponent>() &&
+                ImGui::MenuItem("Directional Light"))
+            {
+                m_SelectedEntity.AddComponent<DirectionalLightComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+            if (!m_SelectedEntity.HasComponent<PointLightComponent>() &&
+                ImGui::MenuItem("Point Light"))
+            {
+                m_SelectedEntity.AddComponent<PointLightComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+            if (!m_SelectedEntity.HasComponent<SpotLightComponent>() &&
+                ImGui::MenuItem("Spot Light"))
+            {
+                m_SelectedEntity.AddComponent<SpotLightComponent>();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndMenu();
         }
 
         if (!m_SelectedEntity.HasComponent<RigidBodyComponent>())

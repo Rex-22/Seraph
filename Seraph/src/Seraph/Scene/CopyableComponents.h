@@ -20,7 +20,10 @@
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
 #include "Seraph/Scene/Components/CharacterControllerComponent.h"
+#include "Seraph/Scene/Components/DirectionalLightComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
+#include "Seraph/Scene/Components/PointLightComponent.h"
+#include "Seraph/Scene/Components/SpotLightComponent.h"
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
@@ -37,6 +40,9 @@ using CopyableComponents = TypeRegistry<
     TransformComponent,
     MeshComponent,
     CameraComponent,
+    DirectionalLightComponent,
+    PointLightComponent,
+    SpotLightComponent,
     BoxColliderComponent,
     SphereColliderComponent,
     CapsuleColliderComponent,

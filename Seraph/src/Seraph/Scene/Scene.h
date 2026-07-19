@@ -77,6 +77,12 @@ public:
     // set. Piggybacks the scene view's transform, so it must run while `viewId`
     // is the live scene view (after the mesh loop, before EndScene).
     void RenderDebug(Ref<SceneRenderer> sceneRenderer, u16 viewId, bool runtime);
+
+    // Gather directional/point/spot light components and stage them onto the
+    // renderer for this frame. Positions/directions come from each entity's world
+    // transform. Call after BeginScene, before the mesh loop.
+    void SubmitLights(Ref<SceneRenderer> sceneRenderer);
+
     virtual void OnDestroy() {}
     virtual void OnEvent([[maybe_unused]] Event& e) {}
 

@@ -15,10 +15,13 @@
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Components/CapsuleColliderComponent.h"
 #include "Seraph/Scene/Components/CharacterControllerComponent.h"
+#include "Seraph/Scene/Components/DirectionalLightComponent.h"
 #include "Seraph/Scene/Components/IDComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
+#include "Seraph/Scene/Components/PointLightComponent.h"
 #include "Seraph/Scene/Components/RelationshipComponent.h"
 #include "Seraph/Scene/Components/RigidBodyComponent.h"
+#include "Seraph/Scene/Components/SpotLightComponent.h"
 #include "Seraph/Scene/Components/SphereColliderComponent.h"
 #include "Seraph/Scene/Components/TagComponent.h"
 #include "Seraph/Scene/Components/TransformComponent.h"
@@ -61,6 +64,7 @@ struct SerializedComponentList
 // blocks in SerializeEntity and the parse blocks in LoadData.
 using SerializedComponents = SerializedComponentList<
     TagComponent, TransformComponent, MeshComponent, CameraComponent,
+    DirectionalLightComponent, PointLightComponent, SpotLightComponent,
     RigidBodyComponent, BoxColliderComponent, SphereColliderComponent,
     CapsuleColliderComponent, CharacterControllerComponent, RelationshipComponent,
     ScriptComponent>;
@@ -369,6 +373,21 @@ void SerializeEntity(YAML::Emitter& emitter, Entity entity)
         SerializeComponent(emitter, "Mesh", Reflection::Get<MeshComponent>(),
             &entity.GetComponent<MeshComponent>());
 
+    if (entity.HasComponent<DirectionalLightComponent>())
+        SerializeComponent(emitter, "DirectionalLight",
+            Reflection::Get<DirectionalLightComponent>(),
+            &entity.GetComponent<DirectionalLightComponent>());
+
+    if (entity.HasComponent<PointLightComponent>())
+        SerializeComponent(emitter, "PointLight",
+            Reflection::Get<PointLightComponent>(),
+            &entity.GetComponent<PointLightComponent>());
+
+    if (entity.HasComponent<SpotLightComponent>())
+        SerializeComponent(emitter, "SpotLight",
+            Reflection::Get<SpotLightComponent>(),
+            &entity.GetComponent<SpotLightComponent>());
+
     // Reflection-driven blocks (pure-data components). Same order + block names
     // + byte format as before; the field emit is now generated from the reflected
     // properties (see SerializeComponent / EmitProps above).
@@ -461,6 +480,18 @@ Ref<Asset> SceneSerializer::LoadData(const AssetMetadata&, const Buffer& bytes)
                         "Mesh asset {} not found; keeping the reference for later resolution",
                         h);
             }
+
+            if (const YAML::Node n = node["DirectionalLight"])
+                DeserializeComponent(n, Reflection::Get<DirectionalLightComponent>(),
+                    &entity.AddComponent<DirectionalLightComponent>());
+
+            if (const YAML::Node n = node["PointLight"])
+                DeserializeComponent(n, Reflection::Get<PointLightComponent>(),
+                    &entity.AddComponent<PointLightComponent>());
+
+            if (const YAML::Node n = node["SpotLight"])
+                DeserializeComponent(n, Reflection::Get<SpotLightComponent>(),
+                    &entity.AddComponent<SpotLightComponent>());
 
             // Reflection-driven parse (pure-data components). AddComponent gives
             // the defaults; DeserializeComponent overwrites only the keys present

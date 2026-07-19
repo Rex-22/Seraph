@@ -8,10 +8,13 @@
 #include "Components/CameraComponent.h"
 #include "Components/CapsuleColliderComponent.h"
 #include "Components/CharacterControllerComponent.h"
+#include "Components/DirectionalLightComponent.h"
 #include "Components/IDComponent.h"
 #include "Components/MeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Components/RelationshipComponent.h"
 #include "Components/RigidBodyComponent.h"
+#include "Components/SpotLightComponent.h"
 #include "Components/SphereColliderComponent.h"
 #include "Components/TagComponent.h"
 #include "Components/TransformComponent.h"
@@ -29,6 +32,9 @@
 #include "Seraph/Scripts/ScriptEngine.h"
 
 #include <glm/gtc/matrix_transform.hpp>
+
+#include <algorithm>
+#include <cmath>
 
 namespace Seraph
 {
@@ -243,6 +249,53 @@ Entity Scene::TryGetEntityWithUUID(UUID id) const
     return Entity{};
 }
 
+void Scene::SubmitLights(Ref<SceneRenderer> sceneRenderer)
+{
+    // The light's direction of travel is the entity's forward axis (world -Z).
+    const auto directionOf = [this](Entity entity) {
+        const glm::mat4 world = GetWorldSpaceTransformMatrix(entity);
+        return glm::normalize(glm::mat3(world) * glm::vec3(0.0f, 0.0f, -1.0f));
+    };
+    const auto positionOf = [this](Entity entity) {
+        return glm::vec3(GetWorldSpaceTransformMatrix(entity)[3]);
+    };
+
+    for (auto [e, dl] : m_Registry.view<DirectionalLightComponent>().each()) {
+        SceneRendererLight light;
+        light.Type = 0;
+        light.Direction = directionOf({e, this});
+        light.Color = dl.Color;
+        light.Intensity = dl.Intensity;
+        sceneRenderer->SubmitLight(light);
+    }
+
+    for (auto [e, pl] : m_Registry.view<PointLightComponent>().each()) {
+        SceneRendererLight light;
+        light.Type = 1;
+        light.Position = positionOf({e, this});
+        light.Range = pl.Range;
+        light.Color = pl.Color;
+        light.Intensity = pl.Intensity;
+        sceneRenderer->SubmitLight(light);
+    }
+
+    for (auto [e, sl] : m_Registry.view<SpotLightComponent>().each()) {
+        SceneRendererLight light;
+        light.Type = 2;
+        light.Position = positionOf({e, this});
+        light.Direction = directionOf({e, this});
+        light.Range = sl.Range;
+        light.Color = sl.Color;
+        light.Intensity = sl.Intensity;
+        // Precompute the cone falloff: attenuation = saturate(cosAngle*scale + offset).
+        const float cosInner = std::cos(glm::radians(sl.InnerAngle));
+        const float cosOuter = std::cos(glm::radians(sl.OuterAngle));
+        light.SpotScale = 1.0f / std::max(cosInner - cosOuter, 1e-4f);
+        light.SpotOffset = -cosOuter * light.SpotScale;
+        sceneRenderer->SubmitLight(light);
+    }
+}
+
 void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
 {
     Entity cameraEntity = GetMainCameraEntity();
@@ -262,6 +315,7 @@ void Scene::OnRenderRuntime(Ref<SceneRenderer> sceneRenderer)
             camera.GetPerspectiveNearClip(), camera.GetPerspectiveFarClip(),
             camera.GetRadPerspectiveVerticalFOV()});
     sceneRenderer->Clear();
+    SubmitLights(sceneRenderer);
 
     for (auto [e, mc] : m_Registry.view<MeshComponent>().each()) {
         if (Ref<Mesh> mesh = mc.Mesh.As()) {
@@ -285,6 +339,7 @@ void Scene::OnRenderEditor(Ref<SceneRenderer> sceneRenderer, const EditorCamera&
         editorCamera.GetVerticalFOV()
     });
     sceneRenderer->Clear();
+    SubmitLights(sceneRenderer);
 
     for (auto [e, mc] : m_Registry.view<MeshComponent>().each()) {
         if (Ref<Mesh> mesh = mc.Mesh.As()) {
