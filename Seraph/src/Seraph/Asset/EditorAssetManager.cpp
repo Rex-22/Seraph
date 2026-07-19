@@ -718,9 +718,9 @@ AssetHandle EditorAssetManager::SaveAssetAs(
 namespace
 {
 
-// Template for a new shader: a pass-through matching the built-in "simple"
-// shader's interface (position/color/uv vertex attributes; s_color + s_texColor
-// uniforms), so a freshly-created shader is a drop-in replacement for "simple".
+// Template for a new shader: a minimal unlit pass-through (position/color/uv
+// vertex attributes; s_color + s_texColor uniforms) — a starting point authors
+// edit into their own material shader.
 constexpr const char* k_VaryingTemplate =
     "vec4 v_color0    : COLOR0    = vec4(1.0, 1.0, 1.0, 1.0);\n"
     "vec2 v_texcoord0 : TEXCOORD0 = vec2(0.0, 0.0);\n"

@@ -79,8 +79,9 @@ public:
     [[nodiscard]] std::vector<AssetHandle> GetDependencies() const override;
 
     // --- Engine default material -------------------------------------------
-    // The built-in default: the embedded "simple" shader with a white color and
-    // the default white texture. Main thread only (may create GPU resources).
+    // The built-in default: the embedded "pbr" shader with a neutral grey base
+    // color and the default white / flat-normal textures. Main thread only (may
+    // create GPU resources).
     static Ref<Material> CreateDefault();
     static AssetHandle DefaultHandle();
     static Ref<Material> GetDefault();
