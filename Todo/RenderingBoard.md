@@ -269,9 +269,11 @@ Add ECS light components (directional / point / spot with color, intensity, dire
 ---
 
 ### 8. Render 8 — N-light forward loop (unshadowed)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
+
+> **Superseded by Render 9.** The unshadowed N-light forward loop (dir/point/spot with attenuation + cone falloff, ambient, HDR out) is implemented directly in `shader/pbr/fs_pbr.sc` rather than as a separate bring-up shader. No standalone deliverable remains.
 
 **Description:**
 Shade meshes with up to N lights in a single forward pass (no shadows yet). Validates the lighting math and light plumbing before PBR and shadows land. Practical to ~8–16 lights.
@@ -294,7 +296,7 @@ Shade meshes with up to N lights in a single forward pass (no shadows yet). Vali
 ---
 
 ### 9. Render 9 — PBR uber-shader (GGX metallic-roughness)
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -314,6 +316,17 @@ Author the core physically-based shader: Cook-Torrance specular (GGX distributio
 - Normal-map unpack: `06-bump/fs_bump.sc:60-62`.
 - Seraph draw path fits cleanly: `Renderer.cpp:257-265` (setTransform → buffers → `material->Bind()` → submit); material owns its program.
 
+## Changes
+
+* **`shader/pbr/{varying.def.sc, vs_pbr.sc, fs_pbr.sc}`** — auto-registered program `pbr`. VS builds world pos + TBN (normal via `cofactor(u_model)` inverse-transpose; tangent via the model matrix). FS does **real GGX Cook-Torrance**: `D_GGX` + height-correlated Smith `V_SmithGGXCorrelated` + Schlick Fresnel, Lambert diffuse, metallic-roughness with the 0.04-dielectric / albedo-as-F0 split (metals lose diffuse). Iterates `u_lightCount` punctual lights (dir/point/spot) from `shader/lights.sh` — directional uses `-dir`; point/spot use inverse-square × range-window; spot adds the precomputed cone `saturate(cosA*scale+offset)`. Tangent-space normal mapping via the Render 6 TBN. Flat ambient × AO. Outputs **linear HDR** (tonemap owns gamma); reversed-Z safe (no depth math in FS).
+* **This also fulfills Render 8** (the unshadowed N-light forward loop) — the loop lives in `fs_pbr`, so Render 8's separate bring-up shader was skipped.
+* **PBR is the engine default material** (`Material::CreateDefault` → program `pbr`, grey base, white/flat-normal default textures). `MaterialSerializer` default shader is now `pbr`. The old `simple` shader was removed.
+* **`Texture2D::GetDefaultFlatNormal()`** (RGBA 128,128,255) added as the neutral s_normal fallback.
+
+**Verification:** `Seraph-Editor`/`Seraph-Runtime` build clean; all pbr uniforms/samplers reflect across GLSL/SPIRV/Metal/WGSL. Seeded the Sandbox (`--seed`) with a cube + ground + directional light and **screenshotted the editor**: the cube shows three distinct per-face brightnesses (bright top toward the sun, mid + dark sides) on a lit ground — directional GGX shading confirmed end-to-end (mesh normals → light uniforms → pbr → HDR → tonemap). No bgfx asserts.
+
+**Files:** new `shader/pbr/{varying.def.sc,vs_pbr.sc,fs_pbr.sc}`; modified `Texture2D.{h,cpp}`, `Material/Material.cpp`, `MaterialSerializer.cpp`; removed `shader/simple/`.
+
 ## Dependencies
 - Render 6 — Vertex normals/tangents
 - Render 7 — Light components + uniforms
@@ -322,7 +335,7 @@ Author the core physically-based shader: Cook-Torrance specular (GGX distributio
 ---
 
 ### 10. Render 10 — PBR material params + texture slots
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -339,6 +352,18 @@ Extend the material system with PBR parameters and texture slots so materials ca
 ## Technical Notes
 - Extend `Graphics/Material/MaterialParameter.*` (semantic types at `:28-40`) + binding in `MaterialAsset::BindResolved` (`MaterialAsset.cpp:39-83`). Param schema is author-declared, not shader-reflected — add matching params by hand.
 - glTF packs metal-rough as one texture (G=roughness, B=metallic; R=AO) — support the packed slot.
+
+## Changes
+
+Largely satisfied by the existing generic material system (name→uniform `MaterialParameter`s) once the PBR default material was authored in Render 9.
+
+* **The six factor params + five samplers** — `u_baseColorFactor`, `u_metallicFactor`, `u_roughnessFactor`, `u_emissiveFactor`, `u_normalScale`, `u_occlusionStrength`; `s_albedo`/`s_normal`/`s_metalRough`/`s_ao`/`s_emissive` — are defined on the default PBR material (`Material::CreateDefault`) and consumed by `fs_pbr`. Because materials are generic `(name, type, value)` lists bound by `MaterialAsset::BindResolved`, any authored PBR material round-trips through the existing serializer with **no new code**.
+* **Packed glTF metal-rough** (G=roughness, B=metallic) is read directly in `fs_pbr` from the single `s_metalRough` slot.
+* **Sensible fallbacks:** unresolved samplers default to white (`BindResolved`), and s_normal defaults to the new flat-normal texture, so an unmapped surface keeps its geometric normal.
+
+**Deferred:** a dedicated PBR authoring UX in the material editor (grouped sliders/texture pickers) — the generic reflection-driven editor already exposes every param, so this is polish, not blocking.
+
+**Verification:** the Sandbox cube renders via the default PBR material with these params (screenshot in Render 9).
 
 ## Dependencies
 - Render 9 — PBR uber-shader
