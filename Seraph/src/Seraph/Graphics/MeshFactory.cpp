@@ -4,54 +4,106 @@
 
 #include "MeshFactory.h"
 
+#include <glm/geometric.hpp>
 #include <vector>
 
 namespace Seraph
 {
 
+// Fills each vertex's tangent (xyz + handedness in w) from its position, UV, and
+// normal using the Lengyel method (accumulate per-triangle tangent/bitangent,
+// then Gram-Schmidt orthogonalize against the normal). Normals must already be
+// set. Mirrors bgfx_utils.cpp `calcTangents`.
+static void CalcTangents(
+    std::vector<PrimitiveVertex>& verts, const uint16_t* indices, u32 indexCount)
+{
+    std::vector<glm::vec3> tan(verts.size(), glm::vec3(0.0f));
+    std::vector<glm::vec3> bit(verts.size(), glm::vec3(0.0f));
+
+    for (u32 i = 0; i + 2 < indexCount; i += 3) {
+        const uint16_t i0 = indices[i], i1 = indices[i + 1], i2 = indices[i + 2];
+        const PrimitiveVertex& v0 = verts[i0];
+        const PrimitiveVertex& v1 = verts[i1];
+        const PrimitiveVertex& v2 = verts[i2];
+
+        const glm::vec3 e1(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
+        const glm::vec3 e2(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
+        const glm::vec2 duv1(v1.u - v0.u, v1.v - v0.v);
+        const glm::vec2 duv2(v2.u - v0.u, v2.v - v0.v);
+
+        const float det = duv1.x * duv2.y - duv2.x * duv1.y;
+        const float r = det != 0.0f ? 1.0f / det : 0.0f;
+        const glm::vec3 t = (e1 * duv2.y - e2 * duv1.y) * r;
+        const glm::vec3 b = (e2 * duv1.x - e1 * duv2.x) * r;
+
+        for (const uint16_t idx : {i0, i1, i2}) {
+            tan[idx] += t;
+            bit[idx] += b;
+        }
+    }
+
+    for (size_t v = 0; v < verts.size(); ++v) {
+        const glm::vec3 n(verts[v].nx, verts[v].ny, verts[v].nz);
+        glm::vec3 t = tan[v] - n * glm::dot(n, tan[v]); // Gram-Schmidt
+        if (glm::dot(t, t) < 1e-12f) {
+            // Degenerate UVs: pick any axis perpendicular to the normal.
+            const glm::vec3 axis = std::abs(n.x) < 0.9f ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0);
+            t = glm::cross(axis, n);
+        }
+        t = glm::normalize(t);
+        const float w = glm::dot(glm::cross(n, t), bit[v]) < 0.0f ? -1.0f : 1.0f;
+        verts[v].tx = t.x;
+        verts[v].ty = t.y;
+        verts[v].tz = t.z;
+        verts[v].tw = w;
+    }
+}
+
 // ---- Cube ------------------------------------------------------------------
-// 24 vertices (4 per face) so each face can have independent UVs.
+// 24 vertices (4 per face) so each face can have independent normals/UVs.
 // Indices form 12 triangles (2 per face × 6 faces).
 // Base positions are the unit-sign corners (±1); CreateCube scales them by the
-// requested half-extents.
+// requested half-extents. Normals are per-face; tangents are computed below.
 
+// Trailing tangent (tx,ty,tz,tw) is filled by CalcTangents; the zero placeholders
+// keep aggregate init explicit (-Werror=missing-field-initializers).
 static const PrimitiveVertex s_CubeVertices[] =
 {
     // +Z (front)
-    {-1.f,  1.f,  1.f, 0xffffffff, 0.f, 0.f},
-    { 1.f,  1.f,  1.f, 0xffffffff, 1.f, 0.f},
-    {-1.f, -1.f,  1.f, 0xffffffff, 0.f, 1.f},
-    { 1.f, -1.f,  1.f, 0xffffffff, 1.f, 1.f},
+    {-1.f,  1.f,  1.f, 0xffffffff, 0.f, 0.f,  0.f,  0.f,  1.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f,  1.f,  1.f, 0xffffffff, 1.f, 0.f,  0.f,  0.f,  1.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f, -1.f,  1.f, 0xffffffff, 0.f, 1.f,  0.f,  0.f,  1.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, -1.f,  1.f, 0xffffffff, 1.f, 1.f,  0.f,  0.f,  1.f, 0.f, 0.f, 0.f, 0.f},
 
     // -Z (back)
-    { 1.f,  1.f, -1.f, 0xffffffff, 0.f, 0.f},
-    {-1.f,  1.f, -1.f, 0xffffffff, 1.f, 0.f},
-    { 1.f, -1.f, -1.f, 0xffffffff, 0.f, 1.f},
-    {-1.f, -1.f, -1.f, 0xffffffff, 1.f, 1.f},
+    { 1.f,  1.f, -1.f, 0xffffffff, 0.f, 0.f,  0.f,  0.f, -1.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f,  1.f, -1.f, 0xffffffff, 1.f, 0.f,  0.f,  0.f, -1.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, -1.f, -1.f, 0xffffffff, 0.f, 1.f,  0.f,  0.f, -1.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f, -1.f, -1.f, 0xffffffff, 1.f, 1.f,  0.f,  0.f, -1.f, 0.f, 0.f, 0.f, 0.f},
 
     // -X (left)
-    {-1.f,  1.f, -1.f, 0xffffffff, 0.f, 0.f},
-    {-1.f,  1.f,  1.f, 0xffffffff, 1.f, 0.f},
-    {-1.f, -1.f, -1.f, 0xffffffff, 0.f, 1.f},
-    {-1.f, -1.f,  1.f, 0xffffffff, 1.f, 1.f},
+    {-1.f,  1.f, -1.f, 0xffffffff, 0.f, 0.f, -1.f,  0.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f,  1.f,  1.f, 0xffffffff, 1.f, 0.f, -1.f,  0.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f, -1.f, -1.f, 0xffffffff, 0.f, 1.f, -1.f,  0.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f, -1.f,  1.f, 0xffffffff, 1.f, 1.f, -1.f,  0.f,  0.f, 0.f, 0.f, 0.f, 0.f},
 
     // +X (right)
-    { 1.f,  1.f,  1.f, 0xffffffff, 0.f, 0.f},
-    { 1.f,  1.f, -1.f, 0xffffffff, 1.f, 0.f},
-    { 1.f, -1.f,  1.f, 0xffffffff, 0.f, 1.f},
-    { 1.f, -1.f, -1.f, 0xffffffff, 1.f, 1.f},
+    { 1.f,  1.f,  1.f, 0xffffffff, 0.f, 0.f,  1.f,  0.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f,  1.f, -1.f, 0xffffffff, 1.f, 0.f,  1.f,  0.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, -1.f,  1.f, 0xffffffff, 0.f, 1.f,  1.f,  0.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, -1.f, -1.f, 0xffffffff, 1.f, 1.f,  1.f,  0.f,  0.f, 0.f, 0.f, 0.f, 0.f},
 
     // +Y (top)
-    {-1.f,  1.f, -1.f, 0xffffffff, 0.f, 0.f},
-    { 1.f,  1.f, -1.f, 0xffffffff, 1.f, 0.f},
-    {-1.f,  1.f,  1.f, 0xffffffff, 0.f, 1.f},
-    { 1.f,  1.f,  1.f, 0xffffffff, 1.f, 1.f},
+    {-1.f,  1.f, -1.f, 0xffffffff, 0.f, 0.f,  0.f,  1.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f,  1.f, -1.f, 0xffffffff, 1.f, 0.f,  0.f,  1.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f,  1.f,  1.f, 0xffffffff, 0.f, 1.f,  0.f,  1.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f,  1.f,  1.f, 0xffffffff, 1.f, 1.f,  0.f,  1.f,  0.f, 0.f, 0.f, 0.f, 0.f},
 
     // -Y (bottom)
-    {-1.f, -1.f,  1.f, 0xffffffff, 0.f, 0.f},
-    { 1.f, -1.f,  1.f, 0xffffffff, 1.f, 0.f},
-    {-1.f, -1.f, -1.f, 0xffffffff, 0.f, 1.f},
-    { 1.f, -1.f, -1.f, 0xffffffff, 1.f, 1.f},
+    {-1.f, -1.f,  1.f, 0xffffffff, 0.f, 0.f,  0.f, -1.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, -1.f,  1.f, 0xffffffff, 1.f, 0.f,  0.f, -1.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f, -1.f, -1.f, 0xffffffff, 0.f, 1.f,  0.f, -1.f,  0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, -1.f, -1.f, 0xffffffff, 1.f, 1.f,  0.f, -1.f,  0.f, 0.f, 0.f, 0.f, 0.f},
 };
 
 static const uint16_t s_CubeIndices[] =
@@ -75,6 +127,8 @@ Ref<Mesh> MeshFactory::CreateCube(const CubeParams& params)
         v.y *= e.y;
         v.z *= e.z;
     }
+    constexpr u32 cubeIndexCount = sizeof(s_CubeIndices) / sizeof(s_CubeIndices[0]);
+    CalcTangents(vertices, s_CubeIndices, cubeIndexCount);
 
     auto mesh = Ref<Mesh>::Create();
     mesh->SetName("Cube");
@@ -95,10 +149,10 @@ Ref<Mesh> MeshFactory::CreateCube(const CubeParams& params)
 
 static const PrimitiveVertex s_PlaneVertices[] =
 {
-    {-1.f, 0.f, -1.f, 0xffffffff, 0.f, 0.f},
-    { 1.f, 0.f, -1.f, 0xffffffff, 1.f, 0.f},
-    {-1.f, 0.f,  1.f, 0xffffffff, 0.f, 1.f},
-    { 1.f, 0.f,  1.f, 0xffffffff, 1.f, 1.f},
+    {-1.f, 0.f, -1.f, 0xffffffff, 0.f, 0.f,  0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, 0.f, -1.f, 0xffffffff, 1.f, 0.f,  0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f},
+    {-1.f, 0.f,  1.f, 0xffffffff, 0.f, 1.f,  0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f},
+    { 1.f, 0.f,  1.f, 0xffffffff, 1.f, 1.f,  0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f},
 };
 
 static const uint16_t s_PlaneIndices[] =
@@ -117,6 +171,8 @@ Ref<Mesh> MeshFactory::CreatePlane(const PlaneParams& params)
         v.x *= e.x;
         v.z *= e.y;
     }
+    constexpr u32 planeIndexCount = sizeof(s_PlaneIndices) / sizeof(s_PlaneIndices[0]);
+    CalcTangents(vertices, s_PlaneIndices, planeIndexCount);
 
     auto mesh = Ref<Mesh>::Create();
     mesh->SetName("Plane");

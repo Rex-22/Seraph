@@ -302,13 +302,16 @@ Ref<Asset> ParseSMesh(const Buffer& bytes)
 
 // ---- Assimp import -----------------------------------------------------------
 
-// Matches the layout the built-in "simple" shader expects (same as the
-// procedural cube), so imported meshes render with the default material.
+// Matches the procedural PrimitiveVertex layout (position/color/texcoord/normal/
+// tangent), so imported meshes carry the data lit/PBR shaders need. The tangent's
+// w component holds handedness for bitangent reconstruction.
 struct MeshVertex
 {
     float x, y, z;
     u32 abgr;
     float u, v;
+    float nx, ny, nz;
+    float tx, ty, tz, tw;
 };
 
 bgfx::VertexLayout BuildMeshLayout()
@@ -318,6 +321,8 @@ bgfx::VertexLayout BuildMeshLayout()
         .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
         .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
         .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::Tangent, 4, bgfx::AttribType::Float)
         .end();
     return layout;
 }
@@ -325,9 +330,9 @@ bgfx::VertexLayout BuildMeshLayout()
 Ref<Asset> LoadFromAssimp(const AssetMetadata& metadata, const Buffer& bytes)
 {
     Assimp::Importer importer;
-    constexpr unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals |
-        aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs |
-        aiProcess_PreTransformVertices;
+    constexpr unsigned int flags = aiProcess_Triangulate | aiProcess_GenSmoothNormals |
+        aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices |
+        aiProcess_FlipUVs | aiProcess_PreTransformVertices;
 
     // Hint Assimp with the file extension when we have one (loose editor files);
     // packed meshes are .smesh and never reach here.
@@ -371,6 +376,26 @@ Ref<Asset> LoadFromAssimp(const AssetMetadata& metadata, const Buffer& bytes)
             if (mesh->HasTextureCoords(0)) {
                 vertex.u = mesh->mTextureCoords[0][v].x;
                 vertex.v = mesh->mTextureCoords[0][v].y;
+            }
+            if (mesh->HasNormals()) {
+                vertex.nx = mesh->mNormals[v].x;
+                vertex.ny = mesh->mNormals[v].y;
+                vertex.nz = mesh->mNormals[v].z;
+            }
+            if (mesh->HasTangentsAndBitangents()) {
+                vertex.tx = mesh->mTangents[v].x;
+                vertex.ty = mesh->mTangents[v].y;
+                vertex.tz = mesh->mTangents[v].z;
+                // Handedness: sign of (N × T) · B, matching how the shader
+                // reconstructs the bitangent as cross(N, T) * w.
+                const aiVector3D& n = mesh->mNormals[v];
+                const aiVector3D& t = mesh->mTangents[v];
+                const aiVector3D& b = mesh->mBitangents[v];
+                const aiVector3D nxt(
+                    n.y * t.z - n.z * t.y, n.z * t.x - n.x * t.z, n.x * t.y - n.y * t.x);
+                vertex.tw = (nxt.x * b.x + nxt.y * b.y + nxt.z * b.z) < 0.0f ? -1.0f : 1.0f;
+            } else {
+                vertex.tw = 1.0f;
             }
             vertices.push_back(vertex);
         }

@@ -15,12 +15,16 @@ namespace Seraph
 {
 
 // Standard vertex layout used by all MeshFactory primitives.
-// Matches: Position (3f) + Color (rgba u8) + TexCoord0 (2f)
+// Position (3f) + Color (rgba u8) + TexCoord0 (2f) + Normal (3f) + Tangent (4f).
+// The tangent's w component carries handedness (±1) so the shader can
+// reconstruct the bitangent as cross(normal, tangent.xyz) * tangent.w.
 struct PrimitiveVertex
 {
     float x, y, z;
     uint32_t abgr;
     float u, v;
+    float nx, ny, nz;
+    float tx, ty, tz, tw;
 
     static const bgfx::VertexLayout* Layout()
     {
@@ -31,6 +35,8 @@ struct PrimitiveVertex
              .add(bgfx::Attrib::Position,  3, bgfx::AttribType::Float)
              .add(bgfx::Attrib::Color0,    4, bgfx::AttribType::Uint8, true)
              .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+             .add(bgfx::Attrib::Normal,    3, bgfx::AttribType::Float)
+             .add(bgfx::Attrib::Tangent,   4, bgfx::AttribType::Float)
              .end();
             return l;
         }();
