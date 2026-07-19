@@ -6,6 +6,7 @@
 
 #include "Material/UniformCache.h"
 #include "Renderer.h"
+#include "RenderSystem.h"
 #include "SceneCamera.h"
 #include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Graphics/EnvironmentMap.h"
@@ -190,7 +191,8 @@ void SceneRenderer::RenderSunShadow()
             Renderer::SubmitShadowCaster(
                 *mesh, m_Scene->GetWorldSpaceTransformMatrix({e, m_Scene.Raw()}));
     }
-    Renderer::EndShadowPass(shadowMtx, /*bias=*/0.0025f, /*normalOffset=*/0.0f);
+    const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
+    Renderer::EndShadowPass(shadowMtx, gs.ShadowBias, gs.ShadowNormalOffset);
 }
 
 void SceneRenderer::DrawSkybox()

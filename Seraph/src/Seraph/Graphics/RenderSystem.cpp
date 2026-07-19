@@ -30,6 +30,18 @@ void RenderSystem::RegisterSettings()
         .Section("Graphics").Display("Exposure")
         .Tooltip("Linear exposure multiplier applied before tone mapping")
         .Min(0.0f).Max(16.0f);
+
+    Settings::Register("engine.graphics.shadowBias")
+        .Bind(&s.ShadowBias).Scope(SettingScope::Project)
+        .Section("Graphics").Display("Shadow Bias")
+        .Tooltip("Constant depth bias applied when sampling the sun shadow map")
+        .Min(0.0f).Max(0.05f);
+
+    Settings::Register("engine.graphics.shadowNormalOffset")
+        .Bind(&s.ShadowNormalOffset).Scope(SettingScope::Project)
+        .Section("Graphics").Display("Shadow Normal Offset")
+        .Tooltip("Offset along the surface normal (world units) to reduce shadow acne")
+        .Min(0.0f).Max(1.0f);
 }
 
 } // namespace Seraph
