@@ -62,6 +62,13 @@ public:
     // created.
     [[nodiscard]] static AssetHandle GetHandle(const std::string& name);
 
+    // Resolve a shader name directly to its linked bgfx program. Equivalent to
+    // GetHandle + AssetManager::GetAsset<ShaderAsset>()->Program(), but embedded
+    // shaders also resolve from the ShaderManager's own cache, so this returns a
+    // stable program even before an AssetManager is installed (early startup).
+    // Returns BGFX_INVALID_HANDLE if the name is unknown or not yet buildable.
+    [[nodiscard]] static bgfx::ProgramHandle GetProgram(const std::string& name);
+
     [[nodiscard]] static bool Has(const std::string& name);
 
     // Stage a registered embedded shader's compiled blobs for EVERY renderer
@@ -71,9 +78,9 @@ public:
     [[nodiscard]] static bool ExportEmbeddedShader(
         const std::string& name, ShaderAsset& out);
 
-    // Programs are owned by their ShaderAsset and released via
-    // AssetManager::Shutdown (before bgfx::shutdown), so this no longer destroys
-    // any bgfx resource — it only clears the embedded-source registry.
+    // Clears the embedded-source registry and destroys the embedded programs the
+    // ShaderManager owns (built lazily by GetHandle/GetProgram). Must run before
+    // bgfx::shutdown — it is called from Renderer::Cleanup, which does so.
     static void Shutdown();
 };
 

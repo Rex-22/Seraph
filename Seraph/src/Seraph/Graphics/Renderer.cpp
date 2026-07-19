@@ -326,13 +326,13 @@ const bgfx::VertexLayout& FullscreenLayout()
     return s_layout;
 }
 
-// Resolve the embedded `tonemap` program (built lazily on first use).
+// Resolve the embedded `tonemap` program (built + cached lazily on first use).
+// GetProgram resolves from the ShaderManager's own embedded cache, so the
+// program is stable even before an AssetManager is installed — avoiding the
+// per-frame rebuild that recycled the tonemap uniforms during early startup.
 bgfx::ProgramHandle ResolveTonemapProgram()
 {
-    const AssetHandle handle = ShaderManager::GetHandle("tonemap");
-    if (Ref<ShaderAsset> shader = AssetManager::GetAsset<ShaderAsset>(handle))
-        return shader->Program();
-    return BGFX_INVALID_HANDLE;
+    return ShaderManager::GetProgram("tonemap");
 }
 } // namespace
 

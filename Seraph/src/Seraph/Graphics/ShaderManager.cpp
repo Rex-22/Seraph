@@ -39,6 +39,16 @@ std::unordered_map<std::string, AssetHandle>& CookedRegistry()
     return s_cooked;
 }
 
+// Name -> built embedded ShaderAsset. The ShaderManager OWNS these so their
+// bgfx program survives regardless of whether an AssetManager is installed. See
+// GetHandle for why this matters (early-startup rebuild churn). Cleared (and its
+// programs destroyed) in Shutdown, which runs before bgfx::shutdown.
+std::unordered_map<std::string, Ref<ShaderAsset>>& EmbeddedCache()
+{
+    static std::unordered_map<std::string, Ref<ShaderAsset>> s_embedded;
+    return s_embedded;
+}
+
 } // namespace
 
 AssetHandle ShaderHandleFromName(std::string_view name)
@@ -73,6 +83,22 @@ AssetHandle ShaderManager::GetHandle(const std::string& name)
 
     const AssetHandle handle = ShaderHandleFromName(name);
 
+    // Embedded shaders are built once and owned by the ShaderManager (see
+    // EmbeddedCache), so their program persists across frames even when no
+    // AssetManager is installed yet — e.g. during the pre-project startup window.
+    // Without this, AddMemoryAsset below is a no-op (no active manager), the
+    // locally-built ShaderAsset is dropped at end of scope, and the program is
+    // rebuilt and destroyed every frame — recycling its reflected uniform
+    // handles (u_tonemapParams / s_hdr) until a project finally opens.
+    if (const auto it = EmbeddedCache().find(name); it != EmbeddedCache().end()) {
+        // Mirror into the active AssetManager if one exists but doesn't have it
+        // (a manager installed or swapped after the shader was first built), so
+        // name->handle resolution via AssetManager::GetAsset keeps working.
+        if (!AssetManager::GetAsset<ShaderAsset>(handle))
+            AssetManager::AddMemoryAsset(it->second);
+        return handle;
+    }
+
     // Already built + registered as a memory asset?
     if (AssetManager::GetAsset<ShaderAsset>(handle))
         return handle;
@@ -96,8 +122,23 @@ AssetHandle ShaderManager::GetHandle(const std::string& name)
         return AssetHandle(c_NullAssetHandle);
     }
 
+    // Retain the built program regardless of the AssetManager, then best-effort
+    // register it as a memory asset (a no-op until a manager is active).
+    EmbeddedCache()[name] = asset;
     AssetManager::AddMemoryAsset(asset);
     return handle;
+}
+
+bgfx::ProgramHandle ShaderManager::GetProgram(const std::string& name)
+{
+    const AssetHandle handle = GetHandle(name);
+    // Cooked/file-backed and manager-registered assets resolve via the manager.
+    if (Ref<ShaderAsset> asset = AssetManager::GetAsset<ShaderAsset>(handle))
+        return asset->Program();
+    // Embedded fallback: resolves stably even before an AssetManager exists.
+    if (const auto it = EmbeddedCache().find(name); it != EmbeddedCache().end())
+        return it->second->Program();
+    return BGFX_INVALID_HANDLE;
 }
 
 bool ShaderManager::Has(const std::string& name)
@@ -157,6 +198,10 @@ bool ShaderManager::ExportEmbeddedShader(const std::string& name, ShaderAsset& o
 
 void ShaderManager::Shutdown()
 {
+    // Destroy the embedded programs the ShaderManager owns. Called from
+    // Renderer::Cleanup before bgfx::shutdown, so releasing bgfx resources here
+    // is safe.
+    EmbeddedCache().clear();
     Registry().clear();
     CookedRegistry().clear();
 }
