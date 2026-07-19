@@ -134,6 +134,16 @@ Deps: Console 9.
 - **Priority:** Low
 
 **Description:**
-Not in the initial cut: (1) CVar priority/set-by tiers a la Unreal SetBy (Constructor < Scalability < ProjectSetting < Console) with override retention; (2) config-var groups / scalability buckets (sg.* quality presets); (3) remote console / network exec; (4) command aliases + multi-line exec scripts with cvar interpolation; (5) auto-exec of a startup .cfg on boot; (6) console variable sinks batching (deferred callback flush like Unreal's CallAllConsoleVariableSinks); (7) enum-valued CVar persistence in YamlSettingsStore (currently deferred at YamlSettingsStore.cpp:88); (8) autocomplete for command argument values (e.g. enum labels, asset names).
+Still not scheduled (enum persistence, aliases, autoexec, argument autocomplete, and SetBy priority were done in Console 11): (2) config-var groups / scalability buckets (sg.* quality presets); (3) remote console / network exec; (4b) multi-line exec scripts with cvar interpolation / variable substitution (basic aliases + exec done; interpolation not); (6) console variable sinks batching (deferred callback flush like Unreal's CallAllConsoleVariableSinks — change hooks currently fire immediately); (8b) autocomplete for asset-name argument values (enum labels + bool done; AssetHandle args not); plus project-scoped autoexec-on-boot (currently only user-scope autoexec runs at Console::Init; a project autoexec would run after project load).
+
+---
+
+### 12. Console 11 — Deferred batch: enums, aliases, autoexec, arg-autocomplete, SetBy
+- **Status:** Review
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Implemented + verified end-to-end (headless): (1) Enum CVars/command-args — bound enums cross as s64 via the reflection convention; Settings Bind/Default, ApplyChange type-check, YamlSettingsStore persist-as-label, AnyTextCodec::IsSupported, Reflect.h InvokeMethodImpl enum unpack. (2) Aliases — alias/unalias built-ins + recursion-bounded expansion in Dispatch. (3) Auto-exec — ExecFile helper; autoexec.cfg from Root::User on Console::Init; exec from Root::Project. (4) Argument-value autocomplete — ConsoleCommand::ParamTypes + ConsoleEvaluator::Complete (context-aware: enum labels, true/false, name-completion for help/cvarlist/...); panel Tab replaces only the current token. (5) CVar SetBy priority tiers — SettingSetBy on the descriptor; a scope reload can't clobber a Console/CLI override; makes load order-independent. Docs updated in docs/console-system.md.
 
 ---

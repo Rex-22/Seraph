@@ -107,18 +107,62 @@ if (const MethodInfo* m = t.FindMethod("Hurt"))
 ```
 
 Supported argument types: `bool`, integer types, `float`/`double`, `std::string`,
-`glm::vec2/3/4`. (Enum parameters and enum CVars are a known limitation — see
-below.)
+`glm::vec2/3/4`, and reflected enums (`SP_REFLECT_ENUM`), which take a label or the
+underlying integer.
 
 ## Built-in commands
 
 `help [name]`, `clear`, `cvarlist [filter]`, `cmdlist [filter]`,
-`cheats [0|1]`, `history`, `exec <file>`, plus `quit`/`exit`/`echo`.
+`cheats [0|1]`, `history`, `exec <file>`, `alias`/`unalias`, plus
+`quit`/`exit`/`echo`.
 
 Type a variable name to read it (`r.bloom`), or `name value` to set it
 (`r.bloom 0`, `engine.physics.gravity 0 -9.81 0`). Multi-component values may be
-space- or comma-separated. In the overlay, **Tab** cycles through completions,
+space- or comma-separated. In the overlay, **Tab** cycles through completions
+(command/CVar names, and argument values like enum labels or `true`/`false`),
 **Up/Down** walks history, **Esc** closes.
+
+## Enums
+
+A CVar bound to a reflected enum field, or an `SFUNCTION` with an enum parameter,
+works from text — enum values cross as `s64` internally and map to/from labels:
+
+```cpp
+enum class Quality { Low, Medium, High };
+SP_REFLECT_ENUM(Quality).Value("Low", Quality::Low)...(High) SP_REFLECT_ENUM_END();
+SP_CVAR(CVarQuality, Quality, "sg.quality", Quality::Medium, Seraph::CVarFlag_None, "");
+// console:  sg.quality High     (or an integer)     help sg.quality  (shows current label)
+```
+
+The enum **must** be reflected (`SP_REFLECT_ENUM`) so its labels resolve; it
+persists as the label in YAML.
+
+## Aliases
+
+`alias <name> <command...>` defines a shorthand; `alias` alone lists them,
+`unalias <name>` removes one. Extra args passed to an alias are appended to its
+body, and alias expansion is recursion-bounded.
+
+```
+alias reset "r.bloom 1; r.exposure 1"   # (one command per alias; chain via exec for many)
+alias gg quit
+```
+
+## Auto-exec
+
+On `Console::Init` an optional `autoexec.cfg` in the user config dir is run (CVars,
+commands, and aliases applied at boot; blank lines and `#` / `//` comments
+skipped). Project-scoped scripts run on demand with `exec <path>` (read from the
+project assets dir).
+
+## CVar precedence (SetBy)
+
+Each value remembers the highest-priority source that set it, ascending:
+`Default < Engine < Project < User < Console < CommandLine`. A lower-priority
+source can't overwrite a higher one — so a live **console** override survives a
+later project/settings **reload**, and `--set` on the command line outranks
+everything. This also makes scope loading order-independent (User beats Project
+beats Engine regardless of when each file loads).
 
 ## Cheats
 
@@ -134,12 +178,10 @@ registered through the normal `Settings` path persist by their scope as before.
 
 ## Known limitations
 
-- **Enums**: a CVar bound to an enum field, or an `SFUNCTION` with an enum
-  parameter, can't be set from text generically (the value can't be built for an
-  arbitrary enum type without compile-time knowledge). Same root cause the YAML
-  store defers for enum settings.
 - **SFUNCTION**: no overloaded or static methods (the generated `.Method<&T::m>`
   needs an unambiguous instance-method address).
+- **Argument autocomplete** covers enum labels and `true`/`false`; asset-name
+  completion (for `AssetHandle` args) is not wired yet.
 
 ## Wiring (already done)
 
