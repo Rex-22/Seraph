@@ -28,6 +28,7 @@
 #include "Seraph/Project/GamePackager.h"
 #include "Seraph/Project/ProjectManager.h"
 #include "Seraph/Project/ProjectTemplates.h"
+#include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Components/MeshComponent.h"
 #include "Seraph/Scene/Entity.h"
 #include "Seraph/Scene/EntityTemplates.h"
@@ -740,6 +741,14 @@ void EditorLayer::EnterRuntime()
 
     auto [w, h] = Application::Instance().Window().Size();
     m_RuntimeScene->SetViewportBounds(0, 0, w, h);
+
+    // The scene's own camera drives play-in-editor (not the editor camera). A
+    // data-copied camera keeps its default view id (0), so point it at the scene
+    // view or it renders to view 0 instead of the HDR target — matching
+    // RuntimeLayer::OnAttach.
+    if (Entity camera = m_RuntimeScene->GetMainCameraEntity())
+        camera.GetComponent<CameraComponent>().Camera.SetViewId(ViewId::Scene);
+
     m_RuntimeScene->OnRuntimeStart();
 
     PointPanelsAt(m_RuntimeScene, selection);
