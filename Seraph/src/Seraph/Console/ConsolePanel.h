@@ -79,10 +79,18 @@ private:
     // width/height means "use the whole main viewport".
     float m_RectX = 0.0f, m_RectY = 0.0f, m_RectW = 0.0f, m_RectH = 0.0f;
 
+    // Live autocomplete dropdown, drawn as a separate window just below the input
+    // (so it isn't clipped by the overlay's bottom edge).
+    bool m_ShowSuggest = false;
+    float m_SuggestX = 0.0f, m_SuggestY = 0.0f, m_SuggestW = 0.0f;
+    std::vector<std::string> m_SuggestItems;
+
     // Tab-completion cycle state. Repeated Tab (without editing) advances through
     // matches; m_TabLastWrite is the text we last wrote, used to detect edits.
+    // m_TabReplaceFrom is where in the buffer the completed token begins.
     std::vector<std::string> m_TabMatches;
     int m_TabIndex = -1;
+    std::size_t m_TabReplaceFrom = 0;
     std::string m_TabLastWrite;
 };
 

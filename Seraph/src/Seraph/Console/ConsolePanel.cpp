@@ -3,6 +3,7 @@
 #include "Seraph/Console/Console.h"
 #include "Seraph/Console/ConsoleEvaluator.h"
 #include "Seraph/Console/ConsoleSink.h"
+#include "Seraph/Core/Input.h"
 
 #include <spdlog/common.h> // spdlog::level
 
@@ -122,10 +123,33 @@ void ConsolePanel::DrawInput()
         m_JustOpened = false;
         m_ReclaimFocus = false;
     }
+
+    // Compute live suggestions for the current token; they are drawn as a separate
+    // dropdown window (below the input) in OnImGuiRender so the overlay's bottom
+    // edge doesn't clip them.
+    m_ShowSuggest = false;
+    if (m_Input[0] != '\0' && ImGui::IsItemActive())
+    {
+        ConsoleEvaluator::Completion comp = ConsoleEvaluator::Complete(m_Input, 10);
+        if (!comp.Matches.empty())
+        {
+            const ImVec2 mn = ImGui::GetItemRectMin();
+            const ImVec2 mx = ImGui::GetItemRectMax();
+            m_SuggestItems = std::move(comp.Matches);
+            m_SuggestX = mn.x;
+            m_SuggestY = mx.y;
+            m_SuggestW = mx.x - mn.x;
+            m_ShowSuggest = true;
+        }
+    }
 }
 
 void ConsolePanel::OnImGuiRender()
 {
+    // The open console owns the keyboard so polling gameplay/camera code (e.g.
+    // Player.cpp's Input::IsKeyDown(W)) stops responding while you type commands.
+    Input::SetKeyboardCaptured(m_Open);
+
     if (!m_Open)
         return;
 
@@ -174,6 +198,27 @@ void ConsolePanel::OnImGuiRender()
     }
     ImGui::End();
     ImGui::PopStyleVar();
+
+    // Autocomplete dropdown: a separate borderless window pinned just under the
+    // input field, so it floats over the viewport instead of being clipped by the
+    // overlay's bottom edge. Non-interactive (Tab drives selection).
+    if (m_ShowSuggest)
+    {
+        ImGui::SetNextWindowPos(ImVec2(m_SuggestX, m_SuggestY));
+        ImGui::SetNextWindowSize(ImVec2(m_SuggestW, 0.0f)); // 0 height -> fit rows
+        ImGui::SetNextWindowBgAlpha(0.96f);
+        const ImGuiWindowFlags sf =
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize
+            | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings
+            | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav
+            | ImGuiWindowFlags_NoInputs;
+        if (ImGui::Begin("##console-suggest", nullptr, sf))
+        {
+            for (const std::string& item : m_SuggestItems)
+                ImGui::TextUnformatted(item.c_str());
+        }
+        ImGui::End();
+    }
 }
 
 int ConsolePanel::InputTextCallback(ImGuiInputTextCallbackData* data)
@@ -196,12 +241,12 @@ int ConsolePanel::InputTextCallback(ImGuiInputTextCallbackData* data)
             }
             else
             {
-                // Fresh completion: rank matches for the current text.
-                std::vector<ConsoleEvaluator::Suggestion> sugg =
-                    ConsoleEvaluator::Autocomplete(cur, 64);
-                self->m_TabMatches.clear();
-                for (const ConsoleEvaluator::Suggestion& s : sugg)
-                    self->m_TabMatches.push_back(s.Name);
+                // Fresh completion: context-aware matches for the current token
+                // (command/CVar name, or an argument value).
+                ConsoleEvaluator::Completion comp =
+                    ConsoleEvaluator::Complete(cur, 64);
+                self->m_TabMatches = std::move(comp.Matches);
+                self->m_TabReplaceFrom = comp.ReplaceFrom;
                 if (self->m_TabMatches.empty())
                 {
                     self->m_TabIndex = -1;
@@ -210,10 +255,12 @@ int ConsolePanel::InputTextCallback(ImGuiInputTextCallbackData* data)
                 self->m_TabIndex = 0;
             }
 
+            // Replace only the token being completed (keep the command prefix).
             const std::string& pick = self->m_TabMatches[self->m_TabIndex];
-            data->DeleteChars(0, data->BufTextLen);
-            data->InsertChars(0, pick.c_str());
-            self->m_TabLastWrite = pick;
+            const int from = static_cast<int>(self->m_TabReplaceFrom);
+            data->DeleteChars(from, data->BufTextLen - from);
+            data->InsertChars(from, pick.c_str());
+            self->m_TabLastWrite = std::string(data->Buf, data->BufTextLen);
             break;
         }
         case ImGuiInputTextFlags_CallbackHistory:
