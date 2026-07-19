@@ -158,7 +158,7 @@ struct RenderData
     u16 currentViewId;
     u32 windowWidth;
     u32 windowHeight;
-    u32 resetFlags = BGFX_RESET_VSYNC;
+    u32 resetFlags = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X4;
     u32 frameNumber = 0; // last bgfx::frame() return; see Renderer::FrameNumber
 
     void EndFrame()
