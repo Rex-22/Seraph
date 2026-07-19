@@ -72,16 +72,19 @@ float ShadowNoise(vec2 xy)
 }
 
 // Sun shadow visibility [0,1] for a world-space fragment. 1.0 (fully lit) when
-// shadows are inactive or the fragment falls outside the shadow map. Normal-
+// shadows are inactive or the fragment falls outside the shadow map. The normal
 // offset (u_shadowParams.w) pushes the sampled point along the surface normal to
-// fight acne without peter-panning; u_shadowParams.y is a constant depth bias.
-// Filtered with a per-pixel-rotated Vogel disk over the hardware compare sampler.
-float SampleSunShadow(vec3 wpos, vec3 N)
+// fight acne; it is scaled by (1 - NoL) so surfaces facing the sun get little or
+// no offset (preserving contact — no peter-panning where geometry sits flush)
+// while grazing surfaces get the full offset. u_shadowParams.y is a constant
+// depth bias. Filtered with a rotated Vogel disk over the hardware compare sampler.
+float SampleSunShadow(vec3 wpos, vec3 N, float NoL)
 {
 	if (u_shadowParams.z < 0.5)
 		return 1.0;
 
-	vec3 p = wpos + N * u_shadowParams.w;
+	float slope = clamp(1.0 - NoL, 0.0, 1.0);
+	vec3 p = wpos + N * (u_shadowParams.w * slope);
 	vec4 sc = mul(u_shadowMtx, vec4(p, 1.0));
 	vec3 tc = sc.xyz / sc.w;
 
@@ -223,7 +226,7 @@ void main()
 
 		vec3 radiance = colInt.rgb * colInt.w * atten;
 		// Directional lights (the sun) are shadowed by the sun shadow map.
-		float shadow = (type == 0) ? SampleSunShadow(v_wpos, N) : 1.0;
+		float shadow = (type == 0) ? SampleSunShadow(v_wpos, N, NoL) : 1.0;
 		color += (diffuse + specular) * radiance * NoL * shadow;
 	}
 
