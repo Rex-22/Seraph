@@ -17,6 +17,7 @@
 #include "Seraph/Graphics/RenderPass.h"
 #include "Seraph/Graphics/ShaderAsset.h"
 #include "Seraph/Graphics/ShaderManager.h"
+#include "Seraph/Graphics/Texture2D.h"
 #include "Seraph/Graphics/ViewId.h"
 
 #include <glm/gtc/type_ptr.hpp>
@@ -185,6 +186,71 @@ static bgfx::UniformHandle s_SkyParams      = BGFX_INVALID_HANDLE; // u_skyParam
 static bgfx::TextureHandle     s_BrdfLut   = BGFX_INVALID_HANDLE;
 static bgfx::FrameBufferHandle s_BrdfLutFb = BGFX_INVALID_HANDLE;
 
+// IBL environment bound for the current frame's mesh submits, plus the samplers
+// + params uniform the PBR shader reads. s_EnvActive gates the shader's IBL term
+// vs the flat ambient fallback. A 1x1 white cube stands in for the environment
+// cubes when no IBL is active, so the cube samplers always have a valid binding.
+static Renderer::EnvironmentBinding s_Env{};
+static bool                s_EnvActive     = false;
+static bgfx::TextureHandle s_WhiteCube     = BGFX_INVALID_HANDLE;
+static bgfx::UniformHandle s_IblIrrSampler = BGFX_INVALID_HANDLE; // s_texCubeIrr
+static bgfx::UniformHandle s_IblRadSampler = BGFX_INVALID_HANDLE; // s_texCube
+static bgfx::UniformHandle s_IblLutSampler = BGFX_INVALID_HANDLE; // s_brdfLUT
+static bgfx::UniformHandle s_IblParams     = BGFX_INVALID_HANDLE; // u_iblParams
+
+// Shared 1x1 white cube fallback (all six faces white), created on first use.
+static bgfx::TextureHandle WhiteCube()
+{
+    if (bgfx::isValid(s_WhiteCube))
+        return s_WhiteCube;
+    // 6 faces * 1x1 * RGBA8.
+    const bgfx::Memory* mem = bgfx::alloc(6 * 4);
+    for (uint32_t i = 0; i < mem->size; ++i)
+        mem->data[i] = 0xff;
+    s_WhiteCube = bgfx::createTextureCube(
+        1, false, 1, bgfx::TextureFormat::RGBA8,
+        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_W_CLAMP, mem);
+    return s_WhiteCube;
+}
+
+// Create the IBL samplers/params uniform lazily (bgfx keys uniforms by name).
+static void EnsureIblUniforms()
+{
+    if (!bgfx::isValid(s_IblIrrSampler))
+        s_IblIrrSampler = bgfx::createUniform("s_texCubeIrr", bgfx::UniformType::Sampler);
+    if (!bgfx::isValid(s_IblRadSampler))
+        s_IblRadSampler = bgfx::createUniform("s_texCube", bgfx::UniformType::Sampler);
+    if (!bgfx::isValid(s_IblLutSampler))
+        s_IblLutSampler = bgfx::createUniform("s_brdfLUT", bgfx::UniformType::Sampler);
+    if (!bgfx::isValid(s_IblParams))
+        s_IblParams = bgfx::createUniform("u_iblParams", bgfx::UniformType::Vec4);
+}
+
+// Bind the IBL samplers + params for the current submesh. Called before every
+// material bind because BGFX_DISCARD_ALL clears bindings per submesh. When no
+// environment is active, neutral fallbacks are bound and u_iblParams.w = 0 tells
+// the PBR shader to use the flat ambient term instead.
+static void BindEnvironment()
+{
+    EnsureIblUniforms();
+
+    const bool active = s_EnvActive;
+    const bgfx::TextureHandle irr = active ? s_Env.irradiance : WhiteCube();
+    const bgfx::TextureHandle rad = active ? s_Env.radiance : WhiteCube();
+    const bgfx::TextureHandle lut =
+        active ? s_Env.brdfLut : Texture2D::GetDefaultWhite()->Handle();
+
+    bgfx::setTexture(5, s_IblIrrSampler, irr);
+    bgfx::setTexture(6, s_IblRadSampler, rad);
+    bgfx::setTexture(7, s_IblLutSampler, lut);
+
+    const float params[4] = {
+        s_Env.intensity, s_Env.rotationYaw, s_Env.radianceMips,
+        active ? 1.0f : 0.0f
+    };
+    bgfx::setUniform(s_IblParams, params);
+}
+
 void Renderer::Init()
 {
     s_RenderData = {};
@@ -273,6 +339,20 @@ void Renderer::Cleanup()
         bgfx::destroy(s_BrdfLut);
         s_BrdfLut = BGFX_INVALID_HANDLE;
     }
+    for (bgfx::UniformHandle* h :
+         { &s_IblIrrSampler, &s_IblRadSampler, &s_IblLutSampler, &s_IblParams })
+    {
+        if (bgfx::isValid(*h))
+        {
+            bgfx::destroy(*h);
+            *h = BGFX_INVALID_HANDLE;
+        }
+    }
+    if (bgfx::isValid(s_WhiteCube))
+    {
+        bgfx::destroy(s_WhiteCube);
+        s_WhiteCube = BGFX_INVALID_HANDLE;
+    }
 
     ShaderManager::Shutdown();
     UniformCache::Shutdown();
@@ -311,6 +391,9 @@ void Renderer::SubmitMesh(
         bgfx::setTransform(glm::value_ptr(transform));
         bgfx::setVertexBuffer(0, vb);
         bgfx::setIndexBuffer(ib, firstIndex, indexCount);
+        // Bind IBL before the material: per-submesh because DISCARD_ALL clears
+        // bindings, and before Bind() so a material never overwrites stages 5-7.
+        BindEnvironment();
         material->Bind();
         bgfx::submit(viewId, material->Program(), 0, BGFX_DISCARD_ALL);
     };
@@ -334,6 +417,19 @@ void Renderer::Begin(uint16_t viewId)
 void Renderer::End()
 {
     s_RenderData.EndFrame();
+}
+
+void Renderer::SetEnvironment(const EnvironmentBinding& env)
+{
+    s_Env = env;
+    s_EnvActive = bgfx::isValid(env.radiance) && bgfx::isValid(env.irradiance) &&
+                  bgfx::isValid(env.brdfLut);
+}
+
+void Renderer::ClearEnvironment()
+{
+    s_Env = {};
+    s_EnvActive = false;
 }
 
 namespace

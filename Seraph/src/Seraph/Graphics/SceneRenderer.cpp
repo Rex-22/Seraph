@@ -34,6 +34,32 @@ void SceneRenderer::BeginScene(const SceneRendererCamera& camera)
 
     auto& sceneCamera = m_SceneRenderData.SceneCamera;
     bgfx::setViewTransform(camera.Camera.GetViewId(), glm::value_ptr(sceneCamera.ViewMatrix), glm::value_ptr(sceneCamera.Camera.GetProjectionMatrix()));
+
+    BindEnvironment();
+}
+
+void SceneRenderer::BindEnvironment()
+{
+    // Bind the scene's IBL environment for this frame's mesh submits (image-based
+    // ambient), independent of whether it is also drawn as the skybox background.
+    Ref<EnvironmentMap> map = m_Scene
+        ? AssetManager::GetAsset<EnvironmentMap>(m_Scene->Environment().Environment)
+        : nullptr;
+
+    if (!map || !map->IsReady()) {
+        Renderer::ClearEnvironment();
+        return;
+    }
+
+    const SceneEnvironment& env = m_Scene->Environment();
+    Renderer::EnvironmentBinding binding;
+    binding.radiance = map->RadianceCube();
+    binding.irradiance = map->IrradianceCube();
+    binding.brdfLut = Renderer::BrdfLut();
+    binding.intensity = env.Intensity;
+    binding.rotationYaw = env.Rotation;
+    binding.radianceMips = static_cast<float>(map->RadianceMipCount());
+    Renderer::SetEnvironment(binding);
 }
 
 void SceneRenderer::EndScene()

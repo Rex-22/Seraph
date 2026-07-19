@@ -31,6 +31,29 @@ struct Renderer
     static void Begin(uint16_t viewId);
     static void End();
 
+    // Image-based-lighting environment bound for the frame's mesh submits. The
+    // cubes are the scene's prefiltered radiance (mipped) + irradiance; `brdfLut`
+    // is Renderer::BrdfLut(). SubmitMesh binds these per-submesh (a material's
+    // BGFX_DISCARD_ALL clears bindings each submesh), so the PBR shader gets
+    // image-based ambient. `radianceMips` scales roughness -> radiance LOD;
+    // `rotationYaw`/`intensity` match the skybox. All handles must be valid.
+    struct EnvironmentBinding
+    {
+        bgfx::TextureHandle radiance   = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle irradiance = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle brdfLut    = BGFX_INVALID_HANDLE;
+        float intensity    = 1.0f;
+        float rotationYaw  = 0.0f;
+        float radianceMips = 1.0f;
+    };
+
+    // Set (or clear) the active IBL environment for subsequent SubmitMesh calls.
+    // Call once per frame before the mesh loop (SceneRenderer does this from the
+    // scene's SceneEnvironment). Cleared state binds neutral fallbacks and tells
+    // the shader to fall back to the flat ambient term.
+    static void SetEnvironment(const EnvironmentBinding& env);
+    static void ClearEnvironment();
+
     // Submit a single fullscreen triangle on `viewId` with `program`. The caller
     // binds any source textures/uniforms first (like a material). Geometry is a
     // transient oversized clip-space triangle; texture V is flipped for

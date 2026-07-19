@@ -9,12 +9,18 @@ SAMPLER2D(s_metalRough, 2);
 SAMPLER2D(s_ao,        3);
 SAMPLER2D(s_emissive,  4);
 
+// Image-based lighting, bound per-submesh by the renderer (Renderer::SetEnvironment).
+SAMPLERCUBE(s_texCubeIrr, 5); // irradiance (diffuse ambient)
+SAMPLERCUBE(s_texCube,    6); // prefiltered radiance (specular ambient), mipped
+SAMPLER2D(s_brdfLUT,      7); // split-sum BRDF integration LUT (RG)
+
 uniform vec4 u_baseColorFactor;   // rgb base color, a alpha
 uniform vec4 u_metallicFactor;    // x
 uniform vec4 u_roughnessFactor;   // x
 uniform vec4 u_emissiveFactor;    // rgb
 uniform vec4 u_normalScale;       // x
 uniform vec4 u_occlusionStrength; // x
+uniform vec4 u_iblParams;         // x intensity, y rotationYaw, z radianceMips, w active
 
 #define PBR_PI 3.1415926535897932
 
@@ -70,8 +76,35 @@ void main()
 	vec3 diffuseColor = albedo * (1.0 - metallic);
 	float a = roughness * roughness;
 
-	// --- Ambient (flat, occluded) --------------------------------------------
-	vec3 color = u_ambient.rgb * diffuseColor * ao;
+	// --- Ambient: image-based lighting when bound, else flat term ------------
+	vec3 ambient;
+	if (u_iblParams.w > 0.5)
+	{
+		// Rotate sample dirs by the environment yaw (matches the skybox).
+		float sy = sin(u_iblParams.y);
+		float cy = cos(u_iblParams.y);
+		vec3 nR = vec3(cy * N.x + sy * N.z, N.y, -sy * N.x + cy * N.z);
+		vec3 R  = reflect(-V, N);
+		vec3 rR = vec3(cy * R.x + sy * R.z, R.y, -sy * R.x + cy * R.z);
+
+		// Diffuse irradiance (cosine-convolved cube).
+		vec3 irradiance = toLinear(textureCube(s_texCubeIrr, nR).xyz);
+		vec3 iblDiffuse = irradiance * diffuseColor;
+
+		// Specular: prefiltered radiance * split-sum (F0 * scale + bias).
+		float mip = roughness * (u_iblParams.z - 1.0);
+		rR = fixCubeLookup(rR, mip, 256.0);
+		vec3 prefiltered = toLinear(textureCubeLod(s_texCube, rR, mip).xyz);
+		vec2 envBrdf = texture2D(s_brdfLUT, vec2(NoV, roughness)).xy;
+		vec3 iblSpecular = prefiltered * (f0 * envBrdf.x + envBrdf.y);
+
+		ambient = (iblDiffuse + iblSpecular) * ao * u_iblParams.x;
+	}
+	else
+	{
+		ambient = u_ambient.rgb * diffuseColor * ao;
+	}
+	vec3 color = ambient;
 
 	// --- Direct punctual lights ----------------------------------------------
 	int count = int(u_lightCount.x);

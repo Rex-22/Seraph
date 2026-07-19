@@ -89,6 +89,10 @@ private:
     // (created once via UniformCache). Called once per frame on the first mesh.
     void UploadLightUniforms();
 
+    // Resolve the scene's EnvironmentMap and bind it on the Renderer for this
+    // frame's mesh submits (image-based ambient), or clear it if unset/not ready.
+    void BindEnvironment();
+
     Ref<Scene> m_Scene;
     SceneRendererSettings m_Settings;
 
