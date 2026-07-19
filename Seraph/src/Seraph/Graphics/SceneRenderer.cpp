@@ -220,11 +220,14 @@ void SceneRenderer::RenderSunShadow()
 
     glm::mat4 shadowMtx[kNumCascades];
     float normalizedBias[kNumCascades];
+    glm::vec4 csmSplits(0.0f); // per-cascade far view-depth (xyz) + max shadow dist (w)
     float prevFrac = 0.0f;
     for (int c = 0; c < kNumCascades; ++c) {
         const float zNear = nearClip + clipRange * prevFrac;
         const float zFar = nearClip + clipRange * splitFrac[c];
         prevFrac = splitFrac[c];
+        if (c < 3)
+            csmSplits[c] = zFar;
 
         // Sub-frustum corners in world space, then their bounding sphere. A sphere
         // (rotation-invariant) keeps the cascade extent constant as the camera
@@ -276,8 +279,11 @@ void SceneRenderer::RenderSunShadow()
             Renderer::SubmitShadowCaster(c, *caster.mesh, caster.transform);
     }
 
+    // Max shadow distance (.w) fades the term out at the last cascade's far edge.
+    csmSplits.w = farClip;
     Renderer::EndShadowCascades(
-        shadowMtx, normalizedBias, kNumCascades, gs.ShadowNormalOffset);
+        shadowMtx, normalizedBias, kNumCascades, csmSplits, camFwd,
+        gs.ShadowNormalOffset);
 }
 
 void SceneRenderer::DrawSkybox()

@@ -26,6 +26,8 @@ uniform vec4 u_occlusionStrength; // x
 uniform vec4 u_iblParams;         // x intensity, y rotationYaw, z radianceMips, w active
 uniform mat4 u_shadowMtx[4];      // per-cascade: world -> [0,1] shadow UV + depth
 uniform vec4 u_csmBias;           // per-cascade normalized depth bias (xyzw = cascade 0..3)
+uniform vec4 u_csmSplits;         // cascade far distances (x,y,z) + max shadow distance (w)
+uniform vec4 u_csmForward;        // xyz = camera forward (view depth axis, world space)
 uniform vec4 u_shadowParams;      // x atlasTexelSize, y cascadeCount, z active, w normalOffset
 
 #define PBR_PI 3.1415926535897932
@@ -80,45 +82,49 @@ vec2 CascadeTileOffset(int cascade)
 }
 
 // Sun shadow visibility [0,1] for a world-space fragment (cascaded shadow maps).
-// 1.0 (fully lit) when shadows are inactive or the fragment is beyond the last
-// cascade. Picks the tightest cascade that contains the fragment, then filters a
-// per-pixel-rotated Vogel disk over that cascade's atlas quadrant. Bias is per-
-// cascade (world bias / cascade depth range, precomputed) and slope-scaled so a
-// surface facing the sun keeps a tight contact while grazing angles avoid acne.
+// The cascade is chosen by the fragment's VIEW-SPACE DEPTH against the split
+// distances (u_csmSplits) — every visible fragment falls in exactly one cascade,
+// so there is no camera-tracking "window" like a UV-containment test produces.
+// Fades out past the max shadow distance. Filters a per-pixel-rotated Vogel disk
+// over the selected cascade's atlas quadrant. Bias is per-cascade (world bias /
+// cascade depth range) and slope-scaled to keep contact tight yet acne-free.
 float SampleSunShadow(vec3 wpos, vec3 N, float NoL)
 {
 	if (u_shadowParams.z < 0.5)
 		return 1.0;
 
+	// View-space depth of the fragment along the camera forward axis.
+	float viewDepth = dot(wpos - u_cameraPos.xyz, u_csmForward.xyz);
+	if (viewDepth >= u_csmSplits.w)
+		return 1.0; // beyond the shadowed range
+
+	int count = int(u_shadowParams.y);
+	int cascade = count - 1;
+	for (int i = 0; i < 4; ++i)
+	{
+		if (i >= count - 1)
+			break;
+		float split = (i == 0) ? u_csmSplits.x : (i == 1) ? u_csmSplits.y : u_csmSplits.z;
+		if (viewDepth < split)
+		{
+			cascade = i;
+			break;
+		}
+	}
+
 	float NoLc = clamp(NoL, 0.0, 1.0);
 	float slope = clamp(sqrt(1.0 - NoLc * NoLc) / max(NoLc, 0.1), 0.0, 4.0);
 	vec3 p = wpos + N * (u_shadowParams.w * slope);
 
-	int count = int(u_shadowParams.y);
-	int cascade = -1;
-	vec3 tc = vec3_splat(0.0);
-	float bias = 0.0;
-	for (int i = 0; i < 4; ++i)
-	{
-		if (i >= count)
-			break;
-		vec4 sc = mul(u_shadowMtx[i], vec4(p, 1.0));
-		vec3 c = sc.xyz / sc.w;
-		// A small margin keeps PCF taps from crossing into the neighbour quadrant.
-		if (all(greaterThan(c.xy, vec2_splat(0.02))) &&
-		    all(lessThan(c.xy, vec2_splat(0.98))) &&
-		    c.z >= 0.0 && c.z <= 1.0)
-		{
-			cascade = i;
-			tc = c;
-			// u_csmBias is indexed component-wise (portable vs. dynamic .[]).
-			bias = (i == 0) ? u_csmBias.x : (i == 1) ? u_csmBias.y
-			     : (i == 2) ? u_csmBias.z : u_csmBias.w;
-			break;
-		}
-	}
-	if (cascade < 0)
+	vec4 sc = mul(u_shadowMtx[cascade], vec4(p, 1.0));
+	vec3 tc = sc.xyz / sc.w;
+	if (any(greaterThan(tc.xy, vec2_splat(1.0))) ||
+	    any(lessThan(tc.xy, vec2_splat(0.0))) ||
+	    tc.z < 0.0 || tc.z > 1.0)
 		return 1.0;
+
+	float bias = (cascade == 0) ? u_csmBias.x : (cascade == 1) ? u_csmBias.y
+	           : (cascade == 2) ? u_csmBias.z : u_csmBias.w;
 
 	vec2 tileOffset = CascadeTileOffset(cascade);
 	float texel = u_shadowParams.x;
@@ -130,6 +136,7 @@ float SampleSunShadow(vec3 wpos, vec3 N, float NoL)
 	for (int i = 0; i < SHADOW_PCF_SAMPLES; ++i)
 	{
 		vec2 off = VogelDiskSample(i, SHADOW_PCF_SAMPLES, phi) * offsetScale;
+		// Map the cascade's [0,1] UV into its atlas quadrant, then jitter.
 		vec2 uv = tc.xy * 0.5 + tileOffset + off;
 		sum += shadow2D(s_shadowMap, vec3(uv, depth));
 	}

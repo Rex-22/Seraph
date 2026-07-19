@@ -74,7 +74,7 @@ struct Renderer
     static void SubmitShadowCaster(int cascade, const Mesh& mesh, const glm::mat4& transform);
     static void EndShadowCascades(
         const glm::mat4* shadowMtx, const float* normalizedBias, int count,
-        float normalOffset);
+        const glm::vec4& splits, const glm::vec3& cameraForward, float normalOffset);
     static void ClearShadow();
 
     // Per-cascade shadow tile edge length in texels (square). Exposed so callers

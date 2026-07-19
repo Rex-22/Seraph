@@ -211,11 +211,15 @@ static bgfx::FrameBufferHandle s_ShadowFb     = BGFX_INVALID_HANDLE;
 static bool                s_ShadowActive     = false;
 static glm::mat4           s_ShadowMtx[kMaxCascades] = { glm::mat4(1.0f) };
 static glm::vec4           s_CsmBias(0.0f);       // per-cascade normalized depth bias
+static glm::vec4           s_CsmSplits(0.0f);     // cascade far view-depths + max dist (w)
+static glm::vec4           s_CsmForward(0.0f);    // camera forward (view-depth axis)
 static int                 s_ShadowCascadeCount = 0;
 static float               s_ShadowNormalOffset = 0.0f;
 static bgfx::UniformHandle s_ShadowSampler    = BGFX_INVALID_HANDLE; // s_shadowMap
 static bgfx::UniformHandle s_ShadowMtxUniform = BGFX_INVALID_HANDLE; // u_shadowMtx[4]
 static bgfx::UniformHandle s_CsmBiasUniform   = BGFX_INVALID_HANDLE; // u_csmBias
+static bgfx::UniformHandle s_CsmSplitsUniform = BGFX_INVALID_HANDLE; // u_csmSplits
+static bgfx::UniformHandle s_CsmForwardUniform = BGFX_INVALID_HANDLE; // u_csmForward
 static bgfx::UniformHandle s_ShadowParams     = BGFX_INVALID_HANDLE; // u_shadowParams
 
 // Atlas pixel origin of cascade i's quadrant (2x2 layout, matches the shader's
@@ -248,6 +252,10 @@ static void EnsureShadowUniforms()
         s_ShadowMtxUniform = bgfx::createUniform("u_shadowMtx", bgfx::UniformType::Mat4, kMaxCascades);
     if (!bgfx::isValid(s_CsmBiasUniform))
         s_CsmBiasUniform = bgfx::createUniform("u_csmBias", bgfx::UniformType::Vec4);
+    if (!bgfx::isValid(s_CsmSplitsUniform))
+        s_CsmSplitsUniform = bgfx::createUniform("u_csmSplits", bgfx::UniformType::Vec4);
+    if (!bgfx::isValid(s_CsmForwardUniform))
+        s_CsmForwardUniform = bgfx::createUniform("u_csmForward", bgfx::UniformType::Vec4);
     if (!bgfx::isValid(s_ShadowParams))
         s_ShadowParams = bgfx::createUniform("u_shadowParams", bgfx::UniformType::Vec4);
 }
@@ -262,6 +270,8 @@ static void BindShadow()
     bgfx::setTexture(8, s_ShadowSampler, EnsureShadowMap());
     bgfx::setUniform(s_ShadowMtxUniform, glm::value_ptr(s_ShadowMtx[0]), kMaxCascades);
     bgfx::setUniform(s_CsmBiasUniform, glm::value_ptr(s_CsmBias));
+    bgfx::setUniform(s_CsmSplitsUniform, glm::value_ptr(s_CsmSplits));
+    bgfx::setUniform(s_CsmForwardUniform, glm::value_ptr(s_CsmForward));
     const float params[4] = {
         1.0f / static_cast<float>(kShadowAtlasSize),
         static_cast<float>(s_ShadowCascadeCount),
@@ -426,7 +436,8 @@ void Renderer::Cleanup()
         s_WhiteCube = BGFX_INVALID_HANDLE;
     }
     for (bgfx::UniformHandle* h :
-         { &s_ShadowSampler, &s_ShadowMtxUniform, &s_ShadowParams })
+         { &s_ShadowSampler, &s_ShadowMtxUniform, &s_CsmBiasUniform,
+           &s_CsmSplitsUniform, &s_CsmForwardUniform, &s_ShadowParams })
     {
         if (bgfx::isValid(*h))
         {
@@ -565,7 +576,7 @@ void Renderer::SubmitShadowCaster(int cascade, const Mesh& mesh, const glm::mat4
 
 void Renderer::EndShadowCascades(
     const glm::mat4* shadowMtx, const float* normalizedBias, int count,
-    float normalOffset)
+    const glm::vec4& splits, const glm::vec3& cameraForward, float normalOffset)
 {
     s_ShadowCascadeCount = count < kMaxCascades ? count : kMaxCascades;
     for (int i = 0; i < s_ShadowCascadeCount; ++i)
@@ -573,6 +584,8 @@ void Renderer::EndShadowCascades(
         s_ShadowMtx[i] = shadowMtx[i];
         s_CsmBias[i] = normalizedBias[i];
     }
+    s_CsmSplits = splits;
+    s_CsmForward = glm::vec4(cameraForward, 0.0f);
     s_ShadowNormalOffset = normalOffset;
     s_ShadowActive = s_ShadowCascadeCount > 0;
 }
