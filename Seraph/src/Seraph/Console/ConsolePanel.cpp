@@ -159,24 +159,11 @@ void ConsolePanel::DrawInput()
     ImGui::TextUnformatted("]");
     ImGui::SameLine();
 
-    // (Re)claim the caret BEFORE submitting the input, so the InputText is active
-    // this same frame: on open, after submit, or after a mouse-picked suggestion.
-    // Focusing here (offset 0 -> the next item) means its CallbackAlways fires this
-    // frame and applies a pending click-fill immediately, instead of the click just
-    // deactivating the field and closing the dropdown.
-    if (m_JustOpened || m_ReclaimFocus || m_PendingClickFill)
-    {
-        ImGui::SetKeyboardFocusHere();
-        m_JustOpened = false;
-        m_ReclaimFocus = false;
-    }
-
     ImGui::SetNextItemWidth(-FLT_MIN);
     const ImGuiInputTextFlags flags =
         ImGuiInputTextFlags_EnterReturnsTrue
         | ImGuiInputTextFlags_CallbackCompletion
-        | ImGuiInputTextFlags_CallbackHistory
-        | ImGuiInputTextFlags_CallbackAlways; // applies a mouse-clicked suggestion
+        | ImGuiInputTextFlags_CallbackHistory;
 
     if (ImGui::InputTextWithHint("##console-input",
                                  "command or variable  (Up/Down or Tab to complete)",
@@ -184,11 +171,33 @@ void ConsolePanel::DrawInput()
                                  &ConsolePanel::InputTextCallback, this))
         Submit();
 
+    // Apply a mouse-picked suggestion AFTER the InputText call: by now ImGui's
+    // deactivation write-back (which would clobber m_Input with the pre-click text)
+    // has already run this frame, so our write sticks. Then reclaim the caret.
+    if (m_HasPendingFill)
+    {
+        std::snprintf(m_Input, sizeof(m_Input), "%s", m_PendingFill.c_str());
+        m_LastFilled = m_Input;
+        m_HasPendingFill = false;
+        m_ReclaimFocus = true;
+    }
+
+    // Keep the caret in the input: on open and after every submit / click-fill.
+    if (m_JustOpened || m_ReclaimFocus)
+    {
+        ImGui::SetKeyboardFocusHere(-1);
+        m_JustOpened = false;
+        m_ReclaimFocus = false;
+    }
+
     // Live suggestions for the current token, drawn as a separate dropdown window
     // (below the input) in OnImGuiRender so the overlay's bottom edge doesn't clip
     // them. Up/Down (or Tab) move the highlight and fill it.
+    // Keep the dropdown up while the input is active OR while the user is pressing
+    // on the dropdown itself (a press deactivates the input, but we must survive to
+    // the release so the click registers).
     m_ShowSuggest = false;
-    if (m_Input[0] != '\0' && ImGui::IsItemActive())
+    if (m_Input[0] != '\0' && (ImGui::IsItemActive() || m_SuggestHovered))
     {
         // Recompute the list ONLY when the user actually typed. While navigating,
         // each pick fills the token so the buffer equals our last fill — recomputing
@@ -293,6 +302,7 @@ void ConsolePanel::OnImGuiRender()
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize
             | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings
             | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+        bool hovered = false;
         if (ImGui::Begin("##console-suggest", nullptr, sf))
         {
             for (int i = 0; i < static_cast<int>(m_SuggestItems.size()); ++i)
@@ -304,22 +314,35 @@ void ConsolePanel::OnImGuiRender()
                     FillFromMouse(i);
                 ImGui::PopID();
             }
+            // Stay open across a press->release even though the press deactivates
+            // the input (RootAndChildWindows + AllowWhenBlockedByActiveItem covers
+            // the frames while a row is held down).
+            hovered = ImGui::IsWindowHovered(
+                          ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
+                      || ImGui::IsWindowFocused();
         }
         ImGui::End();
+        m_SuggestHovered = hovered;
+    }
+    else
+    {
+        m_SuggestHovered = false;
     }
 }
 
 // Mouse path for picking a suggestion. We can't safely write m_Input here (ImGui
-// would clobber it when the input regains focus), so remember the choice, refocus
-// the input, and apply the fill through the InputText CallbackAlways next frame.
+// clobbers it on the deactivation frame), so build the full command line the pick
+// produces and stash it; DrawInput writes it after the InputText call next frame.
 void ConsolePanel::FillFromMouse(int suggestionIndex)
 {
     if (suggestionIndex < 0
         || suggestionIndex >= static_cast<int>(m_SuggestItems.size()))
         return;
     m_SuggestSelected = suggestionIndex;
-    m_PendingClickFill = true;
-    m_ReclaimFocus = true;
+    const std::size_t from = std::min(m_SuggestReplaceFrom, std::strlen(m_Input));
+    m_PendingFill = std::string(m_Input, from); // keep the prefix before the token
+    m_PendingFill += m_SuggestItems[suggestionIndex];
+    m_HasPendingFill = true;
 }
 
 // Replace the current token (from replaceFrom to the end) with `pick`, and record
@@ -345,21 +368,6 @@ int ConsolePanel::InputTextCallback(ImGuiInputTextCallbackData* data)
 
     switch (data->EventFlag)
     {
-        case ImGuiInputTextFlags_CallbackAlways: // every frame while active
-        {
-            // Apply a suggestion the user clicked with the mouse (deferred here so
-            // the fill goes through the data API and isn't clobbered by ImGui).
-            // Gated on the selection/list directly — m_ShowSuggest is stale this
-            // frame because the input wasn't active while the dropdown was clicked.
-            if (self->m_PendingClickFill && self->m_SuggestSelected >= 0
-                && self->m_SuggestSelected < count)
-            {
-                FillSuggestion(data, self, self->m_SuggestReplaceFrom,
-                               self->m_SuggestItems[self->m_SuggestSelected]);
-            }
-            self->m_PendingClickFill = false;
-            break;
-        }
         case ImGuiInputTextFlags_CallbackCompletion: // Tab
         {
             if (!haveSuggest)

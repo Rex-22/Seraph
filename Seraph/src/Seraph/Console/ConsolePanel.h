@@ -95,14 +95,20 @@ private:
     // m_LastFilled is the buffer text we last auto-filled, used to tell a fill
     // apart from the user typing (which resets the selection).
     bool m_ShowSuggest = false;
+    // Was the dropdown hovered/focused last frame? Keeps it open across a mouse
+    // press-then-release even though the press deactivates the input field —
+    // otherwise the popover closes before the click (release) registers.
+    bool m_SuggestHovered = false;
     float m_SuggestX = 0.0f, m_SuggestY = 0.0f, m_SuggestW = 0.0f;
     std::vector<std::string> m_SuggestItems;
     int m_SuggestSelected = -1;
     std::size_t m_SuggestReplaceFrom = 0;
     std::string m_LastFilled;
-    // A mouse-clicked suggestion is applied on the next frame through the InputText
-    // callback (writing m_Input directly gets clobbered by ImGui's write-back).
-    bool m_PendingClickFill = false;
+    // A mouse-clicked suggestion is applied on the next frame AFTER the InputText
+    // call — by then ImGui's deactivation write-back has already run, so writing
+    // m_Input here isn't clobbered. Empty = nothing pending.
+    bool m_HasPendingFill = false;
+    std::string m_PendingFill;
 
     // Output selection: a line range [min(anchor,end), max(...)]; -1 = nothing.
     int m_SelAnchor = -1;
