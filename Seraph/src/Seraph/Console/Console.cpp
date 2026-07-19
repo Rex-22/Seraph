@@ -18,6 +18,7 @@
 
 #include <cctype>
 #include <string>
+#include <unordered_map>
 
 namespace Seraph
 {
@@ -38,12 +39,21 @@ struct State
     bool Cheats = k_DefaultCheats;
     std::vector<std::string> History;
     std::function<void()> ClearHandler;
+    std::unordered_map<std::string, std::string> Aliases; // lower(name) -> command
 };
 
 State& S()
 {
     static State s;
     return s;
+}
+
+std::string Lower(std::string_view s)
+{
+    std::string out(s);
+    for (char& c : out)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return out;
 }
 
 std::string_view Trim(std::string_view s)
@@ -72,15 +82,64 @@ std::string FlagDigest(const SettingDescriptor* d)
     return s;
 }
 
+void Dispatch(const std::string& line, int depth = 0);
+
+// Read a console script and run each line (blank lines and #/// comments skipped).
+// Returns false if the file couldn't be read; `quietIfMissing` suppresses that
+// error (used by the boot autoexec, which is optional).
+bool ExecFile(Root root, const std::string& path, bool quietIfMissing)
+{
+    Buffer bytes;
+    if (!FileSystem::Read(root, path, bytes))
+    {
+        if (!quietIfMissing)
+            SP_CONSOLE_LOG_ERROR("exec: cannot read '{}'", path);
+        return false;
+    }
+    const std::string text(bytes.As<char>(), bytes.Size());
+    std::size_t start = 0;
+    while (start <= text.size())
+    {
+        std::size_t nl = text.find('\n', start);
+        if (nl == std::string::npos)
+            nl = text.size();
+        const std::string_view line =
+            Trim(std::string_view(text.data() + start, nl - start));
+        if (!line.empty() && line.front() != '#' && line.substr(0, 2) != "//")
+            Dispatch(std::string(line), 0);
+        if (nl == text.size())
+            break;
+        start = nl + 1;
+    }
+    return true;
+}
+
 // Run one already-trimmed, non-empty line without touching history (used by both
-// Console::Execute and the `exec` built-in).
-void Dispatch(const std::string& line)
+// Console::Execute and the `exec` built-in). `depth` bounds alias recursion.
+void Dispatch(const std::string& line, int depth)
 {
     std::vector<std::string> tokens = ConsoleEvaluator::Tokenize(line);
     if (tokens.empty())
         return;
     const std::string& name = tokens[0];
     std::vector<std::string> args(tokens.begin() + 1, tokens.end());
+
+    // Alias expansion: substitute the alias body for its name, keeping any extra
+    // args the caller typed. Bounded so a self-referential alias can't loop.
+    if (depth < 16)
+    {
+        if (auto it = S().Aliases.find(Lower(name)); it != S().Aliases.end())
+        {
+            std::string expanded = it->second;
+            for (std::size_t i = 1; i < tokens.size(); ++i)
+            {
+                expanded += ' ';
+                expanded += tokens[i];
+            }
+            Dispatch(expanded, depth + 1);
+            return;
+        }
+    }
 
     // Command first (a command and a CVar can't share a name in practice; commands
     // win the tie).
@@ -153,6 +212,11 @@ void Console::Init()
     FlushPendingCVarRegistrations();
     SP_CORE_INFO_TAG("Console", "initialized (cheats {})",
                      S().Cheats ? "enabled" : "disabled");
+
+    // Run the optional boot script from the user config dir (cvars + commands +
+    // aliases applied at startup). Project-scoped autoexec can be run later via
+    // `exec` once a project is open.
+    ExecFile(Root::User, "autoexec.cfg", /*quietIfMissing*/ true);
 }
 
 void Console::Shutdown()
@@ -160,6 +224,7 @@ void Console::Shutdown()
     State& s = S();
     s.History.clear();
     s.ClearHandler = nullptr;
+    s.Aliases.clear();
 }
 
 void Console::Execute(std::string_view line)
@@ -317,7 +382,7 @@ SP_CONSOLE_COMMAND("history", "Show command history",
             SP_CONSOLE_LOG_INFO("  {}", h);
     });
 
-SP_CONSOLE_COMMAND("exec", "Run console commands from a file: exec <path>",
+SP_CONSOLE_COMMAND("exec", "Run console commands from a project file: exec <path>",
     [](const ConsoleCommandArgs& a)
     {
         if (a.Empty())
@@ -325,29 +390,55 @@ SP_CONSOLE_COMMAND("exec", "Run console commands from a file: exec <path>",
             SP_CONSOLE_LOG_ERROR("usage: exec <path>");
             return;
         }
-        Buffer bytes;
-        if (!FileSystem::Read(Root::Project, a[0], bytes))
+        ExecFile(Root::Project, a[0], /*quietIfMissing*/ false);
+    });
+
+SP_CONSOLE_COMMAND("alias",
+    "Define or list aliases: alias [name [command...]]",
+    [](const ConsoleCommandArgs& a)
+    {
+        State& s = S();
+        if (a.Empty())
         {
-            SP_CONSOLE_LOG_ERROR("exec: cannot read '{}'", a[0]);
+            if (s.Aliases.empty())
+                SP_CONSOLE_LOG_INFO("no aliases defined");
+            for (const auto& [name, body] : s.Aliases)
+                SP_CONSOLE_LOG_INFO("  {} = {}", name, body);
             return;
         }
-        const std::string text(bytes.As<char>(), bytes.Size());
-        std::size_t start = 0;
-        while (start <= text.size())
+        if (a.Count() == 1)
         {
-            std::size_t nl = text.find('\n', start);
-            if (nl == std::string::npos)
-                nl = text.size();
-            std::string_view lineView(text.data() + start, nl - start);
-            const std::string_view line = Trim(lineView);
-            // Skip blanks and comment lines (# or //).
-            if (!line.empty() && line.front() != '#'
-                && line.substr(0, 2) != "//")
-                Dispatch(std::string(line));
-            if (nl == text.size())
-                break;
-            start = nl + 1;
+            auto it = s.Aliases.find(Lower(a[0]));
+            if (it != s.Aliases.end())
+                SP_CONSOLE_LOG_INFO("  {} = {}", a[0], it->second);
+            else
+                SP_CONSOLE_LOG_WARN("no alias named '{}'", a[0]);
+            return;
         }
+        // alias <name> <command...> — join the remaining tokens as the body.
+        std::string body;
+        for (std::size_t i = 1; i < a.Count(); ++i)
+        {
+            if (i > 1)
+                body += ' ';
+            body += a[i];
+        }
+        s.Aliases[Lower(a[0])] = body;
+        SP_CONSOLE_LOG_INFO("alias {} = {}", a[0], body);
+    });
+
+SP_CONSOLE_COMMAND("unalias", "Remove an alias: unalias <name>",
+    [](const ConsoleCommandArgs& a)
+    {
+        if (a.Empty())
+        {
+            SP_CONSOLE_LOG_ERROR("usage: unalias <name>");
+            return;
+        }
+        if (S().Aliases.erase(Lower(a[0])) > 0)
+            SP_CONSOLE_LOG_INFO("removed alias '{}'", a[0]);
+        else
+            SP_CONSOLE_LOG_WARN("no alias named '{}'", a[0]);
     });
 
 } // namespace Seraph
