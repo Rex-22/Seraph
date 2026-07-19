@@ -231,7 +231,7 @@ Extend the primitive/mesh vertex format with normals and tangents. The current `
 ---
 
 ### 7. Render 7 — Light components + per-frame light uniforms
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -250,6 +250,18 @@ Add ECS light components (directional / point / spot with color, intensity, dire
 - bgfx uniforms are global-by-name (`UniformCache.cpp:10-28`), so once named they bind everywhere.
 - Light eval helpers to port later: `vendor/bgfx/bgfx/examples/16-shadowmaps/common.sh:66-86` (`evalLight`/`lit`/`attenuation`/`spot`).
 - Inspector/serializer patterns to copy: physics components in `EntityInspectorPanel.cpp` + `SceneSerializer.cpp`.
+
+## Changes
+
+* **Three reflected components** (`Scene/Components/{Directional,Point,Spot}LightComponent.h`): Color (`settings.color` → ColorEdit3), Intensity; Point/Spot add Range; Spot adds Inner/Outer half-angles. Direction/position come from the entity transform (world -Z / translation), not stored. SHT auto-reflects them (globbed) → generic inspector (`DrawPlainComponent`) + serializer just needs emit/load blocks.
+* **Registered** in `Components.cpp`, `CopyableComponents` (so `Scene::Copy`/play duplicates them), `SceneSerializer` (`SerializedComponents` list + `DirectionalLight`/`PointLight`/`SpotLight` YAML blocks), and the inspector (`DrawPlainComponent<>` lines + an "Add Component ▸ Light" submenu).
+* **`Scene::SubmitLights`** iterates the three light views in `OnRenderRuntime`/`OnRenderEditor` (after `Clear`, before the mesh loop), builds `SceneRendererLight`s (spot cone precomputed to scale/offset) and stages them on the renderer.
+* **`SceneRenderer` staging + uniforms.** New `SceneRendererLight` POD + `c_MaxLights = 16`; `SubmitLight` accumulates; `UploadLightUniforms` (lazy on first `SubmitMesh`, reset each `BeginScene`) writes the shared engine uniforms via `UniformCache`: `u_lightCount`, `u_ambient` (flat, from `SceneRendererSettings` until Render 34), `u_cameraPos`, and the `MAX_LIGHTS`-sized arrays `u_lightPosRange` / `u_lightColorIntensity` / `u_lightDirType` / `u_lightSpot` (set with the live count so the cache signature stays fixed).
+* **Shader contract** `shader/lights.sh` documents the packing + `MAX_LIGHTS` (must match `c_MaxLights`); dormant until Render 8/9 `#include`s it. No lighting math yet — this is the data plumbing.
+
+**Verification:** `Seraph-Editor` + `Seraph-Runtime` + `libSeraph.so` build clean (SHT generated the three `*LightComponent.gen.cpp`). Launched the editor against a copy of Sandbox: no bgfx asserts / validation errors / "unused uniform" spam (uniforms created + set every frame with no consumer yet), clean shutdown.
+
+**Files:** new `Scene/Components/{Directional,Point,Spot}LightComponent.h`, `shader/lights.sh`; modified `Components.cpp`, `CopyableComponents.h`, `SceneSerializer.cpp`, `EntityInspectorPanel.cpp`, `SceneRenderer.{h,cpp}`, `Scene.{h,cpp}`.
 
 ## Dependencies
 - Render 3 — Multi-pass abstraction (for per-view uniform binding)
