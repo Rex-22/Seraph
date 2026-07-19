@@ -81,14 +81,18 @@ YAML::Node AnyToNode(const Any& v, const Type* t)
     if (!t)
         return n;
 
-    // NOTE: enum-valued settings aren't supported by the YAML store yet — reading
-    // an enum's underlying integer generically from a type-erased Any needs a raw
-    // accessor Any doesn't expose. None of the v1 consumers use enum settings;
-    // deferred (see SettingsBoard).
+    // Enum settings carry their value as s64 (the reflection enum convention).
+    // Persist the label (stable across value renumbering); fall back to the raw
+    // integer if the value has no registered label.
     if (t->Kind == TypeKind::Enum)
     {
-        SP_CORE_WARN_TAG("Settings", "YAML: enum setting '{}' not yet persisted",
-                         t->Name);
+        if (const s64* iv = v.Cast<s64>())
+        {
+            if (std::optional<std::string_view> label = EnumToString(*t, *iv))
+                n = std::string(*label);
+            else
+                n = *iv;
+        }
         return n;
     }
 
@@ -114,6 +118,15 @@ Any NodeToAny(const YAML::Node& n, const Type* t)
         return {};
     try
     {
+        // Enum: accept a label (preferred) or the raw underlying integer; both
+        // resolve to the s64 the enum-setting path expects.
+        if (t->Kind == TypeKind::Enum)
+        {
+            const std::string s = n.as<std::string>();
+            if (std::optional<s64> val = EnumFromString(*t, s))
+                return Any(*val);
+            return Any(n.as<s64>()); // numeric fallback
+        }
         if (Is<bool>(t)) return Any(n.as<bool>());
         if (Is<s32>(t)) return Any(n.as<s32>());
         if (Is<u32>(t)) return Any(n.as<u32>());
@@ -175,7 +188,7 @@ bool YamlSettingsStore::Load(SettingScope scope, bool platformOverlay)
         Any v = NodeToAny(kv.second, d->ValueType);
         if (!v.IsEmpty())
         {
-            Settings::ApplyLoaded(key, v);
+            Settings::ApplyLoaded(key, v, scope);
             ++applied;
         }
     }

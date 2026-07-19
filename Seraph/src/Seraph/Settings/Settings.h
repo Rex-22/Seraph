@@ -20,6 +20,8 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace Seraph
@@ -35,18 +37,35 @@ public:
     explicit SettingBuilder(SettingDescriptor* d) : m_D(d) {}
 
     // BOUND to a live field. The owning struct need not be reflected; the value
-    // type does (primitives/glm/AssetHandle are always registered).
+    // type does (primitives/glm/AssetHandle are always registered; an enum must be
+    // reflected via SP_REFLECT_ENUM so its labels resolve).
     template<class T>
     SettingBuilder& Bind(T* field)
     {
         m_D->IsBound = true;
         m_D->ValueType = Reflection::TryGet<T>();
-        m_D->BoundGet = [field] { return Any(*field); };
-        m_D->BoundSet = [field](const Any& v)
+        if constexpr (std::is_enum_v<T>)
         {
-            if (const T* t = v.template Cast<T>())
-                *field = *t;
-        };
+            // Enum values cross the Any boundary as s64 (the reflection enum
+            // convention), so the console/YAML paths can map value <-> label.
+            m_D->BoundGet = [field] { return Any(static_cast<s64>(*field)); };
+            m_D->BoundSet = [field](const Any& v)
+            {
+                if (const s64* i = v.template Cast<s64>())
+                    *field = static_cast<T>(*i);
+                else if (const T* t = v.template Cast<T>())
+                    *field = *t;
+            };
+        }
+        else
+        {
+            m_D->BoundGet = [field] { return Any(*field); };
+            m_D->BoundSet = [field](const Any& v)
+            {
+                if (const T* t = v.template Cast<T>())
+                    *field = *t;
+            };
+        }
         return *this;
     }
 
@@ -70,9 +89,17 @@ public:
     SettingBuilder& Default(T value)
     {
         m_D->ValueType = Reflection::TryGet<T>();
-        m_D->DefaultValue = Any(value);
+        // Enums are carried as s64 to match the bound-getter convention above.
+        Any boxed = [&]
+        {
+            if constexpr (std::is_enum_v<T>)
+                return Any(static_cast<s64>(value));
+            else
+                return Any(value);
+        }();
+        m_D->DefaultValue = boxed;
         if (!m_D->IsBound)
-            m_D->OwnedValue = Any(value);
+            m_D->OwnedValue = std::move(boxed);
         return *this;
     }
 
@@ -178,8 +205,10 @@ public:
     //          -> User -> User.<platform> -> CLI(--set)
     //
     // ApplyLoaded sets a value WITHOUT dirtying (it came from disk, not a user
-    // edit). Type-checked like SetAny; ignores unknown keys.
-    static void ApplyLoaded(std::string_view key, const Any& value);
+    // edit). `loadedFrom` records the source tier so a scope reload can't clobber
+    // a live console override. Type-checked like SetAny; ignores unknown keys.
+    static void ApplyLoaded(std::string_view key, const Any& value,
+                            SettingScope loadedFrom);
 
     // Parse and apply `--set key=value` overrides from the command line. These
     // are highest precedence and are NEVER persisted (the setting is flagged
@@ -258,10 +287,12 @@ private:
     struct Registry;
     static Registry& Store();
 
-    // Core mutation: clamp -> type-check -> change-detect -> write -> (dirty) ->
-    // notify. RequiresRestart runtime edits persist but don't fire live.
+    // Core mutation: priority-check -> clamp -> type-check -> change-detect ->
+    // write -> (dirty) -> notify. RequiresRestart runtime edits persist but don't
+    // fire live. `source` records/enforces SetBy precedence.
     static void ApplyChange(const SettingDescriptor* d, const Any& value,
-                            bool markDirty, bool isRuntimeEdit);
+                            bool markDirty, bool isRuntimeEdit,
+                            SettingSetBy source);
     static void FireNotify(const SettingDescriptor& d, const Any& oldValue,
                            const Any& newValue);
 };

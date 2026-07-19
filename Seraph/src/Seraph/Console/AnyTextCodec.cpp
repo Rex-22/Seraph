@@ -184,6 +184,8 @@ bool IsSupported(const Type* type)
 {
     if (!type)
         return false;
+    if (type->Kind == TypeKind::Enum)
+        return true; // parsed from a label or integer -> s64
     const TypeId id = type->Id;
     return id == TypeIdOf<bool>() || id == TypeIdOf<s32>() || id == TypeIdOf<u32>()
            || id == TypeIdOf<s64>() || id == TypeIdOf<u64>() || id == TypeIdOf<f32>()

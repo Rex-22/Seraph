@@ -217,7 +217,7 @@ bool AnyEquals(const Any& a, const Any& b)
 } // namespace
 
 void Settings::ApplyChange(const SettingDescriptor* d, const Any& value,
-                           bool markDirty, bool isRuntimeEdit)
+                           bool markDirty, bool isRuntimeEdit, SettingSetBy source)
 {
     Registry& r = Store();
     if (r.Notifying.count(d->Key))
@@ -226,13 +226,29 @@ void Settings::ApplyChange(const SettingDescriptor* d, const Any& value,
         return;
     }
 
+    // SetBy precedence: a lower-priority source can't overwrite a higher one — so a
+    // scope reload (Engine/Project/User) leaves a live Console/CLI override intact.
+    if (source < d->Source)
+        return;
+
     Any clamped = Clamp(value, d);
     if (d->ValueType && !clamped.IsEmpty()
         && clamped.GetTypeId() != d->ValueType->Id)
     {
-        SP_CORE_WARN_TAG("Settings", "'{}' type mismatch", d->Key);
-        return;
+        // Enum settings carry their value as s64 (the reflection enum convention)
+        // while ValueType is the reflected enum Type.
+        const bool enumAsS64 = d->ValueType->Kind == TypeKind::Enum
+                               && clamped.GetTypeId() == TypeIdOf<s64>();
+        if (!enumAsS64)
+        {
+            SP_CORE_WARN_TAG("Settings", "'{}' type mismatch", d->Key);
+            return;
+        }
     }
+
+    // Record the winning source now — even if the value is unchanged — so a
+    // console set to the current value still protects it from later reloads.
+    const_cast<SettingDescriptor*>(d)->Source = source;
 
     Any old = d->Read();
     if (AnyEquals(old, clamped))
@@ -283,17 +299,34 @@ void Settings::SetAny(std::string_view key, const Any& value)
     if (d->CliOverridden)
         return; // CLI override is authoritative; a user edit can't dislodge it
 
-    ApplyChange(d, value, /*markDirty*/ true, /*isRuntimeEdit*/ true);
+    ApplyChange(d, value, /*markDirty*/ true, /*isRuntimeEdit*/ true,
+                SettingSetBy::Console);
 }
 
-void Settings::ApplyLoaded(std::string_view key, const Any& value)
+namespace
+{
+SettingSetBy SetByForScope(SettingScope scope)
+{
+    switch (scope)
+    {
+        case SettingScope::Engine:  return SettingSetBy::Engine;
+        case SettingScope::Project: return SettingSetBy::Project;
+        case SettingScope::User:    return SettingSetBy::User;
+    }
+    return SettingSetBy::Engine;
+}
+} // namespace
+
+void Settings::ApplyLoaded(std::string_view key, const Any& value,
+                           SettingScope loadedFrom)
 {
     const SettingDescriptor* d = Find(key);
     if (!d)
         return; // unknown key in a file -> ignored (registry is the schema)
     if (d->CliOverridden)
         return; // a --set override outranks a loaded value
-    ApplyChange(d, value, /*markDirty*/ false, /*isRuntimeEdit*/ false);
+    ApplyChange(d, value, /*markDirty*/ false, /*isRuntimeEdit*/ false,
+                SetByForScope(loadedFrom));
 }
 
 void Settings::ApplyCommandLineOverrides()
@@ -330,6 +363,7 @@ void Settings::ApplyCommandLineOverrides()
         auto* m = const_cast<SettingDescriptor*>(d);
         m->Write(parsed);
         m->CliOverridden = true; // highest precedence, never persisted
+        m->Source = SettingSetBy::CommandLine;
         SP_CORE_INFO_TAG("Settings", "--set {}={}", key, valStr);
     }
 }

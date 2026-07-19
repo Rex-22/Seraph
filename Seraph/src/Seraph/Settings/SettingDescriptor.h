@@ -44,6 +44,20 @@ enum SettingFlags : u32
     SettingFlag_Transient = BIT(5),
 };
 
+// Who last set a value, in ascending precedence (Unreal's SetBy). A lower-priority
+// source can't overwrite a higher one: notably a scope RELOAD (Engine/Project/User)
+// won't clobber a live Console override. Scope loads among themselves keep their
+// existing last-loaded-wins order (all rank below Console).
+enum class SettingSetBy : u8
+{
+    Default = 0,  // registered default value
+    Engine,       // EngineSettings.yaml
+    Project,      // ProjectSettings.yaml
+    User,         // UserSettings.yaml
+    Console,      // runtime console / editor edit
+    CommandLine,  // --set (highest)
+};
+
 // Settings-domain attribute keys (stored in SettingDescriptor::Attrs, which is a
 // reflection AttributeSet). Reflection ships no keys; each domain owns its own.
 namespace Setting::Attr
@@ -78,6 +92,10 @@ struct SettingDescriptor
     // Set by a --set command-line override: this value is highest-precedence and
     // is never persisted or dirtied. See Settings::ApplyCommandLineOverrides.
     bool CliOverridden = false;
+
+    // Highest-precedence source that has written this value so far. A scope reload
+    // (< Console) is ignored once a Console/CLI override is in effect.
+    SettingSetBy Source = SettingSetBy::Default;
 
     // Read/write the current value regardless of binding kind.
     [[nodiscard]] Any Read() const { return IsBound ? BoundGet() : OwnedValue; }

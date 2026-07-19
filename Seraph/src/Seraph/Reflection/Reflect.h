@@ -83,6 +83,26 @@ std::vector<const Type*> ParamTypeList(std::index_sequence<I...>)
         std::decay_t<std::tuple_element_t<I, Tuple>>>()...};
 }
 
+// Unpack one Any argument into the method's parameter type. Enums are accepted as
+// s64 (the reflection enum convention — what a console/text caller produces) or as
+// the enum's own type; everything else casts straight through as a reference.
+template<class Arg>
+decltype(auto) UnpackArg(const Any& a)
+{
+    if constexpr (std::is_enum_v<Arg>)
+    {
+        if (const s64* i = a.template Cast<s64>())
+            return static_cast<Arg>(*i);
+        if (const Arg* e = a.template Cast<Arg>())
+            return static_cast<Arg>(*e);
+        return Arg{};
+    }
+    else
+    {
+        return *a.template Cast<Arg>();
+    }
+}
+
 template<auto Method, class T, class Ret, class ArgsTuple, std::size_t... I>
 Any InvokeMethodImpl(void* obj, const Any* args, std::index_sequence<I...>)
 {
@@ -90,15 +110,13 @@ Any InvokeMethodImpl(void* obj, const Any* args, std::index_sequence<I...>)
     if constexpr (std::is_void_v<Ret>)
     {
         (self->*Method)(
-            *args[I].template Cast<
-                std::decay_t<std::tuple_element_t<I, ArgsTuple>>>()...);
+            UnpackArg<std::decay_t<std::tuple_element_t<I, ArgsTuple>>>(args[I])...);
         return Any{};
     }
     else
     {
         return Any((self->*Method)(
-            *args[I].template Cast<
-                std::decay_t<std::tuple_element_t<I, ArgsTuple>>>()...));
+            UnpackArg<std::decay_t<std::tuple_element_t<I, ArgsTuple>>>(args[I])...));
     }
 }
 
