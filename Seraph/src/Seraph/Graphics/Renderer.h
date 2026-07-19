@@ -5,7 +5,7 @@
 #pragma once
 #include "Seraph/Asset/AssetHandle.h"
 #include "Seraph/Core/Base.h"
-#include "bgfx/defines.h"
+#include "bgfx/bgfx.h"
 
 #include <cstdint>
 #include <vector>
@@ -30,6 +30,22 @@ struct Renderer
 
     static void Begin(uint16_t viewId);
     static void End();
+
+    // Submit a single fullscreen triangle on `viewId` with `program`. The caller
+    // binds any source textures/uniforms first (like a material). Geometry is a
+    // transient oversized clip-space triangle; texture V is flipped for
+    // originBottomLeft backbuffers. No-op if the program is invalid or there is no
+    // transient vertex space this frame.
+    static void DrawFullscreen(
+        uint16_t viewId, bgfx::ProgramHandle program,
+        uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
+
+    // Resolve an HDR (linear) scene color texture to the target currently bound to
+    // `viewId` via the `tonemap` pass: exposure, tone-mapping operator, and gamma
+    // encode. The caller sets the view's framebuffer + rect first. `op`: 0 None,
+    // 1 Reinhard, 2 ACES.
+    static void TonemapResolve(
+        uint16_t viewId, bgfx::TextureHandle hdrColor, float exposure, int op);
 
     static void Clear(glm::vec3 clearColor, uint16_t flags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
     static void SetBackBufferSize(u32 width, u32 height);

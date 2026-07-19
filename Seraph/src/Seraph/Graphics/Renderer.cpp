@@ -5,6 +5,7 @@
 #include "Renderer.h"
 
 #include "Platform/Window.h"
+#include "Seraph/Asset/AssetManager.h"
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Assert.h"
 #include "Seraph/Core/Base.h"
@@ -13,6 +14,7 @@
 #include "Seraph/Graphics/Material/Material.h"
 #include "Seraph/Graphics/Material/UniformCache.h"
 #include "Seraph/Graphics/Mesh.h"
+#include "Seraph/Graphics/ShaderAsset.h"
 #include "Seraph/Graphics/ShaderManager.h"
 
 #include <glm/gtc/type_ptr.hpp>
@@ -164,6 +166,11 @@ struct RenderData
 
 static RenderData s_RenderData;
 
+// Lazily-created tonemap uniforms (bgfx keys uniforms globally by name). Declared
+// here so Cleanup can destroy them before bgfx::shutdown.
+static bgfx::UniformHandle s_TonemapSampler = BGFX_INVALID_HANDLE; // s_hdr
+static bgfx::UniformHandle s_TonemapParams  = BGFX_INVALID_HANDLE; // u_tonemapParams
+
 void Renderer::Init()
 {
     s_RenderData = {};
@@ -223,6 +230,17 @@ void Renderer::Init()
 
 void Renderer::Cleanup()
 {
+    if (bgfx::isValid(s_TonemapSampler))
+    {
+        bgfx::destroy(s_TonemapSampler);
+        s_TonemapSampler = BGFX_INVALID_HANDLE;
+    }
+    if (bgfx::isValid(s_TonemapParams))
+    {
+        bgfx::destroy(s_TonemapParams);
+        s_TonemapParams = BGFX_INVALID_HANDLE;
+    }
+
     ShaderManager::Shutdown();
     UniformCache::Shutdown();
     bgfx::shutdown();
@@ -283,6 +301,90 @@ void Renderer::Begin(uint16_t viewId)
 void Renderer::End()
 {
     s_RenderData.EndFrame();
+}
+
+namespace
+{
+// Position + texcoord vertex for fullscreen passes.
+struct FullscreenVertex
+{
+    float x, y, z;
+    float u, v;
+};
+
+const bgfx::VertexLayout& FullscreenLayout()
+{
+    static const bgfx::VertexLayout s_layout = []
+    {
+        bgfx::VertexLayout l;
+        l.begin()
+            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+            .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+            .end();
+        return l;
+    }();
+    return s_layout;
+}
+
+// Resolve the embedded `tonemap` program (built lazily on first use).
+bgfx::ProgramHandle ResolveTonemapProgram()
+{
+    const AssetHandle handle = ShaderManager::GetHandle("tonemap");
+    if (Ref<ShaderAsset> shader = AssetManager::GetAsset<ShaderAsset>(handle))
+        return shader->Program();
+    return BGFX_INVALID_HANDLE;
+}
+} // namespace
+
+void Renderer::DrawFullscreen(
+    uint16_t viewId, bgfx::ProgramHandle program, uint64_t state)
+{
+    if (!bgfx::isValid(program))
+        return;
+
+    const bgfx::VertexLayout& layout = FullscreenLayout();
+    if (bgfx::getAvailTransientVertexBuffer(3, layout) < 3)
+        return;
+
+    bgfx::TransientVertexBuffer tvb;
+    bgfx::allocTransientVertexBuffer(&tvb, 3, layout);
+    FullscreenVertex* vtx = reinterpret_cast<FullscreenVertex*>(tvb.data);
+
+    // One oversized triangle covering the [-1,1] clip region; the passthrough VS
+    // writes these as clip-space positions directly. UVs map the visible [0,1]
+    // region to the source texture. Framebuffer origin differs by backend, so V
+    // is flipped when the backbuffer origin is bottom-left (OpenGL/GLES).
+    const bool originBottomLeft = bgfx::getCaps()->originBottomLeft;
+    const float v0 = originBottomLeft ? 0.0f : 1.0f;
+    const float v2 = originBottomLeft ? 2.0f : -1.0f;
+
+    vtx[0] = { -1.0f, -1.0f, 0.0f, 0.0f, v0 };
+    vtx[1] = {  3.0f, -1.0f, 0.0f, 2.0f, v0 };
+    vtx[2] = { -1.0f,  3.0f, 0.0f, 0.0f, v2 };
+
+    bgfx::setVertexBuffer(0, &tvb, 0, 3);
+    bgfx::setState(state);
+    bgfx::submit(viewId, program);
+}
+
+void Renderer::TonemapResolve(
+    uint16_t viewId, bgfx::TextureHandle hdrColor, float exposure, int op)
+{
+    const bgfx::ProgramHandle program = ResolveTonemapProgram();
+    if (!bgfx::isValid(program) || !bgfx::isValid(hdrColor))
+        return;
+
+    if (!bgfx::isValid(s_TonemapSampler))
+        s_TonemapSampler = bgfx::createUniform("s_hdr", bgfx::UniformType::Sampler);
+    if (!bgfx::isValid(s_TonemapParams))
+        s_TonemapParams = bgfx::createUniform("u_tonemapParams", bgfx::UniformType::Vec4);
+
+    const float params[4] = { exposure, static_cast<float>(op), 0.0f, 0.0f };
+    bgfx::setUniform(s_TonemapParams, params);
+    bgfx::setTexture(0, s_TonemapSampler, hdrColor);
+
+    // No depth test/write: a fullscreen resolve overwrites the whole target.
+    DrawFullscreen(viewId, program, BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
 }
 
 void Renderer::Clear(glm::vec3 clearColor, uint16_t flags)
