@@ -177,6 +177,8 @@ public:
     [[nodiscard]] bgfx::TextureHandle Handle() const { return m_TextureHandle; }
     [[nodiscard]] u32 Width() const { return m_Width; }
     [[nodiscard]] u32 Height() const { return m_Height; }
+    [[nodiscard]] u16 MipCount() const { return m_NumMips; }
+    [[nodiscard]] bool IsCube() const { return m_IsCube; }
     [[nodiscard]] const char* Name() const { return m_DebugName; }
 
     // Parsed image data is normalized to RGBA8 (4 bytes/texel); a coarse
@@ -205,7 +207,9 @@ public:
 
     // Phase 1 (worker-safe): parse encoded image bytes (png/jpg/dds/...) into a
     // CPU image container parked on the texture. Call Upload() to create the GPU
-    // texture. No bgfx calls happen here.
+    // texture. No bgfx calls happen here. The source pixel format is preserved —
+    // 8-bit images decode to RGBA8, while HDR/float and .dds/.ktx cube mip chains
+    // (environment/IBL maps) survive intact.
     static Ref<Texture2D> ParseEncoded(
         const char* name, const void* data, u64 size,
         const Texture2DCreateInfo& createInfo = Texture2DCreateInfo());
@@ -244,6 +248,8 @@ private:
 
     u32 m_Width;
     u32 m_Height;
+    u16 m_NumMips = 1;
+    bool m_IsCube = false;
 };
 
 } // namespace Seraph

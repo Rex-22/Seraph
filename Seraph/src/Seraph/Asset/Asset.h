@@ -25,6 +25,7 @@ enum class SENUM() AssetType : u16
     Texture2D,
     Shader,
     Scene,
+    Environment,
 };
 
 std::string_view AssetTypeToString(AssetType type);

@@ -43,6 +43,8 @@ AssetType AssetTypeFromExtension(const std::string& extension)
         return AssetType::Material;
     if (ext == ".smatinst")
         return AssetType::MaterialInstance;
+    if (ext == ".senv")
+        return AssetType::Environment;
     return AssetType::None;
 }
 

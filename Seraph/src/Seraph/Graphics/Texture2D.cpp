@@ -86,16 +86,22 @@ Ref<Texture2D> Texture2D::ParseEncoded(
     if (data == nullptr || size == 0)
         return texture;
 
-    // CPU-only parse — safe on a worker thread.
+    // CPU-only parse — safe on a worker thread. Keep the source pixel format
+    // (Count = no conversion): ordinary 8-bit images (png/jpg/tga/bmp) already
+    // decode to RGBA8, while HDR (exr float) and GPU container formats (.dds/.ktx
+    // BC/cube mip chains, used by environment/IBL maps) survive intact instead of
+    // being flattened to RGBA8.
     bimg::ImageContainer* imageContainer = bimg::imageParse(
         GetAllocator(), data, static_cast<uint32_t>(size),
-        bimg::TextureFormat::RGBA8);
+        bimg::TextureFormat::Count);
     if (imageContainer == nullptr)
         return texture;
 
     texture->m_ImageContainer = imageContainer;
     texture->m_Width = imageContainer->m_width;
     texture->m_Height = imageContainer->m_height;
+    texture->m_NumMips = imageContainer->m_numMips;
+    texture->m_IsCube = imageContainer->m_cubeMap;
     return texture;
 }
 
