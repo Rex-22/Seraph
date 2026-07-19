@@ -7,6 +7,8 @@
 #include "Seraph/Core/KeyCodes.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Events/KeyEvent.h"
+#include "Seraph/Graphics/RenderSystem.h"
+#include "Seraph/Graphics/Renderer.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Entity.h"
 
@@ -53,6 +55,7 @@ void RuntimeLayer::OnAttach()
 void RuntimeLayer::OnDetach()
 {
     m_Scene->OnRuntimeStop();
+    m_HdrTarget.Destroy();
 }
 
 void RuntimeLayer::OnUpdate(f64 dt)
@@ -60,12 +63,27 @@ void RuntimeLayer::OnUpdate(f64 dt)
     m_Scene->OnUpdateRuntime(dt);
 
     auto [w, h] = Application::Instance().Window().Size();
-    bgfx::setViewFrameBuffer(k_SceneViewId, BGFX_INVALID_HANDLE); // backbuffer
+
+    // Render the scene into the HDR target (view 1), then tonemap it to the
+    // backbuffer (view 4). The scene view's clear is set in OnAttach.
+    if (!m_HdrTarget.IsValid())
+        m_HdrTarget.Create(w, h, HDRColorFormat());
+    else if (m_HdrTarget.width != w || m_HdrTarget.height != h)
+        m_HdrTarget.Resize(w, h);
+
+    bgfx::setViewFrameBuffer(k_SceneViewId, m_HdrTarget.fb);
     bgfx::setViewRect(
         k_SceneViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
     m_Scene->SetViewportBounds(0, 0, w, h);
 
     m_Scene->OnRenderRuntime(m_SceneRenderer);
+
+    bgfx::setViewFrameBuffer(k_TonemapViewId, BGFX_INVALID_HANDLE); // backbuffer
+    bgfx::setViewRect(
+        k_TonemapViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
+    const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
+    Renderer::TonemapResolve(
+        k_TonemapViewId, m_HdrTarget.color, gs.Exposure, static_cast<int>(gs.Tonemap));
 }
 
 void RuntimeLayer::OnImGuiRender()

@@ -114,8 +114,10 @@ private:
 
     // bgfx view 0 = backbuffer clear, view 255 = ImGui overlay.
     // View 1 is reserved for the offscreen scene render target; views 2-3 are
-    // the entity picker's color-ID render + readback blit (see EntityPicker).
-    static constexpr u16 k_SceneViewId = 1;
+    // the entity picker's color-ID render + readback blit (see EntityPicker);
+    // view 4 is the fullscreen tonemap resolve (HDR scene -> LDR display).
+    static constexpr u16 k_SceneViewId   = 1;
+    static constexpr u16 k_TonemapViewId = 4;
 
     Ref<Scene>           m_EditorScene;   // authoritative scene; saved/loaded
     Ref<Scene>           m_RuntimeScene;  // throwaway play copy (null when stopped)
@@ -130,7 +132,9 @@ private:
     SettingsPanel        m_SettingsPanel;
     ConsolePanel         m_ConsolePanel;
     EditorGizmo          m_Gizmo;
-    RenderTarget         m_RenderTarget;
+    RenderTarget         m_RenderTarget;   // HDR scene target (edit mode, viewport-sized)
+    RenderTarget         m_ViewportTarget; // LDR tonemap output shown in the viewport
+    RenderTarget         m_RuntimeTarget;  // HDR scene target for play-in-editor (window-sized)
     EntityPicker         m_Picker;
 
     bool                 m_RuntimeMode = false;

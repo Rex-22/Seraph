@@ -13,6 +13,8 @@
 #include "Seraph/Editor/AssetFactory.h"
 #include "Seraph/Graphics/Material/Material.h"
 #include "Seraph/Graphics/Material/MaterialInstance.h"
+#include "Seraph/Graphics/RenderSystem.h"
+#include "Seraph/Graphics/Renderer.h"
 #include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Buffer.h"
@@ -62,7 +64,8 @@ void EditorLayer::SetScene(Ref<Scene> scene)
 void EditorLayer::OnAttach()
 {
     auto [w, h] = Application::Instance().Window().Size();
-    m_RenderTarget.Create(w, h);
+    m_RenderTarget.Create(w, h, HDRColorFormat()); // HDR scene target (RGBA16F)
+    m_ViewportTarget.Create(w, h);                 // LDR tonemap output shown in the viewport
     m_Picker.Create(w, h);
 
     m_EditorCamera.SetViewportBounds(0, 0, w, h);
@@ -84,6 +87,8 @@ void EditorLayer::OnDetach()
     if (m_ScriptCompileThread.joinable())
         m_ScriptCompileThread.join();
     m_RenderTarget.Destroy();
+    m_ViewportTarget.Destroy();
+    m_RuntimeTarget.Destroy();
     m_Picker.Destroy();
 }
 
@@ -114,13 +119,27 @@ void EditorLayer::OnUpdate(f64 dt)
     if (m_RuntimeMode)
     {
         auto [w, h] = Application::Instance().Window().Size();
-        bgfx::setViewFrameBuffer(k_SceneViewId, BGFX_INVALID_HANDLE);
+
+        // Play-in-editor renders fullscreen through the HDR pipeline: scene -> HDR
+        // target (view 1), then a tonemap resolve -> backbuffer (view 4).
+        if (!m_RuntimeTarget.IsValid())
+            m_RuntimeTarget.Create(w, h, HDRColorFormat());
+        else if (m_RuntimeTarget.width != w || m_RuntimeTarget.height != h)
+            m_RuntimeTarget.Resize(w, h);
+
+        bgfx::setViewFrameBuffer(k_SceneViewId, m_RuntimeTarget.fb);
         bgfx::setViewRect(k_SceneViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
 
         Ref<Scene> scene = ActiveScene();
         scene->SetViewportBounds(0, 0, w, h);
         scene->OnUpdateRuntime(dt);
         scene->OnRenderRuntime(m_SceneRenderer);
+
+        bgfx::setViewFrameBuffer(k_TonemapViewId, BGFX_INVALID_HANDLE); // backbuffer
+        bgfx::setViewRect(k_TonemapViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
+        const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
+        Renderer::TonemapResolve(k_TonemapViewId, m_RuntimeTarget.color,
+            gs.Exposure, static_cast<int>(gs.Tonemap));
     }
     else
     {
@@ -134,6 +153,18 @@ void EditorLayer::OnUpdate(f64 dt)
         m_EditorCamera.OnUpdate(dt);
         m_EditorScene->OnUpdateEditor(dt);
         m_EditorScene->OnRenderEditor(m_SceneRenderer, m_EditorCamera);
+
+        // Resolve the HDR scene target to the LDR viewport texture the panel shows.
+        if (m_RenderTarget.IsValid() && m_ViewportTarget.IsValid())
+        {
+            bgfx::setViewFrameBuffer(k_TonemapViewId, m_ViewportTarget.fb);
+            bgfx::setViewRect(k_TonemapViewId, 0, 0,
+                static_cast<u16>(m_ViewportTarget.width),
+                static_cast<u16>(m_ViewportTarget.height));
+            const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
+            Renderer::TonemapResolve(k_TonemapViewId, m_RenderTarget.color,
+                gs.Exposure, static_cast<int>(gs.Tonemap));
+        }
 
         // Entity picking: consume a completed readback (from a click a couple of
         // frames ago), then render/kick off any pending pick into its own views
@@ -633,7 +664,7 @@ void EditorLayer::OnImGuiRender()
         m_Gizmo.SetCamera(m_EditorCamera.GetViewMatrix(),
                           m_EditorCamera.GetUnReversedProjectionMatrix());
 
-        if (m_ViewportPanel.Begin(m_RenderTarget))
+        if (m_ViewportPanel.Begin(m_ViewportTarget))
         {
             m_Gizmo.SetViewportRect(m_ViewportPanel.GetContentPos(),
                                     m_ViewportPanel.GetContentSize());
@@ -675,6 +706,8 @@ void EditorLayer::OnImGuiRender()
             (static_cast<u32>(sz.x) != m_RenderTarget.width || static_cast<u32>(sz.y) != m_RenderTarget.height))
         {
             m_RenderTarget.Resize(
+                static_cast<u32>(sz.x), static_cast<u32>(sz.y));
+            m_ViewportTarget.Resize(
                 static_cast<u32>(sz.x), static_cast<u32>(sz.y));
             m_Picker.Resize(static_cast<u32>(sz.x), static_cast<u32>(sz.y));
             m_EditorCamera.SetViewportBounds(0, 0, static_cast<u32>(sz.x), static_cast<u32>(sz.y));
