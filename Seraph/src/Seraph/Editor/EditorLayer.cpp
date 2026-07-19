@@ -13,8 +13,10 @@
 #include "Seraph/Editor/AssetFactory.h"
 #include "Seraph/Graphics/Material/Material.h"
 #include "Seraph/Graphics/Material/MaterialInstance.h"
+#include "Seraph/Graphics/RenderPass.h"
 #include "Seraph/Graphics/RenderSystem.h"
 #include "Seraph/Graphics/Renderer.h"
+#include "Seraph/Graphics/ViewId.h"
 #include "Seraph/Scene/SceneAsset.h"
 #include "Seraph/Core/Application.h"
 #include "Seraph/Core/Buffer.h"
@@ -69,12 +71,12 @@ void EditorLayer::OnAttach()
     m_Picker.Create(w, h);
 
     m_EditorCamera.SetViewportBounds(0, 0, w, h);
-    m_EditorCamera.SetViewId(k_SceneViewId);
+    m_EditorCamera.SetViewId(ViewId::Scene);
     m_EditorCamera.SetActive(true);
 
     glm::vec3 clearColor = m_SceneRenderer->GetSettings().ClearColor;
     u32 rgba = EncodeColorRgba8(clearColor.r, clearColor.g, clearColor.b, 1.0f);
-    bgfx::setViewClear(k_SceneViewId,
+    bgfx::setViewClear(ViewId::Scene,
         BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, rgba, 0.0f, 0);
 
     PointPanelsAt(m_EditorScene, UUID(0));
@@ -127,27 +129,26 @@ void EditorLayer::OnUpdate(f64 dt)
         else if (m_RuntimeTarget.width != w || m_RuntimeTarget.height != h)
             m_RuntimeTarget.Resize(w, h);
 
-        bgfx::setViewFrameBuffer(k_SceneViewId, m_RuntimeTarget.fb);
-        bgfx::setViewRect(k_SceneViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
+        RenderPass::ToTarget(ViewId::Scene, m_RuntimeTarget.fb,
+            static_cast<u16>(w), static_cast<u16>(h)).Bind();
 
         Ref<Scene> scene = ActiveScene();
         scene->SetViewportBounds(0, 0, w, h);
         scene->OnUpdateRuntime(dt);
         scene->OnRenderRuntime(m_SceneRenderer);
 
-        bgfx::setViewFrameBuffer(k_TonemapViewId, BGFX_INVALID_HANDLE); // backbuffer
-        bgfx::setViewRect(k_TonemapViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
+        RenderPass::ToBackbuffer(ViewId::Tonemap,
+            static_cast<u16>(w), static_cast<u16>(h)).Bind();
         const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
-        Renderer::TonemapResolve(k_TonemapViewId, m_RuntimeTarget.color,
+        Renderer::TonemapResolve(ViewId::Tonemap, m_RuntimeTarget.color,
             gs.Exposure, static_cast<int>(gs.Tonemap));
     }
     else
     {
         if (m_RenderTarget.IsValid())
-            bgfx::setViewFrameBuffer(k_SceneViewId, m_RenderTarget.fb);
-
-        bgfx::setViewRect(k_SceneViewId, 0, 0,
-            static_cast<u16>(m_RenderTarget.width), static_cast<u16>(m_RenderTarget.height));
+            RenderPass::ToTarget(ViewId::Scene, m_RenderTarget.fb,
+                static_cast<u16>(m_RenderTarget.width),
+                static_cast<u16>(m_RenderTarget.height)).Bind();
 
         m_EditorCamera.SetViewportHovered(m_ViewportPanel.IsHovered());
         m_EditorCamera.OnUpdate(dt);
@@ -157,12 +158,11 @@ void EditorLayer::OnUpdate(f64 dt)
         // Resolve the HDR scene target to the LDR viewport texture the panel shows.
         if (m_RenderTarget.IsValid() && m_ViewportTarget.IsValid())
         {
-            bgfx::setViewFrameBuffer(k_TonemapViewId, m_ViewportTarget.fb);
-            bgfx::setViewRect(k_TonemapViewId, 0, 0,
+            RenderPass::ToTarget(ViewId::Tonemap, m_ViewportTarget.fb,
                 static_cast<u16>(m_ViewportTarget.width),
-                static_cast<u16>(m_ViewportTarget.height));
+                static_cast<u16>(m_ViewportTarget.height)).Bind();
             const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
-            Renderer::TonemapResolve(k_TonemapViewId, m_RenderTarget.color,
+            Renderer::TonemapResolve(ViewId::Tonemap, m_RenderTarget.color,
                 gs.Exposure, static_cast<int>(gs.Tonemap));
         }
 

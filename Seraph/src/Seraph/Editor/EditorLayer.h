@@ -112,12 +112,7 @@ private:
     // Fixed path for bring-up; a file-open dialog is future polish.
     static constexpr const char* k_ScenePath = "scenes/example.sscene";
 
-    // bgfx view 0 = backbuffer clear, view 255 = ImGui overlay.
-    // View 1 is reserved for the offscreen scene render target; views 2-3 are
-    // the entity picker's color-ID render + readback blit (see EntityPicker);
-    // view 4 is the fullscreen tonemap resolve (HDR scene -> LDR display).
-    static constexpr u16 k_SceneViewId   = 1;
-    static constexpr u16 k_TonemapViewId = 4;
+    // Canonical bgfx view ids live in Seraph/Graphics/ViewId.h.
 
     Ref<Scene>           m_EditorScene;   // authoritative scene; saved/loaded
     Ref<Scene>           m_RuntimeScene;  // throwaway play copy (null when stopped)

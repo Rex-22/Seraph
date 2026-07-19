@@ -7,8 +7,10 @@
 #include "Seraph/Core/KeyCodes.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Events/KeyEvent.h"
+#include "Seraph/Graphics/RenderPass.h"
 #include "Seraph/Graphics/RenderSystem.h"
 #include "Seraph/Graphics/Renderer.h"
+#include "Seraph/Graphics/ViewId.h"
 #include "Seraph/Scene/Components/CameraComponent.h"
 #include "Seraph/Scene/Entity.h"
 
@@ -33,12 +35,12 @@ void RuntimeLayer::OnAttach()
     const u32 rgba =
         EncodeColorRgba8(clearColor.r, clearColor.g, clearColor.b, 1.0f);
     bgfx::setViewClear(
-        k_SceneViewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, rgba, 0.0f, 0);
+        ViewId::Scene, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, rgba, 0.0f, 0);
 
     // A data-loaded camera has no view id set (unlike a hand-built one), so point
     // the primary camera at the scene view or nothing renders.
     if (Entity camera = m_Scene->GetMainCameraEntity())
-        camera.GetComponent<CameraComponent>().Camera.SetViewId(k_SceneViewId);
+        camera.GetComponent<CameraComponent>().Camera.SetViewId(ViewId::Scene);
     else
         SP_CORE_WARN_TAG(
             "Runtime", "Startup scene has no primary camera; nothing will render");
@@ -71,19 +73,17 @@ void RuntimeLayer::OnUpdate(f64 dt)
     else if (m_HdrTarget.width != w || m_HdrTarget.height != h)
         m_HdrTarget.Resize(w, h);
 
-    bgfx::setViewFrameBuffer(k_SceneViewId, m_HdrTarget.fb);
-    bgfx::setViewRect(
-        k_SceneViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
+    RenderPass::ToTarget(ViewId::Scene, m_HdrTarget.fb,
+        static_cast<u16>(w), static_cast<u16>(h)).Bind();
     m_Scene->SetViewportBounds(0, 0, w, h);
 
     m_Scene->OnRenderRuntime(m_SceneRenderer);
 
-    bgfx::setViewFrameBuffer(k_TonemapViewId, BGFX_INVALID_HANDLE); // backbuffer
-    bgfx::setViewRect(
-        k_TonemapViewId, 0, 0, static_cast<u16>(w), static_cast<u16>(h));
+    RenderPass::ToBackbuffer(ViewId::Tonemap,
+        static_cast<u16>(w), static_cast<u16>(h)).Bind();
     const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
     Renderer::TonemapResolve(
-        k_TonemapViewId, m_HdrTarget.color, gs.Exposure, static_cast<int>(gs.Tonemap));
+        ViewId::Tonemap, m_HdrTarget.color, gs.Exposure, static_cast<int>(gs.Tonemap));
 }
 
 void RuntimeLayer::OnImGuiRender()

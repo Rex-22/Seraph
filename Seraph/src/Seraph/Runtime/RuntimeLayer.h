@@ -29,10 +29,7 @@ public:
     void OnEvent(Event& e) override;
 
 private:
-    // bgfx view 0 = backbuffer clear, view 255 = ImGui overlay. The scene renders
-    // to view 1 (the HDR target); view 4 tonemaps it to the backbuffer.
-    static constexpr u16 k_SceneViewId   = 1;
-    static constexpr u16 k_TonemapViewId = 4;
+    // Canonical bgfx view ids live in Seraph/Graphics/ViewId.h.
 
     Ref<Scene>         m_Scene;
     Ref<SceneRenderer> m_SceneRenderer;

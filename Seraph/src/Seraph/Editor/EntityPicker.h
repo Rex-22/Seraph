@@ -21,6 +21,7 @@
 #include "Seraph/Core/Base.h"
 #include "Seraph/Core/UUID.h"
 #include "Seraph/Graphics/RenderTarget.h"
+#include "Seraph/Graphics/ViewId.h"
 
 #include <bgfx/bgfx.h>
 
@@ -35,10 +36,10 @@ class EditorCamera;
 class EntityPicker
 {
 public:
-    // bgfx views. 0 = backbuffer clear, 1 = scene render target, 255 = ImGui;
-    // the picker owns 2 (color-ID render) and 3 (blit to the readback texture).
-    static constexpr u16 k_PickViewId     = 2;
-    static constexpr u16 k_PickBlitViewId = 3;
+    // The picker owns the color-ID render + blit views; ids are the canonical
+    // ones from Seraph/Graphics/ViewId.h (Pick = 2, PickBlit = 3).
+    static constexpr u16 k_PickViewId     = ViewId::Pick;
+    static constexpr u16 k_PickBlitViewId = ViewId::PickBlit;
 
     EntityPicker() = default;
 
