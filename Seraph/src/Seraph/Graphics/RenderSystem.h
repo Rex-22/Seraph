@@ -33,13 +33,14 @@ struct ProjectGraphicsSettings
     TonemapOperator Tonemap  = TonemapOperator::ACES;
     f32             Exposure = 1.0f; // linear multiplier applied before tone mapping
 
-    // Directional-shadow anti-acne controls (Render 18). Bias is a constant depth
-    // offset in shadow-clip space; NormalOffset pushes the sampled point along the
-    // surface normal (world units, slope-scaled by 1-NoL). Kept small: the shadow
-    // pass renders back faces only (front-face cull), so self-shadow acne is
-    // already largely gone — large values here just reintroduce contact gaps.
-    f32 ShadowBias         = 0.0008f;
-    f32 ShadowNormalOffset = 0.01f;
+    // Directional-shadow anti-acne, in WORLD units (the renderer converts the bias
+    // into the shadow projection's normalized depth by dividing by its depth range,
+    // so the contact gap stays a fixed small distance regardless of the ortho).
+    // Both are slope-scaled in the sampler: ~0 where a surface faces the sun (tight
+    // contact, no peter-panning), larger at grazing angles (anti-acne). Normal
+    // offset defaults to 0 — the depth bias alone handles acne here.
+    f32 ShadowBias         = 0.03f; // world units of depth bias
+    f32 ShadowNormalOffset = 0.0f;  // world units along the surface normal
 };
 
 class RenderSystem

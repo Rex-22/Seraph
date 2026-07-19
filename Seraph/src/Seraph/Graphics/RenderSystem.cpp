@@ -34,13 +34,13 @@ void RenderSystem::RegisterSettings()
     Settings::Register("engine.graphics.shadowBias")
         .Bind(&s.ShadowBias).Scope(SettingScope::Project)
         .Section("Graphics").Display("Shadow Bias")
-        .Tooltip("Constant depth bias applied when sampling the sun shadow map")
-        .Min(0.0f).Max(0.05f);
+        .Tooltip("Sun shadow depth bias in world units (slope-scaled)")
+        .Min(0.0f).Max(0.5f);
 
     Settings::Register("engine.graphics.shadowNormalOffset")
         .Bind(&s.ShadowNormalOffset).Scope(SettingScope::Project)
         .Section("Graphics").Display("Shadow Normal Offset")
-        .Tooltip("Offset along the surface normal (world units) to reduce shadow acne")
+        .Tooltip("Extra offset along the surface normal (world units) to reduce shadow acne")
         .Min(0.0f).Max(1.0f);
 }
 

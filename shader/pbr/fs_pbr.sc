@@ -72,18 +72,21 @@ float ShadowNoise(vec2 xy)
 }
 
 // Sun shadow visibility [0,1] for a world-space fragment. 1.0 (fully lit) when
-// shadows are inactive or the fragment falls outside the shadow map. The normal
-// offset (u_shadowParams.w) pushes the sampled point along the surface normal to
-// fight acne; it is scaled by (1 - NoL) so surfaces facing the sun get little or
-// no offset (preserving contact — no peter-panning where geometry sits flush)
-// while grazing surfaces get the full offset. u_shadowParams.y is a constant
-// depth bias. Filtered with a rotated Vogel disk over the hardware compare sampler.
+// shadows are inactive or the fragment falls outside the shadow map.
+//
+// Anti-acne is slope-scaled: the depth bias (and optional normal offset) scale
+// with tan(angle between N and the light), so a surface facing the sun gets ~0
+// bias — keeping the contact shadow attached (no peter-panning where geometry
+// sits flush) — while grazing surfaces, where acne appears, get more. Filtered
+// with a rotated Vogel disk over the hardware compare sampler.
 float SampleSunShadow(vec3 wpos, vec3 N, float NoL)
 {
 	if (u_shadowParams.z < 0.5)
 		return 1.0;
 
-	float slope = clamp(1.0 - NoL, 0.0, 1.0);
+	float NoLc = clamp(NoL, 0.0, 1.0);
+	float slope = clamp(sqrt(1.0 - NoLc * NoLc) / max(NoLc, 0.1), 0.0, 4.0);
+
 	vec3 p = wpos + N * (u_shadowParams.w * slope);
 	vec4 sc = mul(u_shadowMtx, vec4(p, 1.0));
 	vec3 tc = sc.xyz / sc.w;
@@ -96,7 +99,7 @@ float SampleSunShadow(vec3 wpos, vec3 N, float NoL)
 	// cross-compiler does not expose). noiseCoord = tc.xy / texelSize.
 	float phi = ShadowNoise(tc.xy / u_shadowParams.x) * 6.2831853;
 	float offsetScale = u_shadowParams.x * SHADOW_PCF_RADIUS;
-	float depth = tc.z - u_shadowParams.y;
+	float depth = tc.z - u_shadowParams.y * (1.0 + slope);
 
 	float sum = 0.0;
 	for (int i = 0; i < SHADOW_PCF_SAMPLES; ++i)

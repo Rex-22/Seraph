@@ -160,16 +160,19 @@ void SceneRenderer::RenderSunShadow()
     }
 
     // Orthographic light frame fitted to a fixed area around the origin (covers
-    // the test scene; a camera-frustum fit / cascades come with Render 21).
+    // the test scene; a camera-frustum fit / cascades come with Render 21). The
+    // depth range is kept explicit so the bias can be expressed in world units.
     const float area = 15.0f;
+    const float depthRange = 80.0f;           // ortho near..far span (world units)
+    const float eyeDist = depthRange * 0.5f;  // eye centered in the depth slab
     const glm::vec3 center(0.0f);
     const glm::vec3 up =
         (std::abs(lightDir.y) > 0.99f) ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
-    const glm::vec3 eye = center - lightDir * 50.0f;
+    const glm::vec3 eye = center - lightDir * eyeDist;
     const glm::mat4 lightView = glm::lookAt(eye, center, up);
     // Un-reversed ortho ([0,1] depth via GLM_FORCE_DEPTH_ZERO_TO_ONE): LESS test,
     // clear 1.0 — isolated from the main camera's reversed-Z convention.
-    const glm::mat4 lightProj = glm::ortho(-area, area, -area, area, 0.1f, 100.0f);
+    const glm::mat4 lightProj = glm::ortho(-area, area, -area, area, 0.0f, depthRange);
 
     // Crop/bias: NDC -> [0,1] UV + depth, per backend (V-flip + depth range).
     const bgfx::Caps* caps = bgfx::getCaps();
@@ -191,8 +194,14 @@ void SceneRenderer::RenderSunShadow()
             Renderer::SubmitShadowCaster(
                 *mesh, m_Scene->GetWorldSpaceTransformMatrix({e, m_Scene.Raw()}));
     }
+    // Convert the world-space bias/offset knobs into this projection's units so
+    // the contact gap is a fixed small distance regardless of the ortho depth
+    // range (a normalized-depth bias would scale with the range and re-open the
+    // gap). Depth bias -> normalized by dividing by the range; normal offset is
+    // already in world units.
     const ProjectGraphicsSettings& gs = RenderSystem::GetSettings();
-    Renderer::EndShadowPass(shadowMtx, gs.ShadowBias, gs.ShadowNormalOffset);
+    const float normalizedBias = gs.ShadowBias / depthRange;
+    Renderer::EndShadowPass(shadowMtx, normalizedBias, gs.ShadowNormalOffset);
 }
 
 void SceneRenderer::DrawSkybox()

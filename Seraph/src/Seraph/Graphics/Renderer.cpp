@@ -528,12 +528,11 @@ void Renderer::SubmitShadowCaster(const Mesh& mesh, const glm::mat4& transform)
     bgfx::setTransform(glm::value_ptr(transform));
     bgfx::setVertexBuffer(0, vb);
     bgfx::setIndexBuffer(ib);
-    // Front-face cull (opposite of the scene's back-face cull): only back faces —
-    // the far side of each occluder — write depth. The lit surfaces are then
-    // absent from the shadow map, so they cannot self-shadow (no acne) and the
-    // depth/normal bias can stay tiny, keeping contact shadows tight.
-    bgfx::setState(
-        BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CCW);
+    // No culling: front faces (toward the light) win the depth test, so the
+    // shadow map stores the TRUE occluder surface — the receiver's contact stays
+    // attached (no peter-panning). Self-shadow acne is handled by the slope-scaled
+    // depth bias in the sampler, not by shifting the occluder depth.
+    bgfx::setState(BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS);
     bgfx::submit(ViewId::Shadow, program);
 }
 
