@@ -11,6 +11,7 @@
 #include "Seraph/Core/FileSystem.h"
 #include "Seraph/Core/Log.h"
 #include "Seraph/Core/Version.h"
+#include "Seraph/Graphics/RenderSystem.h"
 #include "Seraph/Physics/PhysicsSystem.h"
 #include "Seraph/Settings/Settings.h"
 
@@ -32,6 +33,7 @@ int main(int argc, char** argv)
     // values apply to those fields before any subsystem consumes them.
     Seraph::Settings::Init();
     Seraph::PhysicsSystem::RegisterSettings();
+    Seraph::RenderSystem::RegisterSettings();
     Seraph::Settings::LoadEngineUser();
     // Flush pending AutoCVar registrations + enable the dev console. After
     // LoadEngineUser so archived CVar values are already applied to their fields.
