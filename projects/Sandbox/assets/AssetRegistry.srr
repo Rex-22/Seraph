@@ -3,6 +3,12 @@ Assets:
   - Handle: 1110263753092241549
     Type: Texture2D
     FilePath: textures/bolonga_irr.dds
+  - Handle: 4306348725788717939
+    Type: Mesh
+    FilePath: meshes/12161_Cat_v1_L2.obj
+  - Handle: 4475603563681717614
+    Type: Texture2D
+    FilePath: textures/12261_Cat_diffuse.jpg
   - Handle: 7707472661298956301
     Type: Texture2D
     FilePath: textures/ibl_specular_cube.dds
@@ -18,6 +24,9 @@ Assets:
   - Handle: 12110036093484666702
     Type: Texture2D
     FilePath: textures/ibl_irradiance_cube.dds
+  - Handle: 13528448734554759938
+    Type: Material
+    FilePath: material/cat1.smaterial
   - Handle: 14494318257152640176
     Type: Scene
     FilePath: scenes/example.sscene
