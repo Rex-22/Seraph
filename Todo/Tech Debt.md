@@ -7,7 +7,17 @@ statuses:
   - Done
 ---
 
-### 1. Fix Ref::CopyWithoutIncrement null-deref
+### 1. [Platform] FileWatcher has no Linux/Windows backend
+- **Status:** Done
+- **Completed:** true
+- **Priority:** High
+
+**Description:**
+PLATFORM-SPECIFIC. `FileWatcher` only has a real backend on **macOS** (FSEvents). On **Linux/Windows** the whole class compiles to a no-op stub: `Start` logs a warning, `IsWatching()` returns false, `DrainEvents()` returns empty. Consequence: editor asset hot-reload silently does nothing outside macOS. Source: `Seraph/src/Platform/FileWatcher.cpp:143-165`; TODO markers at `FileWatcher.h:9-11`. Fix: add inotify (Linux) and ReadDirectoryChangesW (Windows) backends behind the existing `#ifdef` split, keeping the "push to mutex-guarded queue, drain on main thread" contract. See docs/platform-layer.md.
+
+---
+
+### 2. Fix Ref::CopyWithoutIncrement null-deref
 - **Status:** Done
 - **Completed:** false
 - **Priority:** High
@@ -17,7 +27,7 @@ statuses:
 
 ---
 
-### 2. Fix missing semicolon in SP_ENSURE client macro
+### 3. Fix missing semicolon in SP_ENSURE client macro
 - **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
@@ -27,7 +37,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ---
 
-### 3. Implement TextureSerializer::Serialize (currently returns false)
+### 4. Implement TextureSerializer::Serialize (currently returns false)
 - **Status:** Done
 - **Completed:** false
 - **Priority:** High
@@ -37,7 +47,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ---
 
-### 4. UniformCache keys on name only (type/count collision risk)
+### 5. UniformCache keys on name only (type/count collision risk)
 - **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
@@ -47,7 +57,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ---
 
-### 5. Harden SceneSerializer against silently dropping components
+### 6. Harden SceneSerializer against silently dropping components
 - **Status:** Done
 - **Completed:** false
 - **Priority:** High
@@ -57,7 +67,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ---
 
-### 6. RuntimeAssetManager async flag is a no-op
+### 7. RuntimeAssetManager async flag is a no-op
 - **Status:** Done
 - **Completed:** false
 - **Priority:** Medium
@@ -67,7 +77,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ---
 
-### 7. Pack format reserves CRC32/Flags/compression fields but never uses them
+### 8. Pack format reserves CRC32/Flags/compression fields but never uses them
 - **Status:** Done
 - **Completed:** false
 - **Priority:** Low
@@ -77,23 +87,13 @@ The `.pack` (SPAK) format reserves `Crc32`, `Flags`, and compression fields but 
 
 ---
 
-### 8. MaterialSerializer only warns on shader/param mismatch
+### 9. MaterialSerializer only warns on shader/param mismatch
 - **Status:** Done
 - **Completed:** false
 - **Priority:** Low
 
 **Description:**
 `MaterialSerializer::Finalize` (`Seraph/src/Seraph/Asset/Serializers/MaterialSerializer.cpp:49`) resolves shaders by name and validates params against reflected uniforms, but mismatches are warnings only and non-fatal — a renamed/removed uniform silently produces a partially-bound material. Consider surfacing these in the editor. See docs/material-system.md.
-
----
-
-### 9. [Platform] FileWatcher has no Linux/Windows backend
-- **Status:** Review
-- **Completed:** false
-- **Priority:** High
-
-**Description:**
-PLATFORM-SPECIFIC. `FileWatcher` only has a real backend on **macOS** (FSEvents). On **Linux/Windows** the whole class compiles to a no-op stub: `Start` logs a warning, `IsWatching()` returns false, `DrainEvents()` returns empty. Consequence: editor asset hot-reload silently does nothing outside macOS. Source: `Seraph/src/Platform/FileWatcher.cpp:143-165`; TODO markers at `FileWatcher.h:9-11`. Fix: add inotify (Linux) and ReadDirectoryChangesW (Windows) backends behind the existing `#ifdef` split, keeping the "push to mutex-guarded queue, drain on main thread" contract. See docs/platform-layer.md.
 
 ---
 
@@ -484,5 +484,12 @@ Result: adding an annotation to an existing header is picked up by a plain **bui
 - A brand-**new** header file (one that didn't exist at configure) still triggers a `CONFIGURE_DEPENDS` reconfigure — unavoidable; CMake can't compile a source it has never seen. Only *editing* an existing header is reconfigure-free.
 - Adopting this needs **one** reconfigure (to switch to the new all-headers wiring); full engine build couldn't run in this offline sandbox (assimp FetchContent needs network). Confirm on a networked build: touch an annotation, plain `ninja`, see the enum register.
 - The all-headers approach adds ~130 tiny empty object files to libSeraph; link-time impact expected negligible but worth a glance on the first full build. Severity: High (workflow correctness).
+
+---
+
+### 36. Entity picker doesn't pick entities that have no mesh
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
 
 ---
