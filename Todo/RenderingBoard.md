@@ -194,7 +194,7 @@ Lift the reusable color-science / encoding / reconstruction helpers from bgfx's 
 ---
 
 ### 6. Render 6 — Vertex format: add normals + tangents
-- **Status:** Todo
+- **Status:** Review
 - **Completed:** false
 - **Priority:** High
 
@@ -212,6 +212,18 @@ Extend the primitive/mesh vertex format with normals and tangents. The current `
 - Current layout: `MeshFactory.h:19-39` (`PrimitiveVertex` = pos/color/texcoord); `shader/simple/varying.def.sc:4-6` (position/color/texcoord only).
 - Tangent generation reference: `vendor/bgfx/bgfx/examples/common/bgfx_utils.cpp` `calcTangents` (~:276). TBN unpack pattern: `vendor/bgfx/bgfx/examples/06-bump/fs_bump.sc:60`.
 - Mesh serialization retains a CPU copy (`Mesh.{h,cpp}`) — bump the vertex format version / migration.
+
+## Changes
+
+* **`PrimitiveVertex` extended** (`MeshFactory.h`) with `Normal` (3×float) + `Tangent` (4×float, w = handedness). Layout gains `Attrib::Normal`/`Attrib::Tangent`. New stride 52.
+* **Factory primitives emit correct data.** Cube/plane literals carry per-face normals; a ported Lengyel-method `CalcTangents` (`MeshFactory.cpp`) fills tangents + handedness (Gram-Schmidt vs. the normal, degenerate-UV fallback).
+* **Assimp import** (`MeshSerializer.cpp`): `BuildMeshLayout`/`MeshVertex` gain normal+tangent; enabled `aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace`; reads assimp normals/tangents and derives handedness `sign((N×T)·B)`.
+* **Migration is automatic** — the `.smesh` serializer is layout-driven (already had `Normal`/`Tangent` attrib codes), so old meshes load with their stored (narrower) layout and still render under the unlit `simple` shader (which reads only a subset).
+* **Deferred:** the lit `varying.def.sc` declaring `a_normal`/`a_tangent` + interpolated world-normal/TBN lands with the PBR shader (Render 9), which is the first consumer.
+
+**Verification:** `Seraph-Editor` + `libSeraph.so` build clean (gcc). Launched with the Sandbox project: scene renders (cube visible), no bgfx asserts/validation errors, clean shutdown; old serialized meshes render unchanged (backward-compat).
+
+**Files:** `Seraph/src/Seraph/Graphics/MeshFactory.{h,cpp}`, `Seraph/src/Seraph/Asset/Serializers/MeshSerializer.cpp`.
 
 ## Dependencies
 - none
