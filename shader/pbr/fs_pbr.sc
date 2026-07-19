@@ -52,10 +52,30 @@ vec3 F_Schlick(float VoH, vec3 f0)
 	return f0 + (vec3_splat(1.0) - f0) * f;
 }
 
+#define SHADOW_PCF_SAMPLES 16
+#define SHADOW_PCF_RADIUS   2.5 // filter radius in shadow-map texels
+
+// Golden-angle Vogel disk sample in [-1,1]^2, rotated by phi (Jimenez 2014).
+vec2 VogelDiskSample(int i, int count, float phi)
+{
+	float goldenAngle = 2.39996323;
+	float r = sqrt((float(i) + 0.5) / float(count));
+	float theta = float(i) * goldenAngle + phi;
+	return vec2(r * cos(theta), r * sin(theta));
+}
+
+// Interleaved gradient noise -> per-pixel rotation angle, turning PCF banding
+// into (cheaper-to-hide) noise.
+float ShadowNoise(vec2 xy)
+{
+	return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
+}
+
 // Sun shadow visibility [0,1] for a world-space fragment. 1.0 (fully lit) when
 // shadows are inactive or the fragment falls outside the shadow map. Normal-
 // offset (u_shadowParams.w) pushes the sampled point along the surface normal to
 // fight acne without peter-panning; u_shadowParams.y is a constant depth bias.
+// Filtered with a per-pixel-rotated Vogel disk over the hardware compare sampler.
 float SampleSunShadow(vec3 wpos, vec3 N)
 {
 	if (u_shadowParams.z < 0.5)
@@ -69,7 +89,19 @@ float SampleSunShadow(vec3 wpos, vec3 N)
 	    any(lessThan(tc.xy, vec2_splat(0.0))))
 		return 1.0;
 
-	return shadow2D(s_shadowMap, vec3(tc.xy, tc.z - u_shadowParams.y));
+	// Rotate per shadow-map texel (portable; avoids gl_FragCoord, which bgfx's
+	// cross-compiler does not expose). noiseCoord = tc.xy / texelSize.
+	float phi = ShadowNoise(tc.xy / u_shadowParams.x) * 6.2831853;
+	float offsetScale = u_shadowParams.x * SHADOW_PCF_RADIUS;
+	float depth = tc.z - u_shadowParams.y;
+
+	float sum = 0.0;
+	for (int i = 0; i < SHADOW_PCF_SAMPLES; ++i)
+	{
+		vec2 off = VogelDiskSample(i, SHADOW_PCF_SAMPLES, phi) * offsetScale;
+		sum += shadow2D(s_shadowMap, vec3(tc.xy + off, depth));
+	}
+	return sum / float(SHADOW_PCF_SAMPLES);
 }
 
 void main()
