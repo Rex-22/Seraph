@@ -143,18 +143,24 @@ bool Input::IsKeyToggledOn(KeyCode key)
 
 bool Input::IsMouseButtonPressed(MouseButton button)
 {
+    if (s_MouseCaptured)
+        return false;
     auto it = s_MouseData.find(button);
     return it != s_MouseData.end() && it->second.State == KeyState::Pressed;
 }
 
 bool Input::IsMouseButtonHeld(MouseButton button)
 {
+    if (s_MouseCaptured)
+        return false;
     auto it = s_MouseData.find(button);
     return it != s_MouseData.end() && it->second.State == KeyState::Held;
 }
 
 bool Input::IsMouseButtonReleased(MouseButton button)
 {
+    if (s_MouseCaptured)
+        return false;
     auto it = s_MouseData.find(button);
     return it != s_MouseData.end() && it->second.State == KeyState::Released;
 }
@@ -163,6 +169,8 @@ bool Input::IsMouseButtonReleased(MouseButton button)
 
 bool Input::IsMouseButtonDown(MouseButton button)
 {
+    if (s_MouseCaptured)
+        return false;
     return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MASK(button)) != 0;
 }
 
@@ -190,7 +198,9 @@ std::pair<float, float> Input::GetMousePosition()
 std::pair<float, float> Input::GetMouseDelta()
 {
     float dx = 0.0f, dy = 0.0f;
-    SDL_GetRelativeMouseState(&dx, &dy);
+    SDL_GetRelativeMouseState(&dx, &dy); // drain SDL's accumulator either way
+    if (s_MouseCaptured)
+        return { 0.0f, 0.0f }; // no look/aim motion while captured (console open)
     return { dx, dy };
 }
 

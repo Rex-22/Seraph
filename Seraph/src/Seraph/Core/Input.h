@@ -67,13 +67,15 @@ public:
     // Toggle-lock keys (CapsLock, NumLock).
     static bool IsKeyToggledOn(KeyCode key);
 
-    // Keyboard capture: while captured, every keyboard query above reports "not
-    // pressed" so gameplay/camera code that POLLS input (Input::IsKeyDown etc.)
-    // stops responding — e.g. while the dev console is open, WASD types into the
-    // console instead of moving the player. ImGui text input is unaffected (it
-    // reads SDL events directly, not through Input).
+    // Input capture: while captured, the matching queries below report "not
+    // pressed"/zero so gameplay/camera code that POLLS input stops responding —
+    // e.g. while the dev console is open, WASD types into the console instead of
+    // moving the player, and clicking the viewport won't grab the cursor. ImGui is
+    // unaffected (it reads SDL events directly, not through Input).
     static void SetKeyboardCaptured(bool captured) { s_KeyboardCaptured = captured; }
     static bool IsKeyboardCaptured() { return s_KeyboardCaptured; }
+    static void SetMouseCaptured(bool captured) { s_MouseCaptured = captured; }
+    static bool IsMouseCaptured() { return s_MouseCaptured; }
 
     // Event-based mouse buttons.
     static bool IsMouseButtonPressed(MouseButton button);
@@ -126,6 +128,7 @@ private:
     inline static std::map<int, Controller>     s_Controllers;
     inline static CursorMode                    s_CursorMode = CursorMode::Normal;
     inline static bool                          s_KeyboardCaptured = false;
+    inline static bool                          s_MouseCaptured = false;
 };
 
 } // namespace Seraph
