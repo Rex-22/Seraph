@@ -35,9 +35,11 @@ struct ProjectGraphicsSettings
 
     // Directional-shadow anti-acne controls (Render 18). Bias is a constant depth
     // offset in shadow-clip space; NormalOffset pushes the sampled point along the
-    // surface normal (world units) to fight acne without peter-panning.
-    f32 ShadowBias         = 0.0015f;
-    f32 ShadowNormalOffset = 0.04f;
+    // surface normal (world units, slope-scaled by 1-NoL). Kept small: the shadow
+    // pass renders back faces only (front-face cull), so self-shadow acne is
+    // already largely gone — large values here just reintroduce contact gaps.
+    f32 ShadowBias         = 0.0008f;
+    f32 ShadowNormalOffset = 0.01f;
 };
 
 class RenderSystem
