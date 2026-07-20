@@ -19,7 +19,7 @@ PLATFORM-SPECIFIC. `FileWatcher` only has a real backend on **macOS** (FSEvents)
 
 ### 2. Fix Ref::CopyWithoutIncrement null-deref
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -29,7 +29,7 @@ PLATFORM-SPECIFIC. `FileWatcher` only has a real backend on **macOS** (FSEvents)
 
 ### 3. Fix missing semicolon in SP_ENSURE client macro
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -39,7 +39,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ### 4. Implement TextureSerializer::Serialize (currently returns false)
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -49,7 +49,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ### 5. UniformCache keys on name only (type/count collision risk)
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -59,7 +59,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ### 6. Harden SceneSerializer against silently dropping components
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -69,7 +69,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ### 7. RuntimeAssetManager async flag is a no-op
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -79,7 +79,7 @@ The client-facing `SP_ENSURE` macro at `Seraph/src/Seraph/Core/Assert.h:64` is m
 
 ### 8. Pack format reserves CRC32/Flags/compression fields but never uses them
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**
@@ -89,7 +89,7 @@ The `.pack` (SPAK) format reserves `Crc32`, `Flags`, and compression fields but 
 
 ### 9. MaterialSerializer only warns on shader/param mismatch
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**
@@ -99,7 +99,7 @@ The `.pack` (SPAK) format reserves `Crc32`, `Flags`, and compression fields but 
 
 ### 10. [Platform] FSEvents recursive flag is ignored on macOS
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**
@@ -108,8 +108,8 @@ PLATFORM-SPECIFIC (macOS). FSEvents always watches the whole subtree, so `FileWa
 ---
 
 ### 11. [Platform] RunProcess behaves differently on POSIX vs fallback
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -119,7 +119,7 @@ PLATFORM-SPECIFIC. `RunProcess` uses `posix_spawn` on macOS/Linux (no shell; req
 
 ### 12. [Platform] SeraphConfig.cmake bakes absolute machine paths
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -129,7 +129,7 @@ PLATFORM/PORTABILITY. `SeraphConfig.cmake` contains absolute paths from the mach
 
 ### 13. [Platform] config.h bakes dev-tree shaderc path and include dirs
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -139,7 +139,7 @@ PLATFORM/PORTABILITY. `config.h` bakes `SERAPH_SHADERC_PATH` and `SERAPH_SHADER_
 
 ### 14. [Platform] GamePackager hard-codes Debug build type
 - **Status:** Done
-- **Completed:** false
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -147,55 +147,9 @@ PLATFORM/BUILD. `GamePackager` requires editor asset mode, hard-codes `-DCMAKE_B
 
 ---
 
-### 15. [Platform] Memory tracking is dead Windows-only scaffolding
+### 15. [Reflection/SHT] Engine now hard-depends on SHT=ON; a SHT-OFF build crashes at runtime (no dual-path), contradicting plan/docs
 - **Status:** Done
-- **Completed:** false
-- **Priority:** Medium
-
-**Description:**
-PLATFORM-SPECIFIC + DEAD CODE. The `Seraph::Allocator` / global new/delete tracking is gated behind `SP_TRACK_MEMORY && SP_PLATFORM_WINDOWS` (impl, `Memory.cpp:431-565`) and `HZ_TRACK_MEMORY`/`HZ_PLATFORM_WINDOWS` (decls, `Memory.h:102-171`) — none of these macros are defined anywhere, the header/impl macro names don't even match, and `Allocator::` is called nowhere. Net effect: `snew`/`sdelete` are plain new/delete and allocation stats are never populated. Fix: either finish it cross-platform or delete the scaffolding to avoid the illusion of working instrumentation. See docs/foundation-and-utilities.md.
-
----
-
-### 16. [Platform] SP_DEBUG_BREAK is a no-op unless SP_COMPILER_CLANG defined
-- **Status:** Done
-- **Completed:** false
-- **Priority:** Low
-
-**Description:**
-PLATFORM-SPECIFIC. `SP_DEBUG_BREAK` only emits a trap on macOS clang when `SP_COMPILER_CLANG` is defined; otherwise it is a no-op, so failed asserts won't break into the debugger. Source: `Seraph/src/Seraph/Core/Assert.h`. Fix: define the compiler macro reliably in the build, and add MSVC (`__debugbreak`) / GCC branches. See docs/core-application-framework.md and docs/build-system.md.
-
----
-
-### 17. [Platform] Jolt debug rendering requires JPH_DEBUG_RENDERER ABI match
-- **Status:** Done
-- **Completed:** false
-- **Priority:** Low
-
-**Description:**
-PLATFORM/BUILD-CONFIG. Physics debug drawing requires `JPH_DEBUG_RENDERER` to be defined consistently across the Jolt library and every TU that includes `<Jolt/Renderer/DebugRenderer.h>` (vtable/ABI). If mismatched, `RenderDebugBodies` is a no-op (only edit-mode wireframes draw) or worse, ABI-breaks. Source: `Seraph/src/Seraph/Physics/JoltPhysics/JoltDebugRenderer.*`, `physics-system.md:126`. Fix: define the flag centrally in the build config so it can't drift. See docs/physics-system.md and docs/build-system.md.
-
----
-
-### 18. [Reflection/SHT] SeraphHeaderTool cannot parse annotated headers on Linux (missing clang builtin/resource-dir includes)
-- **Status:** Review
-- **Completed:** false
-- **Priority:** Critical
-
-**Description:**
-**Build blocker.** libclang is a raw frontend and does not locate its own builtin headers (`stddef.h`, `stdarg.h`). `cmake/sht.cmake` only added `-isysroot` on `APPLE`; the parse passed no `-resource-dir` on Linux. Verified empirically: running `SeraphHeaderTool` on a header including `<cstdint>` failed with `stddef.h file not found`, exit 1.
-
-**FIX APPLIED (`cmake/sht.cmake`):** on non-Apple, `sht_reflect` now locates the clang resource dir (via `clang -print-resource-dir`, with a fallback that globs `<libclang-dir>/clang/*/include`) and passes `-resource-dir <dir>` into the libclang parse; warns if none found. The Apple `-isysroot` path is unchanged (kept the verified macOS behavior).
-
-**VERIFIED:** with the fix, the tool parses `Tools/SeraphHeaderTool/test/GenSample.h` (which includes engine headers -> `<cstdint>`) cleanly and discovers all 5 reflected types on this Linux host (clang 22.1.8, resource dir `/usr/lib/clang/22`). `cmake -P cmake/sht.cmake` parses without error.
-
-**NOT yet verified:** a full engine build with `SERAPH_BUILD_HEADER_TOOL=ON` — this sandbox can't complete configure (unrelated pre-existing assimp `FetchContent` git-clone fails offline). Needs a full ON build on Linux CI to close. Severity: Critical.
-
----
-
-### 19. [Reflection/SHT] Engine now hard-depends on SHT=ON; a SHT-OFF build crashes at runtime (no dual-path), contradicting plan/docs
-- **Status:** Review
-- **Completed:** false
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -209,9 +163,19 @@ Now that #18 (Linux parse blocker) is fixed, ON works on Linux. **Follow-on:** d
 
 ---
 
-### 20. [Reflection] Deref-after-assert in reflection core null-crashes in release builds (SP_CORE_ASSERT compiles out)
-- **Status:** Review
-- **Completed:** false
+### 16. [Platform] Memory tracking is dead Windows-only scaffolding
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Medium
+
+**Description:**
+PLATFORM-SPECIFIC + DEAD CODE. The `Seraph::Allocator` / global new/delete tracking is gated behind `SP_TRACK_MEMORY && SP_PLATFORM_WINDOWS` (impl, `Memory.cpp:431-565`) and `HZ_TRACK_MEMORY`/`HZ_PLATFORM_WINDOWS` (decls, `Memory.h:102-171`) — none of these macros are defined anywhere, the header/impl macro names don't even match, and `Allocator::` is called nowhere. Net effect: `snew`/`sdelete` are plain new/delete and allocation stats are never populated. Fix: either finish it cross-platform or delete the scaffolding to avoid the illusion of working instrumentation. See docs/foundation-and-utilities.md.
+
+---
+
+### 17. [Reflection] Deref-after-assert in reflection core null-crashes in release builds (SP_CORE_ASSERT compiles out)
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -228,9 +192,19 @@ For the two UI `Cast` sites where crashing the editor is worse than a no-op, gua
 
 ---
 
-### 21. [Reflection] TypeId FNV-1a collision silently aliases two types in release (serialization/inspection corruption)
-- **Status:** Review
-- **Completed:** false
+### 18. [Platform] SP_DEBUG_BREAK is a no-op unless SP_COMPILER_CLANG defined
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Low
+
+**Description:**
+PLATFORM-SPECIFIC. `SP_DEBUG_BREAK` only emits a trap on macOS clang when `SP_COMPILER_CLANG` is defined; otherwise it is a no-op, so failed asserts won't break into the debugger. Source: `Seraph/src/Seraph/Core/Assert.h`. Fix: define the compiler macro reliably in the build, and add MSVC (`__debugbreak`) / GCC branches. See docs/core-application-framework.md and docs/build-system.md.
+
+---
+
+### 19. [Reflection] TypeId FNV-1a collision silently aliases two types in release (serialization/inspection corruption)
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -240,9 +214,9 @@ On a `TypeId` hash clash, `Reflection` (`Reflection.cpp:60-73`, `Insert`) assert
 
 ---
 
-### 22. [Reflection] Enum crosses the Any boundary as s64 via properties but as its own TypeId when constructed directly (inconsistent contract)
-- **Status:** Review
-- **Completed:** false
+### 20. [Reflection] Enum crosses the Any boundary as s64 via properties but as its own TypeId when constructed directly (inconsistent contract)
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -252,9 +226,9 @@ Failure: a consumer that does `prop.Get(obj).Is<SomeEnum>()` gets `false`, and `
 
 ---
 
-### 23. [Reflection] Element/nested-struct/reference handling is inconsistent — latent data loss and null-deref in serialization
-- **Status:** Review
-- **Completed:** false
+### 21. [Reflection] Element/nested-struct/reference handling is inconsistent — latent data loss and null-deref in serialization
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -271,9 +245,9 @@ Three related gaps in non-scalar property flow through Any/serialization (latent
 
 ---
 
-### 24. [Reflection/Editor] PropertyDrawer ignores SettingFlag_ReadOnly and does not clamp single-bound (min-only/max-only) numerics
-- **Status:** Review
-- **Completed:** false
+### 22. [Reflection/Editor] PropertyDrawer ignores SettingFlag_ReadOnly and does not clamp single-bound (min-only/max-only) numerics
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -287,9 +261,9 @@ Two inspector attribute-handling gaps in `PropertyDrawer`:
 
 ---
 
-### 25. [Reflection/Scene] Per-entity script field values silently dropped when the Game module is absent or the class was renamed
-- **Status:** Review
-- **Completed:** false
+### 23. [Reflection/Scene] Per-entity script field values silently dropped when the Game module is absent or the class was renamed
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -306,9 +280,9 @@ Script field (de)serialization builds a transient via `ScriptTypes::Create(sc.Sc
 
 ---
 
-### 26. [Reflection/Project] ProjectManager::Open (switch while active) skips Settings::SaveDirty and explicit ScriptLibrary::Unload
-- **Status:** Review
-- **Completed:** false
+### 24. [Reflection/Project] ProjectManager::Open (switch while active) skips Settings::SaveDirty and explicit ScriptLibrary::Unload
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -320,9 +294,9 @@ Note: the core unload wiring itself is correct — `ScriptLibrary::Unload` (`Scr
 
 ---
 
-### 27. [Reflection/Scene] TagComponent is copyable + serialized but not reflected (silent-gap when copy/serialize fully migrate to a reflection walk)
-- **Status:** Review
-- **Completed:** false
+### 25. [Reflection/Scene] TagComponent is copyable + serialized but not reflected (silent-gap when copy/serialize fully migrate to a reflection walk)
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -332,9 +306,9 @@ Failure scenario: the stated end goal is to drive copy/serialization from the re
 
 ---
 
-### 28. [Reflection/Migration] Migrate the 5 remaining hand-written SP_REFLECT_ENUM registrations to SHT SENUM() annotations
-- **Status:** Review
-- **Completed:** false
+### 26. [Reflection/Migration] Migrate the 5 remaining hand-written SP_REFLECT_ENUM registrations to SHT SENUM() annotations
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -350,9 +324,9 @@ Goal: migrate all manual reflection to the header tool. All struct/class registr
 
 ---
 
-### 29. [Reflection/SHT] Drift guard is cosmetic (type-level tautology); a bitfield SPROPERTY writes a misleading "success" file before the late error exit
-- **Status:** Review
-- **Completed:** false
+### 27. [Reflection/SHT] Drift guard is cosmetic (type-level tautology); a bitfield SPROPERTY writes a misleading "success" file before the late error exit
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -366,9 +340,9 @@ The plan's day-one invariant is "every annotation produced a registration or the
 
 ---
 
-### 30. [Reflection/SHT] Emitter/parser robustness: reference members & anonymous unions not rejected, attribute-splitter mishandles braces/quotes, SFUNCTION silently dropped
-- **Status:** Review
-- **Completed:** false
+### 28. [Reflection/SHT] Emitter/parser robustness: reference members & anonymous unions not rejected, attribute-splitter mishandles braces/quotes, SFUNCTION silently dropped
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -386,9 +360,9 @@ Severity: Medium.
 
 ---
 
-### 31. [Reflection/Editor] SceneSerializer & EntityInspectorPanel are only partially reflection-driven (per-component dispatch still hand-written; dual DrawXComponent paths)
-- **Status:** Review
-- **Completed:** false
+### 29. [Reflection/Editor] SceneSerializer & EntityInspectorPanel are only partially reflection-driven (per-component dispatch still hand-written; dual DrawXComponent paths)
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**
@@ -402,9 +376,9 @@ The migration reached field-level reflection but not full per-component auto-dis
 
 ---
 
-### 32. [Reflection] Documentation drift across reflection plan / SHT README / docs / source comments
-- **Status:** Review
-- **Completed:** false
+### 30. [Reflection] Documentation drift across reflection plan / SHT README / docs / source comments
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**
@@ -421,9 +395,9 @@ The reflection docs and several source comments have drifted from the implemente
 
 ---
 
-### 33. [Reflection] Latent robustness cluster: Any copy-assign exception-safety, cross-module pointer invalidation, base-offset assumption, SHT libclang portability
-- **Status:** Review
-- **Completed:** false
+### 31. [Reflection] Latent robustness cluster: Any copy-assign exception-safety, cross-module pointer invalidation, base-offset assumption, SHT libclang portability
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**
@@ -445,9 +419,9 @@ Severity: Low.
 
 ---
 
-### 34. [Reflection/SHT] SP_SHT_PARSE was defined globally for the engine compile — breaks GCC/Linux (-Werror=attributes)
-- **Status:** Review
-- **Completed:** false
+### 32. [Reflection/SHT] SP_SHT_PARSE was defined globally for the engine compile — breaks GCC/Linux (-Werror=attributes)
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Critical
 
 **Description:**
@@ -462,9 +436,9 @@ Latent until now: on Linux the build previously failed earlier at SHT code-gen (
 
 ---
 
-### 35. [Reflection/SHT] Auto-generate .gen.cpp for annotation changes without a manual reconfigure
-- **Status:** Review
-- **Completed:** false
+### 33. [Reflection/SHT] Auto-generate .gen.cpp for annotation changes without a manual reconfigure
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -487,9 +461,334 @@ Result: adding an annotation to an existing header is picked up by a plain **bui
 
 ---
 
+### 34. [Platform] Jolt debug rendering requires JPH_DEBUG_RENDERER ABI match
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Low
+
+**Description:**
+PLATFORM/BUILD-CONFIG. Physics debug drawing requires `JPH_DEBUG_RENDERER` to be defined consistently across the Jolt library and every TU that includes `<Jolt/Renderer/DebugRenderer.h>` (vtable/ABI). If mismatched, `RenderDebugBodies` is a no-op (only edit-mode wireframes draw) or worse, ABI-breaks. Source: `Seraph/src/Seraph/Physics/JoltPhysics/JoltDebugRenderer.*`, `physics-system.md:126`. Fix: define the flag centrally in the build config so it can't drift. See docs/physics-system.md and docs/build-system.md.
+
+---
+
+### 35. [Reflection/SHT] SeraphHeaderTool cannot parse annotated headers on Linux (missing clang builtin/resource-dir includes)
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Critical
+
+**Description:**
+**Build blocker.** libclang is a raw frontend and does not locate its own builtin headers (`stddef.h`, `stdarg.h`). `cmake/sht.cmake` only added `-isysroot` on `APPLE`; the parse passed no `-resource-dir` on Linux. Verified empirically: running `SeraphHeaderTool` on a header including `<cstdint>` failed with `stddef.h file not found`, exit 1.
+
+**FIX APPLIED (`cmake/sht.cmake`):** on non-Apple, `sht_reflect` now locates the clang resource dir (via `clang -print-resource-dir`, with a fallback that globs `<libclang-dir>/clang/*/include`) and passes `-resource-dir <dir>` into the libclang parse; warns if none found. The Apple `-isysroot` path is unchanged (kept the verified macOS behavior).
+
+**VERIFIED:** with the fix, the tool parses `Tools/SeraphHeaderTool/test/GenSample.h` (which includes engine headers -> `<cstdint>`) cleanly and discovers all 5 reflected types on this Linux host (clang 22.1.8, resource dir `/usr/lib/clang/22`). `cmake -P cmake/sht.cmake` parses without error.
+
+**NOT yet verified:** a full engine build with `SERAPH_BUILD_HEADER_TOOL=ON` — this sandbox can't complete configure (unrelated pre-existing assimp `FetchContent` git-clone fails offline). Needs a full ON build on Linux CI to close. Severity: Critical.
+
+---
+
 ### 36. Entity picker doesn't pick entities that have no mesh
 - **Status:** Backlog
 - **Completed:** false
 - **Priority:** Medium
+
+---
+
+### 37. Add import options for models.
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Add a dialog window when importing meshes into the engine. Should work like Godot/Unity/Unreal where you can reimport the mesh later.
+
+
+Also add support to auto create materials when importing
+
+---
+
+### 38. Revist adding new asset types
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+With the new reflection system we should take a look at how we handle adding new asset types.
+
+Ideally, we would just subclass the Asset class in the new asset and provide some information in the SCLASS annotation and have the asset system handel the rest.
+
+Whish list:
+
+1. Automatically serialize/deserialze in scenes if needed
+2. “Create new” support in the Asset browser (I think Unreal does it best out of the popular options)
+3. Support for thubmail/icons
+
+---
+
+### 39. Header documentation pass
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+There is a lot of documentation in the header files that have become out dated or stale now that we have introduced so many core systems. We’ll need to do a documentation pass on all of the headers in the system to ensure they are accurate and don’t contain things like  [https://github.com/Rex-22/Seraph/blob/main/Seraph/src/Seraph/Reflection/Annotations.h#L6-L7](https://github.com/Rex-22/Seraph/blob/main/Seraph/src/Seraph/Reflection/Annotations.h#L6-L7) or [https://github.com/Rex-22/Seraph/blob/main/Seraph/src/Seraph/Graphics/Material/MaterialParameter.cpp#L11](https://github.com/Rex-22/Seraph/blob/main/Seraph/src/Seraph/Graphics/Material/MaterialParameter.cpp#L11)
+
+To stop this from being a problem in the future we’ll need to setup some guidlines in a CLAUDE.md
+
+---
+
+### 40. Setup CLAUDE.MD
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+* Include convensions for comments in code and headers
+*
+
+---
+
+### 41. Migrate Application spesification to Settings
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+The information here contains things that should be part of the project setup process
+
+---
+
+### 42. Revisit the project file
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Look at what it’s purpose is now, and what it can/should be used for in the future.
+
+* Engine version?
+* Project spesific settings?
+  * We already have a project settings file thou
+* Application details?
+  * Name
+  * Description
+  * Thumbnail (like how Godot/Unreal has)
+  * Dependency information?
+
+---
+
+### 43. Investigate what is involved in setting up a dependency module system
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+We are getting to the point where we have a lot of external dependencies and I would like to intriduce a plugin system where you can activate/deactivate or create new plugins.&#x20;
+
+A plugin should be a self containted dll/library that has some entries points that the engine can load up (requireing a restart?) to provide additional functionality. Think of it as a version of what unreal has.&#x20;
+
+This will require a large rethink of engine architecture and how we expose diffrent parts of the engine to plugins and how they interact with one and other. The hope is to have a echosystem of plugins that can be developed independently of the main engine core.&#x20;
+
+Some things to conder for this:
+
+* Look at how these systems are setup
+* How do they interact with each other (dependencies?)
+* What core systems should move to plugins
+  * Allow for things like swapping out the phyics backend?&#x20;
+* Allow for per project plugins?
+* Could open the door for first class modding support in shippe games?
+* Could allow use to support things like DLC?&#x20;
+
+---
+
+### 44. Improve runtime exporting
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Currently when you export a game from the editor you go to a menu item and click package game. This works fine, but the whole editor freezes until the compilation of the games code is done. You also don’t have the option to configure anything for the export.
+
+Would like to improve this whole flow by:
+
+* Allowing you to configure export setttings for
+  * Executable name
+  * Game version
+  * Icon
+  * Other settings that are spesific to exports and not the project?
+* Export profiles for platfroms
+  * Only target Mac, Windows and Linux for now, but should remain flexible for things like Android and iOS in the future
+* Progress indecator/log of the export
+* Support triggering packaging from a CLI
+  * Reuse exsiting --pacakge flag?
+* Maybe move game packaging to it’s own executable?&#x20;
+
+---
+
+### 45. Add change tracking support to the editor
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Currently when you make any change in the engine it is a permanent change. There is no unco/redo support.&#x20;
+
+Invesitgate how other enginges handle this sort of feature and what are the benefits or drawbacks of each.
+
+---
+
+### 46. Editor improvements
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Just a braindump of editor improvements
+
+* Cleanup menu bar, a lot of the items are sort of duplicated else where in the system, like creating a new material
+* Support tracking ‘dirty’ state so you don’t close the project if there are unsaved changes
+* Add support for shortcuts. Need a easy and quick way to register shortcuts to actions and also rebind them
+* Improve the UI an UX of the Settings view, the current one is hard to navigate with everything in one list.
+* MOST IMPORTANT, a core set of editor widgets that can be reused.&#x20;
+  * This is a larger task that will require some thinking and a massive refactor, but will improve the editor experience by a lot.
+* Setup a Editor UI philosophy document or guide for what the editor should look like and how it should work
+* Plugin system/API for supporting editor widgets/views
+* Default Editor layout and support for saving layout presets
+  * Current default layout doesn't dock any panels and needs to be setup by the user
+* Play-in-editor mode needs some improvements, would like to be able to inspect the scene while playing
+* Improve project launcher
+  * Add support for deleting a recent project entry
+  * Scan directory for projects
+  * New project templates
+  * Open project button can be one step instead of the two we have now which is enter/pick project location and then clicking open project
+  * Create directory button based on project name when picking a location for new projects
+* "Open asset" support:
+  * In Unreal you can double click to open a material and change it's values, we don't have that and this is a larger issue in the editor as a whole, where you can't really interact with assets once thy are open. For materials we work around this by having a Material inspector, but that was just a patch to test materials initially. I would like to have a system in place or at least a conceptial workflow for how assets should be opened or edited from the editor. Unreal has this nailed down where it opens a mini editor in a new window, would probably like to include something like that as it is super flexible
+
+**Dependencies:**
+- Revist adding new asset types
+
+---
+
+### 47. Multi-Window support and ImGUI multi-window support
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Some of the editor functionality in 48. Editor Improvements might require us to support this.
+
+---
+
+### 48. 2D support
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+There is a lot here we can take a look at for full 2D support.
+
+Below is a list of small-large items we can take a look at to integrate 2D support. Some of these items will also be usefull for 3D as well so we should higlight those first to build propper abstraction first
+
+2D Rendering Pipeline
+
+* Sprite Batching
+* Z-Sorting (Depth Management)
+* Frustum Culling
+
+Lighting and Shadows
+
+* 2D Normal Mapping
+* Raycasted 2D Shadows
+* Light Blending
+
+Tilemapping System
+
+* Grid Support
+* Auto-Tiling (Bitmasking)
+* Chunking & Spatial Hashing
+
+Physics and Collision Detection
+
+* Rigid Body Dynamics (Box2D integration?)
+* Broad-Phase Spatial Partitioning
+* Narrow-Phase Resolution
+
+Animation & State Management (this might need to depend on a core animation system that will be used for both 2D and 3D)
+
+* Sprite Sheet Animation
+* 2D Skeletal Animation
+* Animation State Machines
+
+---
+
+### 49. Audio
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Probably need this at some point
+
+---
+
+### 50. Runtime UI
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Medium
+
+**Description:**
+Need to add a propper UI system for games at some point. Not looking to replace ImGUI for editor UI (yet), but having this for games is crucial. This will depend on a few things like a improvement to the input/event system currently as those two systems are still inmature when it comes to swalloing/allowing inputs and events (ImGUI is probably the main culpret there, but that is work for a diffrent ticket).
+
+
+
+Some options we can look at for UI:
+
+* Hand rolling our own layout and styling system
+* Integrate with a library that provides this out of the box, some options include:
+  * Yoga
+  * Clay
+  * RmlUi (probably this?)
+
+
+
+I would like to include a visual UI editor for this, but that is a complex task..&#x20;
+
+---
+
+### 51. Deferred — future settings work (not scheduled)
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Low
+
+**Description:**
+Parking ticket for out-of-scope settings work. Promote when the consuming feature is scheduled.
+
+## Items
+- Asset-backed store: `SettingsAsset : Asset` + serializer (new `AssetType`, register in `AssetImporter::Init`) — content-authored, pack-shippable gameplay settings.
+- Server-backed `ISettingsStore` (greenfield — engine has no net layer; design Load/Save async-friendly first).
+- Runtime/gameplay-authored settings surface for shipped games (in-game options menu reading the registry).
+- INI backend (interface supports it; YAML won the v1 decision).
+- Drive window creation from Settings (removes the `.sproj` chicken-and-egg, plan example C).
+- Migrate `EntityInspectorPanel` onto `PropertyDrawer` (also listed on ReflectionBoard deferred — coordinate).
+- Editable collision-layer matrix widget in SettingsPanel.
+
+## Documentation
+- `Todo/plans/settings-plan.md` (deferred section)
+
+**Subtasks:**
+- [ ] Enum-valued settings (needs Any enum-underlying extraction) — blocks YAML persist + drawer editing for enums
+- [ ] Migrate SceneRendererSettings (instance-scoped) + Log per-tag levels (dynamic map) — need a per-instance / map settings pattern
+- [ ] SettingsPanel two-pane section tree + subsections (v1 uses collapsing headers); minimal-diff saves (v1 saves all of scope)
+
+---
+
+### 52. Deferred — future console work (not scheduled)
+- **Status:** Backlog
+- **Completed:** false
+- **Priority:** Low
+
+**Description:**
+Still not scheduled (enum persistence, aliases, autoexec, argument autocomplete, and SetBy priority were done in Console 11): (2) config-var groups / scalability buckets (sg.* quality presets); (3) remote console / network exec; (4b) multi-line exec scripts with cvar interpolation / variable substitution (basic aliases + exec done; interpolation not); (6) console variable sinks batching (deferred callback flush like Unreal's CallAllConsoleVariableSinks — change hooks currently fire immediately); (8b) autocomplete for asset-name argument values (enum labels + bool done; AssetHandle args not); plus project-scoped autoexec-on-boot (currently only user-scope autoexec runs at Console::Init; a project autoexec would run after project load).
 
 ---

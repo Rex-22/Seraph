@@ -9,8 +9,8 @@ statuses:
 ---
 
 ### 1. Reflection 1 — TypeId (FNV-1a) + Any value type
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Critical
 
 **Description:**
@@ -41,193 +41,9 @@ Create the two leaf primitives everything else builds on, under `Seraph/src/Sera
 
 ---
 
-### 2. Reflection 2 — Type/Property/EnumInfo/AttributeSet descriptors + Reflection facade
-- **Status:** Review
-- **Completed:** false
-- **Priority:** Critical
-
-**Description:**
-The runtime data model consumers walk, plus the registry facade. Still no registration sugar (that's Reflection 3) — types can be described by hand-constructing descriptors in this ticket's verification code.
-
-## Acceptance Criteria
-- `Reflection/Type.h`: `Kind {Primitive, Struct, Enum}`; `Property { Name, PropType, Attrs, Get(const void*)->Any, Set(void*, const Any&) }`; `EnumInfo { Entries: (name, s64) pairs }`; `Type { Id, Name, Kind, Size, Align, Base, Properties, Enum, Attrs, DynamicType fn-ptr }`.
-- `AttributeSet`: open map of hashed key (`u64`, from `constexpr` string hash) → `Any`. Reflection defines **no** attribute keys itself — domains own their vocabularies (plan example D).
-- `Reflection/Reflection.{h,cpp}` static facade: `Get<T>()`, `Resolve(TypeId)`, `Resolve(string_view)`, `All()`. Storage is a **function-local static** (static-init-order-safe, same pattern as `ScriptRegistry::Storage()`).
-- Built-in primitives pre-registered: `bool`, `s32`/`u32`/`s64`/`u64`, `f32`/`f64`, `std::string`, `glm::vec2/3/4`.
-- Duplicate-name hash collision → loud `SP_CORE_ASSERT` at registration.
-- Compiles clean; `Any::GetType()` now fully functional against registered types.
-
-## Technical Notes
-- READ `Todo/plans/reflection-plan.md` **example D** (open attributes) — do not bake Min/Tooltip/Section keys into this layer.
-- `Type::Properties` holds own + inherited, resolved once at registration (walk `Base` then append own) so consumers never walk the chain.
-- Log tag: add a `"Reflection"` default to `Log.cpp` `s_DefaultTagDetails`.
-
-## Documentation
-- `Todo/plans/reflection-plan.md` (Part 1 "Core data model" + "Public facade", example D)
-
-**Subtasks:**
-- [x] Type.h — TypeKind, Property{Name,PropType,Attrs,Get,Set}, EnumInfo, Type{...,DynamicType}, FindProperty
-- [x] AttributeSet — open hashed-key->Any bag + constexpr AttributeKey(); Reflection defines no keys
-- [x] Reflection facade — Get/TryGet/Resolve(id|name)/All/Register; function-local-static deque storage
-- [x] 11 built-in primitives pre-registered; TypeId collision -> loud assert, same-name re-register idempotent+warn
-- [x] Any::GetType() wired via Detail::ResolveTypeById (no include cycle); "Reflection" log tag added
-- [x] Verified: behavioral harness all-pass + real engine build (libSeraph links clean, -Werror)
-
----
-
-### 3. Reflection 3 — SP_REFLECT_TYPE fluent builder + non-intrusive registration
-- **Status:** Review
-- **Completed:** false
-- **Priority:** High
-
-**Description:**
-The v1 registration front-end: a fluent `TypeBuilder` and the file-scope self-registering `SP_REFLECT_TYPE(...) ... SP_REFLECT_END()` macro pair, for public members only (private access + GetType hook land in Reflection 4).
-
-## Acceptance Criteria
-- `Reflection/Reflect.h`: `TypeBuilder` with `.Property(name, &T::member)` (pointer-to-member → auto Get/Set thunks through `Any`), `.Property(name, getFn, setFn)` (computed values), `.Attr(key, value)` applying to the last-added property (or the type when none), `.Base<TBase>()`.
-- `SP_REFLECT_TYPE(Type)` expands to an anonymous-namespace static-init registration (same shape and rationale as `SP_REGISTER_SCRIPT`); `SP_REFLECT_END()` finalizes (resolves inherited properties, registers with the facade).
-- Get/Set thunks are stateless function pointers where possible; `Set` validates the incoming `Any`'s type (debug assert + no-op on mismatch, never UB).
-- `.Base<T>()` requires the base to be registered first — loud assert otherwise.
-- Register `PhysicsSettings` (`Physics/PhysicsSettings.h:59`) as the proving type: all 7 fields, walked and get/set via the facade.
-
-## Technical Notes
-- READ `Todo/plans/reflection-plan.md` Part 1 "Registration API" for the exact target syntax.
-- Pointer-to-member thunk: capture `M T::*` as a template parameter (`template<auto Member>`) so the thunk is a plain function pointer, not a heap `std::function`.
-- Registration inside `libSeraph` is dead-strip-safe only because consumers reference the facade — the Game-module case is Reflection 5's problem, not this ticket's.
-
-## Documentation
-- `Todo/plans/reflection-plan.md` (Part 1 "Registration API")
-
-**Subtasks:**
-- [x] Reflect.h — TypeBuilder<T> + SP_REFLECT_TYPE/SP_REFLECT_END macros (anon-ns static-init, __COUNTER__)
-- [x] .Property<&T::M>("Name") — NTTP member pointer -> stateless fn-ptr thunks (Set validates Any type)
-- [x] .Property<&Get,&Set>("Name") computed form; .Attr(key,val) to last property/type; .Base<T>()
-- [x] Base-class property flattening at Commit (inherited first); .Base<T> asserts base registered first
-- [x] Verified: PhysicsSettings (7 fields) + base flatten + computed + attr, harness pass, -Werror clean
-
----
-
-### 4. Reflection 4 — Intrusive SP_REFLECT() macro + ScriptableEntity::GetType hook
-- **Status:** Review
-- **Completed:** false
-- **Priority:** High
-
-**Description:**
-The intrusive half: private-member access via friendship and polymorphic dynamic-type resolution. This is what "expose a script's private fields in the editor" hangs on.
-
-## Acceptance Criteria
-- `SP_REFLECT()` placed in a class body: (1) `friend`s the registrar access struct so `SP_REFLECT_TYPE` can form pointers-to-member for **private** fields; (2) declares the `GetType()` override. Body/definition emitted via the matching `SP_REFLECT_TYPE` in the .cpp.
-- `Scripts/ScriptableEntity.h` gains `virtual const Type& GetType() const;` defaulting to the `ScriptableEntity` type (registered in this ticket). Subclasses using `SP_REFLECT()` resolve to their concrete `Type`.
-- `Type::DynamicType` populated for intrusive types; an `Enemy*` held as `ScriptableEntity*` resolves to `Enemy`'s `Type`.
-- Non-intrusive registration keeps working unchanged for types without the macro (they simply have no dynamic resolution/private access).
-- Proving type: a test `ScriptableEntity` subclass with a private `f32` field, registered with `.Base<ScriptableEntity>()`, private field get/set through the facade, dynamic resolution verified through a base pointer.
-
-## Technical Notes
-- READ `Todo/plans/reflection-plan.md` **example B** — access is checked where the member-pointer is *formed* (friend context), stored thunks need no further checks.
-- Keep `ScriptableEntity.h` cheap: fwd-declare `Type`, define the default `GetType()` out-of-line.
-
-## Documentation
-- `Todo/plans/reflection-plan.md` (example B)
-
-**Subtasks:**
-- [x] SP_REFLECT(T) — friends TypeBuilder<T>, declares virtual GetType + private member hook
-- [x] SP_REFLECT_IMPL/_END — hook body (member of T -> reaches privates) + Dynamic() + self-register trigger
-- [x] TypeBuilder::Dynamic() (DynamicType thunk via virtual GetType) + IntrusiveMembers()
-- [x] ScriptableEntity.h GetType decl + ScriptableEntity.cpp def + root registration (Dynamic)
-- [x] Verified: Enemy private f32 get/set via facade; Enemy* as ScriptableEntity* resolves to Enemy; engine builds
-
----
-
-### 5. Reflection 5 — Module-scoped registration + ClearModule + hot-reload wiring
-- **Status:** Review
-- **Completed:** false
-- **Priority:** High
-
-**Description:**
-Make registration safe across the `libGame` dylib load/unload boundary — the same contract `ScriptRegistry::Clear()` already implements, but scoped so engine types survive.
-
-## Acceptance Criteria
-- Registrations tagged with an owning `ModuleTag` (Engine default; Game set while the script module registers — a static "current module" the loader brackets around `SDL_LoadObject`).
-- `Reflection::ClearModule(tag)` drops every Type/Property owned by that tag; engine types untouched.
-- `Project/ProjectManager.cpp`: `ClearModule(GameModuleTag)` called in the unload path, adjacent to the existing `ScriptRegistry::Clear()` — no reflected accessor may outlive the code it points into.
-- Dead-strip smoke test: a reflected type in the Sandbox Game module (OBJECT lib) registers on load — log `Reflection::All().size()` before/after module load and after ClearModule.
-- Reload cycle verified: load → register → unload → purge → reload → re-register; `Resolve(TypeId)` works again after reload (name-hash identity is what survives — plan example A).
-
-## Technical Notes
-- READ `Todo/plans/reflection-plan.md` **example A** (all three dylib hazards) before starting.
-- Consumers must re-resolve `const Type*` after reload — never cache raw descriptor pointers for Game types across the boundary. Document this on the facade.
-
-## Documentation
-- `Todo/plans/reflection-plan.md` (example A)
-- `Todo/plans/scripting-plan.md` (example A — dead-strip)
-
-**Subtasks:**
-- [x] ModuleTag (Engine/Game) + per-type tagging in Storage (unique_ptr owner -> survivor addresses stable)
-- [x] Reflection::SetCurrentModule/CurrentModule/ClearModule + ReflectionModuleScope RAII
-- [x] ScriptLibrary::Load brackets SDL_LoadObject w/ Game scope; Unload calls ClearModule before unmap
-- [x] Facade documents: re-resolve by TypeId/name after reload; never cache Game-type descriptor pointers
-- [x] Verified end-to-end via real ScriptLibrary path: load/purge/reload cycle, count 12->13->12->13->12, engine builds
-
----
-
-### 6. Reflection 6 — Enum reflection + migrate one BiMap enum as proof
-- **Status:** Review
-- **Completed:** false
-- **Priority:** Medium
-
-**Description:**
-Enum registration (`SP_REFLECT_ENUM`) populating `EnumInfo` with name↔value entries, replacing the hand-rolled `BiMap` enum↔string idiom one enum at a time.
-
-## Acceptance Criteria
-- `SP_REFLECT_ENUM(EnumType)` + `.Value("Name", EnumType::Name)` builder; `Type::Kind == Enum`, `Type::Enum` populated.
-- Facade helpers: `EnumToString(const Type&, s64)` / `EnumFromString(const Type&, string_view)` returning `optional`.
-- `Any` round-trips enum values (stored as underlying + `const Type*`).
-- Migrate exactly one existing `BiMap` enum as proof (suggest `MaterialParameterType`, `Graphics/Material/MaterialParameter.cpp`) — its `ToString`/`FromString` wrappers now delegate to reflection; call sites unchanged.
-- All targets compile clean; material serialization round-trip still works.
-
-## Technical Notes
-- Keep the existing free-function signatures; only their implementation changes. No mass migration in this ticket — the rest of the BiMap enums are deferred-column work.
-
-## Documentation
-- `Todo/plans/reflection-plan.md` (Part 1 "Core data model")
-
-**Subtasks:**
-- [x] EnumBuilder<E> + SP_REFLECT_ENUM/SP_REFLECT_ENUM_END; Type::Enum now owned (unique_ptr<EnumInfo>)
-- [x] EnumToString/EnumFromString facade helpers (optional-returning) in Type.h
-- [x] Migrated MaterialParameterType off BiMap -> reflection (TryGet); signatures + legacy strings unchanged
-- [x] Verified: enum Type/entries, facade helpers, all-10 ToString/FromString round-trip + fallback, Any enum round-trip; engine builds
-
----
-
-### 7. Reflection 7 — End-to-end verification
-- **Status:** Review
-- **Completed:** false
-- **Priority:** Medium
-
-**Description:**
-Prove the whole v1 core in one pass before Settings builds on it.
-
-## Acceptance Criteria
-- `PhysicsSettings` fully reflected (from Reflection 3): walk `Properties`, `Get` each into `Any`, `Set` mutated values back, confirm the live struct changed.
-- `TypeId` round-trip: serialize a `TypeId` to YAML, reload, `Resolve()` finds the type (both engine and Game-module types, after a reload cycle).
-- Intrusive path: private field of a `ScriptableEntity` subclass read/written through a base pointer via `GetType()`.
-- Attribute retrieval: a domain-defined key set at registration reads back with the correct typed `Any`.
-- Enum: to/from string + `Any` round-trip.
-- Full engine + editor + runtime build clean on the primary platform; smoke-run the editor.
-
-## Documentation
-- `Todo/plans/reflection-plan.md` (task map item 7)
-
-**Subtasks:**
-- [x] Consolidated harness: PhysicsSettings walk+get/set, attr retrieval, intrusive private via base ptr, enum str+Any
-- [x] YAML TypeId round-trip: engine type + Game-module type across load->serialize->unload->reload->resolve
-- [x] Full engine + editor + runtime build clean; editor smoke-run OK (user-confirmed)
-
----
-
-### 8. SHT 1 — Spike: tool skeleton + libclang acquisition + annotation parse/dump
-- **Status:** Review
-- **Completed:** false
+### 2. SHT 1 — Spike: tool skeleton + libclang acquisition + annotation parse/dump
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Critical
 
 **Description:**
@@ -259,9 +75,193 @@ Derisk the whole SeraphHeaderTool tangent: get libclang acquired, a `Tools/Serap
 
 ---
 
+### 3. Reflection 2 — Type/Property/EnumInfo/AttributeSet descriptors + Reflection facade
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Critical
+
+**Description:**
+The runtime data model consumers walk, plus the registry facade. Still no registration sugar (that's Reflection 3) — types can be described by hand-constructing descriptors in this ticket's verification code.
+
+## Acceptance Criteria
+- `Reflection/Type.h`: `Kind {Primitive, Struct, Enum}`; `Property { Name, PropType, Attrs, Get(const void*)->Any, Set(void*, const Any&) }`; `EnumInfo { Entries: (name, s64) pairs }`; `Type { Id, Name, Kind, Size, Align, Base, Properties, Enum, Attrs, DynamicType fn-ptr }`.
+- `AttributeSet`: open map of hashed key (`u64`, from `constexpr` string hash) → `Any`. Reflection defines **no** attribute keys itself — domains own their vocabularies (plan example D).
+- `Reflection/Reflection.{h,cpp}` static facade: `Get<T>()`, `Resolve(TypeId)`, `Resolve(string_view)`, `All()`. Storage is a **function-local static** (static-init-order-safe, same pattern as `ScriptRegistry::Storage()`).
+- Built-in primitives pre-registered: `bool`, `s32`/`u32`/`s64`/`u64`, `f32`/`f64`, `std::string`, `glm::vec2/3/4`.
+- Duplicate-name hash collision → loud `SP_CORE_ASSERT` at registration.
+- Compiles clean; `Any::GetType()` now fully functional against registered types.
+
+## Technical Notes
+- READ `Todo/plans/reflection-plan.md` **example D** (open attributes) — do not bake Min/Tooltip/Section keys into this layer.
+- `Type::Properties` holds own + inherited, resolved once at registration (walk `Base` then append own) so consumers never walk the chain.
+- Log tag: add a `"Reflection"` default to `Log.cpp` `s_DefaultTagDetails`.
+
+## Documentation
+- `Todo/plans/reflection-plan.md` (Part 1 "Core data model" + "Public facade", example D)
+
+**Subtasks:**
+- [x] Type.h — TypeKind, Property{Name,PropType,Attrs,Get,Set}, EnumInfo, Type{...,DynamicType}, FindProperty
+- [x] AttributeSet — open hashed-key->Any bag + constexpr AttributeKey(); Reflection defines no keys
+- [x] Reflection facade — Get/TryGet/Resolve(id|name)/All/Register; function-local-static deque storage
+- [x] 11 built-in primitives pre-registered; TypeId collision -> loud assert, same-name re-register idempotent+warn
+- [x] Any::GetType() wired via Detail::ResolveTypeById (no include cycle); "Reflection" log tag added
+- [x] Verified: behavioral harness all-pass + real engine build (libSeraph links clean, -Werror)
+
+---
+
+### 4. Reflection 3 — SP_REFLECT_TYPE fluent builder + non-intrusive registration
+- **Status:** Done
+- **Completed:** true
+- **Priority:** High
+
+**Description:**
+The v1 registration front-end: a fluent `TypeBuilder` and the file-scope self-registering `SP_REFLECT_TYPE(...) ... SP_REFLECT_END()` macro pair, for public members only (private access + GetType hook land in Reflection 4).
+
+## Acceptance Criteria
+- `Reflection/Reflect.h`: `TypeBuilder` with `.Property(name, &T::member)` (pointer-to-member → auto Get/Set thunks through `Any`), `.Property(name, getFn, setFn)` (computed values), `.Attr(key, value)` applying to the last-added property (or the type when none), `.Base<TBase>()`.
+- `SP_REFLECT_TYPE(Type)` expands to an anonymous-namespace static-init registration (same shape and rationale as `SP_REGISTER_SCRIPT`); `SP_REFLECT_END()` finalizes (resolves inherited properties, registers with the facade).
+- Get/Set thunks are stateless function pointers where possible; `Set` validates the incoming `Any`'s type (debug assert + no-op on mismatch, never UB).
+- `.Base<T>()` requires the base to be registered first — loud assert otherwise.
+- Register `PhysicsSettings` (`Physics/PhysicsSettings.h:59`) as the proving type: all 7 fields, walked and get/set via the facade.
+
+## Technical Notes
+- READ `Todo/plans/reflection-plan.md` Part 1 "Registration API" for the exact target syntax.
+- Pointer-to-member thunk: capture `M T::*` as a template parameter (`template<auto Member>`) so the thunk is a plain function pointer, not a heap `std::function`.
+- Registration inside `libSeraph` is dead-strip-safe only because consumers reference the facade — the Game-module case is Reflection 5's problem, not this ticket's.
+
+## Documentation
+- `Todo/plans/reflection-plan.md` (Part 1 "Registration API")
+
+**Subtasks:**
+- [x] Reflect.h — TypeBuilder<T> + SP_REFLECT_TYPE/SP_REFLECT_END macros (anon-ns static-init, __COUNTER__)
+- [x] .Property<&T::M>("Name") — NTTP member pointer -> stateless fn-ptr thunks (Set validates Any type)
+- [x] .Property<&Get,&Set>("Name") computed form; .Attr(key,val) to last property/type; .Base<T>()
+- [x] Base-class property flattening at Commit (inherited first); .Base<T> asserts base registered first
+- [x] Verified: PhysicsSettings (7 fields) + base flatten + computed + attr, harness pass, -Werror clean
+
+---
+
+### 5. Reflection 4 — Intrusive SP_REFLECT() macro + ScriptableEntity::GetType hook
+- **Status:** Done
+- **Completed:** true
+- **Priority:** High
+
+**Description:**
+The intrusive half: private-member access via friendship and polymorphic dynamic-type resolution. This is what "expose a script's private fields in the editor" hangs on.
+
+## Acceptance Criteria
+- `SP_REFLECT()` placed in a class body: (1) `friend`s the registrar access struct so `SP_REFLECT_TYPE` can form pointers-to-member for **private** fields; (2) declares the `GetType()` override. Body/definition emitted via the matching `SP_REFLECT_TYPE` in the .cpp.
+- `Scripts/ScriptableEntity.h` gains `virtual const Type& GetType() const;` defaulting to the `ScriptableEntity` type (registered in this ticket). Subclasses using `SP_REFLECT()` resolve to their concrete `Type`.
+- `Type::DynamicType` populated for intrusive types; an `Enemy*` held as `ScriptableEntity*` resolves to `Enemy`'s `Type`.
+- Non-intrusive registration keeps working unchanged for types without the macro (they simply have no dynamic resolution/private access).
+- Proving type: a test `ScriptableEntity` subclass with a private `f32` field, registered with `.Base<ScriptableEntity>()`, private field get/set through the facade, dynamic resolution verified through a base pointer.
+
+## Technical Notes
+- READ `Todo/plans/reflection-plan.md` **example B** — access is checked where the member-pointer is *formed* (friend context), stored thunks need no further checks.
+- Keep `ScriptableEntity.h` cheap: fwd-declare `Type`, define the default `GetType()` out-of-line.
+
+## Documentation
+- `Todo/plans/reflection-plan.md` (example B)
+
+**Subtasks:**
+- [x] SP_REFLECT(T) — friends TypeBuilder<T>, declares virtual GetType + private member hook
+- [x] SP_REFLECT_IMPL/_END — hook body (member of T -> reaches privates) + Dynamic() + self-register trigger
+- [x] TypeBuilder::Dynamic() (DynamicType thunk via virtual GetType) + IntrusiveMembers()
+- [x] ScriptableEntity.h GetType decl + ScriptableEntity.cpp def + root registration (Dynamic)
+- [x] Verified: Enemy private f32 get/set via facade; Enemy* as ScriptableEntity* resolves to Enemy; engine builds
+
+---
+
+### 6. Reflection 5 — Module-scoped registration + ClearModule + hot-reload wiring
+- **Status:** Done
+- **Completed:** true
+- **Priority:** High
+
+**Description:**
+Make registration safe across the `libGame` dylib load/unload boundary — the same contract `ScriptRegistry::Clear()` already implements, but scoped so engine types survive.
+
+## Acceptance Criteria
+- Registrations tagged with an owning `ModuleTag` (Engine default; Game set while the script module registers — a static "current module" the loader brackets around `SDL_LoadObject`).
+- `Reflection::ClearModule(tag)` drops every Type/Property owned by that tag; engine types untouched.
+- `Project/ProjectManager.cpp`: `ClearModule(GameModuleTag)` called in the unload path, adjacent to the existing `ScriptRegistry::Clear()` — no reflected accessor may outlive the code it points into.
+- Dead-strip smoke test: a reflected type in the Sandbox Game module (OBJECT lib) registers on load — log `Reflection::All().size()` before/after module load and after ClearModule.
+- Reload cycle verified: load → register → unload → purge → reload → re-register; `Resolve(TypeId)` works again after reload (name-hash identity is what survives — plan example A).
+
+## Technical Notes
+- READ `Todo/plans/reflection-plan.md` **example A** (all three dylib hazards) before starting.
+- Consumers must re-resolve `const Type*` after reload — never cache raw descriptor pointers for Game types across the boundary. Document this on the facade.
+
+## Documentation
+- `Todo/plans/reflection-plan.md` (example A)
+- `Todo/plans/scripting-plan.md` (example A — dead-strip)
+
+**Subtasks:**
+- [x] ModuleTag (Engine/Game) + per-type tagging in Storage (unique_ptr owner -> survivor addresses stable)
+- [x] Reflection::SetCurrentModule/CurrentModule/ClearModule + ReflectionModuleScope RAII
+- [x] ScriptLibrary::Load brackets SDL_LoadObject w/ Game scope; Unload calls ClearModule before unmap
+- [x] Facade documents: re-resolve by TypeId/name after reload; never cache Game-type descriptor pointers
+- [x] Verified end-to-end via real ScriptLibrary path: load/purge/reload cycle, count 12->13->12->13->12, engine builds
+
+---
+
+### 7. Reflection 6 — Enum reflection + migrate one BiMap enum as proof
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Medium
+
+**Description:**
+Enum registration (`SP_REFLECT_ENUM`) populating `EnumInfo` with name↔value entries, replacing the hand-rolled `BiMap` enum↔string idiom one enum at a time.
+
+## Acceptance Criteria
+- `SP_REFLECT_ENUM(EnumType)` + `.Value("Name", EnumType::Name)` builder; `Type::Kind == Enum`, `Type::Enum` populated.
+- Facade helpers: `EnumToString(const Type&, s64)` / `EnumFromString(const Type&, string_view)` returning `optional`.
+- `Any` round-trips enum values (stored as underlying + `const Type*`).
+- Migrate exactly one existing `BiMap` enum as proof (suggest `MaterialParameterType`, `Graphics/Material/MaterialParameter.cpp`) — its `ToString`/`FromString` wrappers now delegate to reflection; call sites unchanged.
+- All targets compile clean; material serialization round-trip still works.
+
+## Technical Notes
+- Keep the existing free-function signatures; only their implementation changes. No mass migration in this ticket — the rest of the BiMap enums are deferred-column work.
+
+## Documentation
+- `Todo/plans/reflection-plan.md` (Part 1 "Core data model")
+
+**Subtasks:**
+- [x] EnumBuilder<E> + SP_REFLECT_ENUM/SP_REFLECT_ENUM_END; Type::Enum now owned (unique_ptr<EnumInfo>)
+- [x] EnumToString/EnumFromString facade helpers (optional-returning) in Type.h
+- [x] Migrated MaterialParameterType off BiMap -> reflection (TryGet); signatures + legacy strings unchanged
+- [x] Verified: enum Type/entries, facade helpers, all-10 ToString/FromString round-trip + fallback, Any enum round-trip; engine builds
+
+---
+
+### 8. Reflection 7 — End-to-end verification
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Medium
+
+**Description:**
+Prove the whole v1 core in one pass before Settings builds on it.
+
+## Acceptance Criteria
+- `PhysicsSettings` fully reflected (from Reflection 3): walk `Properties`, `Get` each into `Any`, `Set` mutated values back, confirm the live struct changed.
+- `TypeId` round-trip: serialize a `TypeId` to YAML, reload, `Resolve()` finds the type (both engine and Game-module types, after a reload cycle).
+- Intrusive path: private field of a `ScriptableEntity` subclass read/written through a base pointer via `GetType()`.
+- Attribute retrieval: a domain-defined key set at registration reads back with the correct typed `Any`.
+- Enum: to/from string + `Any` round-trip.
+- Full engine + editor + runtime build clean on the primary platform; smoke-run the editor.
+
+## Documentation
+- `Todo/plans/reflection-plan.md` (task map item 7)
+
+**Subtasks:**
+- [x] Consolidated harness: PhysicsSettings walk+get/set, attr retrieval, intrusive private via base ptr, enum str+Any
+- [x] YAML TypeId round-trip: engine type + Game-module type across load->serialize->unload->reload->resolve
+- [x] Full engine + editor + runtime build clean; editor smoke-run OK (user-confirmed)
+
+---
+
 ### 9. SHT 2 — Emitter: annotation payloads → generated .gen.cpp registrations
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -291,8 +291,8 @@ Turn SHT 1's parse into generated code: for each annotated type, emit a `.gen.cp
 ---
 
 ### 10. SHT 3 — CMake integration: sht_reflect() + DEPFILE incremental builds
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -322,8 +322,8 @@ Wire the tool into the build so generation is automatic, incremental, and correc
 ---
 
 ### 11. SHT 4 — Migrate engine types to annotations + drift guard
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -408,8 +408,8 @@ While SHT is opt-in, load-bearing registrations must be hand-written so the defa
 ---
 
 ### 14. Reflection v2.1 — AssetHandle + enum-member property support
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -429,8 +429,8 @@ Foundation for the inspector/serializer migrations: reflect AssetHandle, and mak
 ---
 
 ### 15. Reflection v2.2 — Container (vector) property support
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -442,8 +442,8 @@ Reflect std::vector<E> members: add ContainerInfo (element Type + Size/GetElemen
 ---
 
 ### 16. Reflection v2.3 — Method reflection + invocation
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -455,8 +455,8 @@ Register invocable methods on a Type (MethodInfo: name, return Type, param Types
 ---
 
 ### 17. Reflection v2.4 — Constructor/factory reflection
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -468,8 +468,8 @@ Register a default-construct factory on a Type (returns a new instance, e.g. as 
 ---
 
 ### 18. Reflection v2.5 — Migrate remaining BiMap enum sites
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**
@@ -481,8 +481,8 @@ Migrate the remaining BiMap enum<->string sites (Asset.cpp AssetType, MaterialRe
 ---
 
 ### 19. Reflection v2.6 — Migrate EntityInspectorPanel onto PropertyDrawer
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -496,8 +496,8 @@ Reflect the ECS component set and replace the hand-written DrawXComponent method
 ---
 
 ### 20. Reflection v3.1 — PropertyDrawer widget-customization registry
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -523,8 +523,8 @@ Today PropertyDrawer dispatches on built-in type in a fixed switch. Custom widge
 ---
 
 ### 21. Reflection v3.2 — Accessor (getter/setter) properties + Transform
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -548,8 +548,8 @@ Unreal UPROPERTY(Getter=,Setter=): route a reflected property through member fun
 ---
 
 ### 22. Reflection v3.3 — EditCondition attribute (conditional property visibility)
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -569,8 +569,8 @@ Unreal meta=(EditCondition="...", EditConditionHides): show/hide/disable a prope
 ---
 
 ### 23. Reflection v3.4 — Reflect asset refs + SceneCamera; migrate Mesh/Camera inspectors
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -593,8 +593,8 @@ Unreal: asset refs are reflected types with a registered asset-picker customizat
 ---
 
 ### 24. Reflection v3.5 — Camera serialization via reflection (needs CameraComponent cleanup)
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**
@@ -621,8 +621,8 @@ Camera is low-value/high-friction; the v3 mechanisms (accessors, EditCondition, 
 ---
 
 ### 25. Reflection v3.6 — Asset-picker widget customization + detail customizations
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Low
 
 **Description:**

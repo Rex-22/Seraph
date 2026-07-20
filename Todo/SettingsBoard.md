@@ -9,8 +9,8 @@ statuses:
 ---
 
 ### 1. Settings 1 — SettingDescriptor + Settings facade skeleton (bind vs own)
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -38,8 +38,8 @@ New module `Seraph/src/Seraph/Settings/`: `SettingDescriptor.h` (key, `SettingSc
 ---
 
 ### 2. Settings 2 — Override-chain resolution + dirty tracking + CLI --set
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -63,8 +63,8 @@ Layered merge low→high: `Engine → Engine.<platform> → Project → Project.
 ---
 
 ### 3. Settings 3 — ISettingsStore + YamlSettingsStore
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -87,8 +87,8 @@ The storage backend interface (`Load(reg, scope, platform)` / `Save(reg, scope)`
 ---
 
 ### 4. Settings 4 — Change notification + validation/clamp + RequiresRestart
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -111,8 +111,8 @@ The storage backend interface (`Load(reg, scope, platform)` / `Save(reg, scope)`
 ---
 
 ### 5. Settings 5 — Lifecycle wiring (EntryPoint, ProjectManager, script module)
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -136,8 +136,8 @@ Boot/teardown ordering per plan example C.
 ---
 
 ### 6. Settings 6 — PropertyDrawer (reflection-driven ImGui widget dispatch)
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** High
 
 **Description:**
@@ -160,8 +160,8 @@ The shared, settings-agnostic drawer: `PropertyDrawer::Draw(const Type&, void* o
 ---
 
 ### 7. Settings 7 — SettingsPanel (section tree, search, reset) in EditorLayer
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -185,8 +185,8 @@ The Project/Engine Settings window: left category pane built from `Section` attr
 ---
 
 ### 8. Settings 8 — Migrate first consumers + end-to-end verification
-- **Status:** Review
-- **Completed:** false
+- **Status:** Done
+- **Completed:** true
 - **Priority:** Medium
 
 **Description:**
@@ -206,32 +206,5 @@ Prove the system by migrating the real scattered config onto it, then verify the
 **Subtasks:**
 - [ ] PhysicsSettings migrated (7 bound settings, RegisterSettings in boot); edit->live struct, clamp, persist round-trip verified
 - [ ] DEFERRED here: SceneRendererSettings (instance-scoped, not a global static) + Log per-tag levels (dynamic map) — see board notes
-
----
-
-### 9. Deferred — future settings work (not scheduled)
-- **Status:** Deferred
-- **Completed:** false
-- **Priority:** Low
-
-**Description:**
-Parking ticket for out-of-scope settings work. Promote when the consuming feature is scheduled.
-
-## Items
-- Asset-backed store: `SettingsAsset : Asset` + serializer (new `AssetType`, register in `AssetImporter::Init`) — content-authored, pack-shippable gameplay settings.
-- Server-backed `ISettingsStore` (greenfield — engine has no net layer; design Load/Save async-friendly first).
-- Runtime/gameplay-authored settings surface for shipped games (in-game options menu reading the registry).
-- INI backend (interface supports it; YAML won the v1 decision).
-- Drive window creation from Settings (removes the `.sproj` chicken-and-egg, plan example C).
-- Migrate `EntityInspectorPanel` onto `PropertyDrawer` (also listed on ReflectionBoard deferred — coordinate).
-- Editable collision-layer matrix widget in SettingsPanel.
-
-## Documentation
-- `Todo/plans/settings-plan.md` (deferred section)
-
-**Subtasks:**
-- [ ] Enum-valued settings (needs Any enum-underlying extraction) — blocks YAML persist + drawer editing for enums
-- [ ] Migrate SceneRendererSettings (instance-scoped) + Log per-tag levels (dynamic map) — need a per-instance / map settings pattern
-- [ ] SettingsPanel two-pane section tree + subsections (v1 uses collapsing headers); minimal-diff saves (v1 saves all of scope)
 
 ---

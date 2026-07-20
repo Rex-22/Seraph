@@ -7,7 +7,19 @@ statuses:
   - Done
 ---
 
-### 1. Scripting 1 — Script core types (ScriptableEntity, ScriptComponent, ScriptRegistry)
+### 1. Scripting 9 — Reflected script fields (SHT in project builds + inspector + serialization)
+- **Status:** Done
+- **Completed:** true
+- **Priority:** High
+
+**Description:**
+Migrate game scripts onto the reflection system so their exposed fields are editable in the inspector and persisted in scenes. Two big pieces: (A) wire SeraphHeaderTool into downstream project builds so SCLASS()/SPROPERTY() annotations work for game scripts like engine components; (B) full edit-time field support (no instance exists at edit time — ScriptComponent stores an override map applied on instantiate).
+
+Design: scripts use SCLASS()+SP_REFLECT() (intrusive, for private fields) + SPROPERTY(); SHT generates the .gen.cpp compiled into libGame (registers into k_GameModule at dylib load). ScriptComponent gains a Fields map (name->Any); inspector renders reflected fields via a transient instance at edit time (hot-reload safe) or the live instance in play; SceneSerializer emits a bespoke Script block with a Fields sub-map; ScriptEngine applies Fields to the instance before OnCreate.
+
+---
+
+### 2. Scripting 1 — Script core types (ScriptableEntity, ScriptComponent, ScriptRegistry)
 - **Status:** Done
 - **Completed:** true
 - **Priority:** Critical
@@ -57,7 +69,7 @@ Linked doc `plans/scripting-plan.md`: **A** (dead-strip / self-registration — 
 
 ---
 
-### 2. Scripting 2 — ScriptEngine per-scene driver
+### 3. Scripting 2 — ScriptEngine per-scene driver
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -108,7 +120,17 @@ Linked doc `plans/scripting-plan.md`: **C** (tick timeline), **E** (lazy instant
 
 ---
 
-### 3. Scripting 3 — Scene lifecycle integration, copy & contact routing
+### 4. Scripting 10 — Replace ScriptRegistry/SP_REGISTER_SCRIPT with reflection
+- **Status:** Done
+- **Completed:** true
+- **Priority:** High
+
+**Description:**
+Retire the hand-rolled name->factory ScriptRegistry + SP_REGISTER_SCRIPT macro; scripts are now just reflected ScriptableEntity subclasses. Built + verified at codegen/build level across engine, editor, runtime, and Sandbox Game module. Visual/runtime verification pending.\n\nDesign:\n- Reflection core: Type::HeapConstruct (void*(*)() heap factory) set by TypeBuilder for default-constructible, non-abstract types. Offset-0 single-inheritance base cast (v1 single-Base model).\n- SHT: emits class-level .Attr() from SCLASS(key=value) payload (before properties, so TypeBuilder::Attr targets the type). Verified: SP_REFLECT_IMPL(Spinner).Attr(\"script.name\", \"SpinnerScript\").\n- Scripts: SCLASS(script.name = \"...\") + SP_REFLECT + SPROPERTY; no SP_REGISTER_SCRIPT.\n- ScriptTypes facade (Seraph/Scripts/ScriptTypes.{h,cpp}): Find/Exists/Create/Names over Reflection::All() filtered by the script.name attr. Replaces ScriptRegistry (deleted).\n- Call sites switched: ScriptEngine (Create), EntityInspectorPanel (dropdown/exists/create + Fields transient), SceneSerializer (Fields transient), ScriptLibrary (count log; dropped ScriptRegistry::Clear — ClearModule already drops the types).\n- Templates: ExampleScript reflection-enabled (SCLASS/SP_REFLECT/SPROPERTY, no SP_REGISTER_SCRIPT); GameCMakeLists template now calls sht_reflect_glob so new projects support reflected scripts.\n- Scene format preserved: ScriptComponent.ScriptClass still stores the script.name (\"SpinnerScript\"/\"Rotator\").\n\nFollow-up (paused): the editor 'New Script from template' UI action (the original request).
+
+---
+
+### 5. Scripting 3 — Scene lifecycle integration, copy & contact routing
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -164,7 +186,17 @@ Linked doc `plans/scripting-plan.md`: **B** (copy-safety invariant), **C** (tick
 
 ---
 
-### 4. Scripting 4 — Scene serialization for ScriptComponent
+### 6. Scripting 11 — Editor "New Script from template" action
+- **Status:** Done
+- **Completed:** true
+- **Priority:** Medium
+
+**Description:**
+Scripts > New Script... menu item in the editor. Opens a modal (mirrors the Create Shader popup), validates the class name (C++ identifier, active project, no clobber), writes <Name>.h + <Name>.cpp from the reflection-enabled template into the project's src/, then triggers CompileScripts() so the reconfigure globs the new files + SHT reflects the new annotated header + builds + reloads -> the script appears in the inspector dropdown.\n\nTemplates: ProjectTemplates::NewScriptHeader/NewScriptSource (name-parameterized, SCLASS(script.name)+SP_REFLECT+sample SPROPERTY); ExampleScript* refactored to reuse them so hand-authored and editor-created scripts are identical. Built clean. Visual verification pending.
+
+---
+
+### 7. Scripting 4 — Scene serialization for ScriptComponent
 - **Status:** Done
 - **Completed:** true
 - **Priority:** Medium
@@ -214,7 +246,7 @@ None specific — straightforward hand-written serialization. Depends on the `Sc
 
 ---
 
-### 5. Scripting 5 — Game module, build wiring & demo Rotator script
+### 8. Scripting 5 — Game module, build wiring & demo Rotator script
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -269,7 +301,7 @@ Linked doc `plans/scripting-plan.md`: **A** (static-lib dead-strip & the OBJECT-
 
 ---
 
-### 6. Scripting 6 — Editor inspector authoring (Add Component ▸ Script + class dropdown)
+### 9. Scripting 6 — Editor inspector authoring (Add Component ▸ Script + class dropdown)
 - **Status:** Done
 - **Completed:** true
 - **Priority:** Medium
@@ -320,7 +352,7 @@ None specific — standard ImGui panel wiring. See `plans/scripting-plan.md` "Ed
 
 ---
 
-### 7. Scripting 7 — New-project scaffolding (ProjectManager::Create + ProjectTemplates)
+### 10. Scripting 7 — New-project scaffolding (ProjectManager::Create + ProjectTemplates)
 - **Status:** Done
 - **Completed:** true
 - **Priority:** Medium
@@ -372,7 +404,7 @@ Project-root vs asset-root distinction (`ActiveDir()` vs `ActiveAssetRoot()`), a
 
 ---
 
-### 8. Scripting 8 — End-to-end verification
+### 11. Scripting 8 — End-to-end verification
 - **Status:** Done
 - **Completed:** true
 - **Priority:** High
@@ -421,37 +453,5 @@ Cross-references all of `plans/scripting-plan.md` Part 2 — especially **A** (c
 - Scripting 4 — Scene serialization for ScriptComponent
 - Scripting 6 — Editor inspector authoring (Add Component ▸ Script + class dropdown)
 - Scripting 7 — New-project scaffolding (ProjectManager::Create + ProjectTemplates)
-
----
-
-### 9. Scripting 9 — Reflected script fields (SHT in project builds + inspector + serialization)
-- **Status:** Review
-- **Completed:** false
-- **Priority:** High
-
-**Description:**
-Migrate game scripts onto the reflection system so their exposed fields are editable in the inspector and persisted in scenes. Two big pieces: (A) wire SeraphHeaderTool into downstream project builds so SCLASS()/SPROPERTY() annotations work for game scripts like engine components; (B) full edit-time field support (no instance exists at edit time — ScriptComponent stores an override map applied on instantiate).
-
-Design: scripts use SCLASS()+SP_REFLECT() (intrusive, for private fields) + SPROPERTY(); SHT generates the .gen.cpp compiled into libGame (registers into k_GameModule at dylib load). ScriptComponent gains a Fields map (name->Any); inspector renders reflected fields via a transient instance at edit time (hot-reload safe) or the live instance in play; SceneSerializer emits a bespoke Script block with a Fields sub-map; ScriptEngine applies Fields to the instance before OnCreate.
-
----
-
-### 10. Scripting 10 — Replace ScriptRegistry/SP_REGISTER_SCRIPT with reflection
-- **Status:** Review
-- **Completed:** false
-- **Priority:** High
-
-**Description:**
-Retire the hand-rolled name->factory ScriptRegistry + SP_REGISTER_SCRIPT macro; scripts are now just reflected ScriptableEntity subclasses. Built + verified at codegen/build level across engine, editor, runtime, and Sandbox Game module. Visual/runtime verification pending.\n\nDesign:\n- Reflection core: Type::HeapConstruct (void*(*)() heap factory) set by TypeBuilder for default-constructible, non-abstract types. Offset-0 single-inheritance base cast (v1 single-Base model).\n- SHT: emits class-level .Attr() from SCLASS(key=value) payload (before properties, so TypeBuilder::Attr targets the type). Verified: SP_REFLECT_IMPL(Spinner).Attr(\"script.name\", \"SpinnerScript\").\n- Scripts: SCLASS(script.name = \"...\") + SP_REFLECT + SPROPERTY; no SP_REGISTER_SCRIPT.\n- ScriptTypes facade (Seraph/Scripts/ScriptTypes.{h,cpp}): Find/Exists/Create/Names over Reflection::All() filtered by the script.name attr. Replaces ScriptRegistry (deleted).\n- Call sites switched: ScriptEngine (Create), EntityInspectorPanel (dropdown/exists/create + Fields transient), SceneSerializer (Fields transient), ScriptLibrary (count log; dropped ScriptRegistry::Clear — ClearModule already drops the types).\n- Templates: ExampleScript reflection-enabled (SCLASS/SP_REFLECT/SPROPERTY, no SP_REGISTER_SCRIPT); GameCMakeLists template now calls sht_reflect_glob so new projects support reflected scripts.\n- Scene format preserved: ScriptComponent.ScriptClass still stores the script.name (\"SpinnerScript\"/\"Rotator\").\n\nFollow-up (paused): the editor 'New Script from template' UI action (the original request).
-
----
-
-### 11. Scripting 11 — Editor "New Script from template" action
-- **Status:** Review
-- **Completed:** false
-- **Priority:** Medium
-
-**Description:**
-Scripts > New Script... menu item in the editor. Opens a modal (mirrors the Create Shader popup), validates the class name (C++ identifier, active project, no clobber), writes <Name>.h + <Name>.cpp from the reflection-enabled template into the project's src/, then triggers CompileScripts() so the reconfigure globs the new files + SHT reflects the new annotated header + builds + reloads -> the script appears in the inspector dropdown.\n\nTemplates: ProjectTemplates::NewScriptHeader/NewScriptSource (name-parameterized, SCLASS(script.name)+SP_REFLECT+sample SPROPERTY); ExampleScript* refactored to reuse them so hand-authored and editor-created scripts are identical. Built clean. Visual verification pending.
 
 ---
