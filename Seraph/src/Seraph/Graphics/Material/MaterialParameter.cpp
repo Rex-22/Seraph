@@ -9,8 +9,7 @@ namespace Seraph
 std::string_view MaterialParameterTypeToString(MaterialParameterType type)
 {
     // Delegates to reflection (Reflection 6 migration off the old BiMap). Falls
-    // back to "Float" if the enum isn't registered or the value is unknown,
-    // preserving the original value_or("Float") behaviour.
+    // back to "Float" if the enum isn't registered or the value is unknown.
     if (const Type* t = Reflection::TryGet<MaterialParameterType>())
         if (auto name = EnumToString(*t, static_cast<s64>(type)))
             return *name;

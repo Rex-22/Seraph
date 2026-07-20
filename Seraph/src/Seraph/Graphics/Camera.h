@@ -16,7 +16,7 @@ class Camera
 public:
     Camera() = default;
     Camera(const glm::mat4& projection, const glm::mat4& unReversedProjection);
-    Camera(const f32 degFov, const f32 width, const f32 height, const f32 nearP, const f32 farP);
+    Camera(f32 degFov, f32 width, f32 height, f32 nearP, f32 farP);
     virtual ~Camera() = default;
 
     const glm::mat4& GetProjectionMatrix() const { return m_ProjectionMatrix; }
@@ -40,11 +40,11 @@ public:
         m_UnReversedProjectionMatrix = glm::ortho(-width * 0.5f, width * 0.5f, -height * 0.5f, height * 0.5f, nearP, farP);
     }
 
-    f32 GetExposure() const { return m_Exposure; }
+    [[nodiscard]] f32 GetExposure() const { return m_Exposure; }
     f32& GetExposure() { return m_Exposure; }
 
     void SetViewId(const u16 view) { m_View = view; }
-    u16 GetViewId() const { return m_View; }
+    [[nodiscard]] u16 GetViewId() const { return m_View; }
 
 protected:
     f32 m_Exposure = 0.8f;

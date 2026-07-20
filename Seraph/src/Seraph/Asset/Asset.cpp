@@ -12,7 +12,7 @@ namespace Seraph
 
 std::string_view AssetTypeToString(const AssetType type)
 {
-    // Delegates to reflection (migrated off BiMap). Falls back to "None" if the
+    // Delegates to reflection. Falls back to "None" if the
     // enum isn't registered or the value is unknown — preserving the original
     // value_or("None") behaviour.
     if (const Type* t = Reflection::TryGet<AssetType>())

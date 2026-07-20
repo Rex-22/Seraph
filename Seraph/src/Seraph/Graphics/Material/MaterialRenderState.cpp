@@ -46,7 +46,7 @@ u64 DepthBits(DepthTest test)
     }
 }
 
-// Enum <-> string via reflection (migrated off BiMap). Fall back to the enum's
+// Enum <-> string via reflection. Fall back to the enum's
 // default on unknown input, preserving the original value_or behaviour.
 template<class E>
 std::string_view EnumName(E value, const char* fallback)
