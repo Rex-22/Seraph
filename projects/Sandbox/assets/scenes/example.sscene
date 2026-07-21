@@ -8,7 +8,7 @@ Entities:
   - Entity: 7591458282107206773
     Tag: Camera
     Transform:
-      Translation: [0, 2.5, 7]
+      Translation: [0, 4.4114604, 14.133671]
       Scale: [1, 1, 1]
       Rotation: [-0.2617994, 0, 0]
     Camera:
