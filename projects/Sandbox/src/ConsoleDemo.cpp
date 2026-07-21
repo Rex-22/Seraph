@@ -12,8 +12,7 @@
 
 #include <string>
 
-namespace Seraph
-{
+using namespace Seraph;
 
 namespace
 {
@@ -53,5 +52,3 @@ SP_CONSOLE_COMMAND("echo", "Print the arguments back to the console",
         }
         SP_CONSOLE_LOG_INFO("{}", s);
     });
-
-} // namespace Seraph
