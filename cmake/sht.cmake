@@ -35,8 +35,11 @@ function(sht_reflect target)
     set(_gen_dir "${CMAKE_CURRENT_BINARY_DIR}/gen")
     file(MAKE_DIRECTORY "${_gen_dir}")
 
-    # SDK sysroot for the libclang parse (Apple).
+    # SDK sysroot, architecture & resource directory for libclang parse.
     set(_sysroot "")
+    set(_arch_flag "")
+    set(_resource "")
+
     if(APPLE)
         execute_process(COMMAND xcrun --show-sdk-path
             OUTPUT_VARIABLE _sdk OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -44,17 +47,23 @@ function(sht_reflect target)
         if(_sdk)
             set(_sysroot -isysroot "${_sdk}")
         endif()
-    endif()
 
-    # Clang resource dir for the libclang parse (non-Apple). libclang is a raw
-    # frontend and — unlike the clang++ driver — does NOT add its own builtin
-    # headers (stddef.h, stdarg.h, ...) to the include path. Without -resource-dir,
-    # parsing any header that pulls in <cstdint>/<cstddef> fails with
-    # "stddef.h file not found". On Apple the -isysroot above already covers this
-    # (and the macOS path is verified), so we only add it elsewhere to avoid
-    # overriding the toolchain's own resource dir. Resolved once (cached).
-    set(_resource "")
-    if(NOT APPLE)
+        # Pass target architecture so macOS SDK headers can resolve type macros (__arm64__ -> __uint32_t)
+        if(CMAKE_OSX_ARCHITECTURES)
+            set(_arch_flag "-arch" "${CMAKE_OSX_ARCHITECTURES}")
+        elseif(CMAKE_SYSTEM_PROCESSOR)
+            set(_arch_flag "-arch" "${CMAKE_SYSTEM_PROCESSOR}")
+        endif()
+
+        # Query clang resource dir on Apple for builtin headers (stdarg.h, stddef.h)
+        execute_process(COMMAND xcrun clang -print-resource-dir
+                OUTPUT_VARIABLE _apple_resdir OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET)
+        if(_apple_resdir AND EXISTS "${_apple_resdir}/include")
+            set(_resource -resource-dir "${_apple_resdir}")
+        endif()
+    else()
+        # Clang resource dir for libclang parse (non-Apple).
         find_program(SHT_CLANG_EXE
             NAMES clang clang-19 clang-18 clang-17
             DOC "clang binary used to locate the libclang resource dir for SHT")
@@ -121,7 +130,7 @@ function(sht_reflect target)
             OUTPUT "${_out}"
             COMMAND "${_sht_exe}" "${_hdr_abs}"
                     -o "${_out}" --include "${_hdr_abs}" --depfile "${_dep}"
-                    -- ${_sysroot} ${_resource} -std=c++20
+                    -- ${_sysroot} ${_arch_flag} ${_resource} -std=c++20
                     "${_inc_flags}" "${_def_flags}"
                     "${_iface_inc_flags}" "${_iface_def_flags}"
             DEPENDS "${_hdr_abs}" "${_sht_dep}"
