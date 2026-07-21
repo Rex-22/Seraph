@@ -112,8 +112,6 @@ private:
     // Fixed path for bring-up; a file-open dialog is future polish.
     static constexpr const char* k_ScenePath = "scenes/example.sscene";
 
-    // Canonical bgfx view ids live in Seraph/Graphics/ViewId.h.
-
     Ref<Scene>           m_EditorScene;   // authoritative scene; saved/loaded
     Ref<Scene>           m_RuntimeScene;  // throwaway play copy (null when stopped)
     Ref<SceneRenderer>   m_SceneRenderer;
