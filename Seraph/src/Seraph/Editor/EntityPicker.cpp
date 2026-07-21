@@ -162,9 +162,9 @@ void EntityPicker::RenderPickPass(Scene& scene, const EditorCamera& camera)
     // Rebuild the id table each request. Index 0 is the background sentinel; the
     // first mesh entity gets id 1, so a cleared texel (0) decodes to "no entity".
     m_IdToEntity.clear();
-    m_IdToEntity.push_back(UUID(0));
+    m_IdToEntity.emplace_back(0);
 
-    const uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+    constexpr uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_GREATER;
 
     for (auto [handle, mc] : scene.GetAllEntitiesWith<MeshComponent>().each()) {
